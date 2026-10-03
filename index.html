@@ -67,12 +67,50 @@
       text-transform: uppercase;
       font-weight: 700;
     }
-    ul {
-      list-style: none;
+    .games {
+      display: grid;
+      gap: 1rem;
       margin: 0;
-      padding: 0;
+      text-align: left;
     }
-    li { margin: 0.85rem 0; }
+    .game-card {
+      border: 1px solid var(--line);
+      padding: 1rem;
+    }
+    .game-card h3 {
+      margin: 0;
+      font-size: 1rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .game-card h3 a {
+      display: inline-block;
+    }
+    .game-card p {
+      margin: 0.45rem 0 0;
+      color: var(--dim);
+      font-size: 0.86rem;
+    }
+    .game-links {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-top: 0.85rem;
+    }
+    .play-button {
+      display: inline-block;
+      border: 2px solid var(--line);
+      padding: 0.35rem 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-decoration: none;
+      text-transform: uppercase;
+    }
+    .game-jolt {
+      color: var(--dim);
+      font-size: 0.78rem;
+    }
     a {
       color: var(--ink);
       text-underline-offset: 0.18em;
@@ -81,12 +119,6 @@
       background: var(--ink);
       color: var(--bg);
       text-decoration: none;
-    }
-    .where {
-      display: block;
-      margin-top: 0.15rem;
-      color: var(--dim);
-      font-size: 0.82rem;
     }
     .contact p { margin: 0.4rem 0; }
     footer {
@@ -105,20 +137,30 @@
       <p class="tag">games and retro news</p>
 
       <h2>Play</h2>
-      <ul>
-        <li>
-          <a href="https://arthur1134.github.io/SkyFortress/">Sky Fortress Ultimate</a>
-          <span class="where">pixel shmup · <a href="https://gamejolt.com/games/sky-fortress-ultimate/1102105">also on Game Jolt</a></span>
-        </li>
-        <li>
-          <a href="https://arthur1134.github.io/StarSmashers/">Star Smashers Survival</a>
-          <span class="where">top-down survival shooter</span>
-        </li>
-        <li>
-          <a href="https://arthur1134.github.io/TankCombat26x/">Tank Combat 26x</a>
-          <span class="where">bounce-shot tank combat</span>
-        </li>
-      </ul>
+      <section class="games" aria-label="Games">
+        <article class="game-card">
+          <h3><a href="https://arthur1134.github.io/SkyFortress/">Sky Fortress Ultimate</a></h3>
+          <p>Pixel shmup campaign (HTML5).</p>
+          <div class="game-links">
+            <a class="play-button" href="https://arthur1134.github.io/SkyFortress/">Play</a>
+            <a class="game-jolt" href="https://gamejolt.com/games/sky-fortress-ultimate/1102105">Also on Game Jolt</a>
+          </div>
+        </article>
+        <article class="game-card">
+          <h3><a href="https://arthur1134.github.io/StarSmashers/">Star Smashers Survival</a></h3>
+          <p>HTML5 top-down survival shooter.</p>
+          <div class="game-links">
+            <a class="play-button" href="https://arthur1134.github.io/StarSmashers/">Play</a>
+          </div>
+        </article>
+        <article class="game-card">
+          <h3><a href="https://arthur1134.github.io/TankCombat26x/">Tank Combat 26x</a></h3>
+          <p>HTML5 tank combat with a 5-level campaign.</p>
+          <div class="game-links">
+            <a class="play-button" href="https://arthur1134.github.io/TankCombat26x/">Play</a>
+          </div>
+        </article>
+      </section>
 
       <h2>Contact</h2>
       <div class="contact">

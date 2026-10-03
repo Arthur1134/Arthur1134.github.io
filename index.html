@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Retro Gaming Dad</title>
+  <meta name="description" content="Retro Gaming Dad — games and retro news.">
+  <style>
+    :root {
+      --ink: #f4f4f4;
+      --dim: #bdbdbd;
+      --bg: #0a0a0a;
+      --line: #f4f4f4;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--ink);
+    }
+    body {
+      font-family: "Courier New", Courier, monospace;
+      line-height: 1.55;
+      background-image:
+        repeating-linear-gradient(
+          to bottom,
+          rgba(255, 255, 255, 0.035) 0,
+          rgba(255, 255, 255, 0.035) 1px,
+          transparent 1px,
+          transparent 4px
+        );
+    }
+    main {
+      max-width: 38rem;
+      margin: 0 auto;
+      padding: 3.5rem 1.25rem 4rem;
+      text-align: center;
+    }
+    .frame {
+      border: 2px solid var(--line);
+      padding: 2rem 1.25rem 2.25rem;
+      box-shadow: 8px 8px 0 #222;
+    }
+    .mark {
+      margin: 0 0 0.75rem;
+      letter-spacing: 0.35em;
+      font-size: 0.72rem;
+      color: var(--dim);
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(1.7rem, 5vw, 2.4rem);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .tag {
+      margin: 0.7rem 0 0;
+      color: var(--dim);
+      font-size: 1.05rem;
+    }
+    h2 {
+      margin: 2rem 0 0.75rem;
+      font-size: 0.85rem;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+    ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    li { margin: 0.85rem 0; }
+    a {
+      color: var(--ink);
+      text-underline-offset: 0.18em;
+    }
+    a:hover, a:focus {
+      background: var(--ink);
+      color: var(--bg);
+      text-decoration: none;
+    }
+    .where {
+      display: block;
+      margin-top: 0.15rem;
+      color: var(--dim);
+      font-size: 0.82rem;
+    }
+    .contact p { margin: 0.4rem 0; }
+    footer {
+      margin-top: 2rem;
+      color: var(--dim);
+      font-size: 0.78rem;
+      letter-spacing: 0.12em;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="frame">
+      <p class="mark">EST. PLAYER ONE</p>
+      <h1>Retro Gaming Dad</h1>
+      <p class="tag">games and retro news</p>
+
+      <h2>Play</h2>
+      <ul>
+        <li>
+          <a href="https://arthur1134.github.io/SkyFortress/">Sky Fortress Ultimate</a>
+          <span class="where">pixel shmup · <a href="https://gamejolt.com/games/sky-fortress-ultimate/1102105">also on Game Jolt</a></span>
+        </li>
+        <li>
+          <a href="https://arthur1134.github.io/StarSmashers/">Star Smashers Survival</a>
+          <span class="where">top-down survival shooter</span>
+        </li>
+        <li>
+          <a href="https://arthur1134.github.io/TankCombat26x/">Tank Combat 26x</a>
+          <span class="where">bounce-shot tank combat</span>
+        </li>
+      </ul>
+
+      <h2>Contact</h2>
+      <div class="contact">
+        <p><a href="mailto:dadretrogaming@gmail.com">dadretrogaming@gmail.com</a></p>
+        <p><a href="https://www.facebook.com/profile.php?id=61594873291614">Facebook</a></p>
+      </div>
+
+      <footer>RETROGAMINGDAD</footer>
+    </div>
+  </main>
+</body>
+</html>

@@ -15,6 +15,7 @@
     {"src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
   ],
   "shortcuts": [
+    {"name": "Scan a barcode", "short_name": "Scan", "url": "./?scan=1", "icons": [{"src": "icons/icon-192.png", "sizes": "192x192"}]},
     {"name": "Wishlist", "url": "./?scope=wishlist", "icons": [{"src": "icons/icon-192.png", "sizes": "192x192"}]}
   ]
 }

@@ -65,7 +65,63 @@
   <div class="sheetbody" id="sBody"></div>
 </div>
 
+<div class="fabs">
+  <button id="addFab" class="fab small" type="button" aria-label="Add an item" title="Add an item">+</button>
+  <button id="scanFab" class="fab" type="button" aria-label="Scan a barcode">
+    <svg viewBox="0 0 32 24" width="30" height="22" aria-hidden="true"><g fill="currentColor"><rect x="0" y="0" width="2" height="24"/><rect x="4" y="0" width="1" height="24"/><rect x="7" y="0" width="3" height="24"/><rect x="12" y="0" width="1" height="24"/><rect x="15" y="0" width="2" height="24"/><rect x="19" y="0" width="1" height="24"/><rect x="22" y="0" width="3" height="24"/><rect x="27" y="0" width="1" height="24"/><rect x="30" y="0" width="2" height="24"/></g></svg>
+    <span>SCAN</span></button>
+</div>
+
+<div id="scanner" class="sheet scanner" hidden role="dialog" aria-modal="true" aria-label="Scan a barcode">
+  <div class="sheetbar"><button id="scBack" class="iconbtn" type="button" aria-label="Close scanner">&#x2715;</button>
+    <span class="sheettitle" id="scTitle">Scan a barcode</span>
+    <button id="scTorch" class="iconbtn" type="button" aria-label="Flashlight" title="Flashlight" hidden>&#x1F526;&#xFE0E;</button></div>
+  <div class="camwrap" id="camwrap">
+    <video id="scVideo" playsinline muted autoplay></video>
+    <div class="aim"><i></i></div>
+    <div class="scstatus" id="scStatus">Starting camera&hellip;</div>
+  </div>
+  <form id="manualForm" class="manual" autocomplete="off">
+    <input id="manualCode" inputmode="numeric" pattern="[0-9 ]*" maxlength="16" placeholder="Type the barcode numbers" aria-label="Barcode number">
+    <button class="primary" type="submit">Look up</button>
+  </form>
+  <div class="recent" id="recentScans"></div>
+</div>
+
+<div id="scanResult" class="sheet" hidden role="dialog" aria-modal="true">
+  <div class="sheetbar"><button id="srBack" class="iconbtn" type="button" aria-label="Back">&#x2190;</button><span class="sheettitle">Barcode</span>
+    <button id="srAgain" class="secondary slim" type="button">Scan again</button></div>
+  <div class="sheetbody" id="srBody"></div>
+</div>
+
+<div id="editor" class="sheet" hidden role="dialog" aria-modal="true">
+  <div class="sheetbar"><button id="edBack" class="iconbtn" type="button" aria-label="Cancel">&#x2715;</button><span class="sheettitle">Add item</span></div>
+  <form class="sheetbody form" id="edForm" autocomplete="off">
+    <label>Title *<input name="title" required maxlength="200" autocapitalize="words"></label>
+    <div id="edMatches" class="edmatches"></div>
+    <div class="two">
+      <label>Category<select name="category"></select></label>
+      <label>Platform / format<input name="platform" list="platList" maxlength="60"></label>
+    </div>
+    <datalist id="platList"></datalist>
+    <div class="two">
+      <label>Media<select name="format"><option value="">&mdash;</option><option value="cartridge">Cartridge</option><option value="disc">Disc</option><option value="digital">Digital</option><option value="other">Other</option></select></label>
+      <label>Owned<select name="owned"><option value="yes">Owned</option><option value="rom">Rom</option><option value="wishlist">Wishlist</option><option value="sold">Sold</option><option value="borrowed">Borrowed</option></select></label>
+    </div>
+    <label class="check"><input type="checkbox" name="in_collection" checked> In my Collection</label>
+    <label class="check"><input type="checkbox" name="completed"> Completed (played / watched)</label>
+    <label>Barcode<input name="barcode" inputmode="numeric" maxlength="16"></label>
+    <label>Notes<textarea name="notes" rows="2" maxlength="1000"></textarea></label>
+    <button class="primary big wide" type="submit">Save</button>
+    <p class="small dim">Saved on this phone right away and sent to My Library Launcher on your PC (via your Google Drive) at the next sync.</p>
+  </form>
+</div>
+
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+<script>/* app update: when a new service worker takes over a page that already had one, reload once so html + js match */
+if ("serviceWorker" in navigator && navigator.serviceWorker.controller) navigator.serviceWorker.addEventListener("controllerchange", () => {
+  if (!sessionStorage.getItem("ml_swreload")) { sessionStorage.setItem("ml_swreload", "1"); location.reload(); } });
+else sessionStorage.removeItem("ml_swreload");</script>
 <script src="config.js"></script>
 <script src="app.js"></script>
 </body>

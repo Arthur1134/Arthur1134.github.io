@@ -8,13 +8,17 @@
 "use strict";
 const CFG = Object.assign({exportName: "collection-export.json", thumbsName: "collection-thumbs.json",
   folderName: "MyLibrary", clientId: "", loginHint: ""}, window.LIBRARY_CONFIG || {});
-const APP_VERSION = "1.1.0";
+const APP_VERSION = "1.2.0";
 const SCOPE_FILE = "https://www.googleapis.com/auth/drive.file";
 const SCOPE_RO = "https://www.googleapis.com/auth/drive.readonly";
 const LOCAL = ["localhost", "127.0.0.1"].includes(location.hostname);
 const STUB = LOCAL && new URLSearchParams(location.search).has("stub");   // local testing only
 const PAGE = 120;
 const ZXING_SRC = "vendor/zxing-library-0.23.0.min.js";
+const SCAN_FORMATS = ["upc_a", "ean_13", "ean_8", "upc_e"];          // product codes only
+const FORMAT_LEN = {upc_a: [12, 13], ean_13: [13], ean_8: [8], upc_e: [6, 7, 8]};
+const NEED_READS = 3;      // the same valid code on 3 frames in a row (1 empty frame tolerated) before accepting
+const FORMAT_NAME = {upc_a: "UPC-A", ean_13: "EAN-13", ean_8: "EAN-8", upc_e: "UPC-E"};
 
 const CATS = {"Video Game": ["GAME", "#1e6fd9"], "Anime": ["ANIME", "#c2185b"], "Board Game": ["BOARD GAME", "#2e7d32"],
   "DC": ["DC", "#0d47a1"], "Cartoons": ["CARTOON", "#ef6c00"], "Books": ["BOOK", "#6d4c41"], "Marvel": ["MARVEL", "#d32f2f"]};
@@ -250,7 +254,7 @@ function currentResults() {
 
 /* ------------------------------------------------------------------ product name -> title / platform / matches */
 const PLATFORM_RULES = [
-  [/\bwii\s*u\b/, "Wii U"], [/\bswitch\s*2\b/, "Switch 2"], [/\b(nintendo\s+)?switch\b/, "Switch"], [/\bwii\b/, "Wii"],
+  [/\bwii[\s-]*u\b/, "Wii U"], [/\bswitch\s*2\b/, "Switch 2"], [/\b(nintendo\s+)?switch\b/, "Switch"], [/\bwii\b/, "Wii"],
   [/\b(ps5|playstation\s*5)\b/, "PS5"], [/\b(ps4|playstation\s*4)\b/, "PS4"], [/\b(ps3|playstation\s*3)\b/, "PS3"],
   [/\b(ps2|playstation\s*2)\b/, "PS2"], [/\b(ps vita|playstation vita|vita)\b/, "Vita"], [/\bpsp\b/, "PSP"],
   [/\b(ps1|psx|playstation)\b/, "PS1"], [/\bxbox\s*series\b/, "Xbox Series"], [/\bxbox\s*one\b/, "Xbox One"],
@@ -262,15 +266,18 @@ const PLATFORM_RULES = [
   [/\bturbografx\b/, "TurboGrafx-16"], [/\bneo\s*geo\b/, "Neo Geo"], [/\b(pc|windows)\s*(dvd|cd|game)?\b/, "PC"],
   [/\bblu-?ray\b|\bdvd\b/, "Movie"]];
 function guessPlatform(text) { const t = String(text || "").toLowerCase(); for (const [re, p] of PLATFORM_RULES) if (re.test(t)) return p; return ""; }
-const JUNK = [/\((?:[^)]*)\)/g, /\[(?:[^\]]*)\]/g,
-  /\b(playstation(\s*(vita|portable|[1-5]))?|nintendo\s*(switch\s*2|switch|wii\s*u|wii|3ds|ds|64|gamecube)|sega\s*(genesis|saturn|dreamcast|cd)|xbox\s*(one|360|series\s*[xs](\s*\|\s*xbox\s*one)?))\b/gi,
+const JUNK = [/[\u00ae\u2122\u00a9\ufffd]/g, /\s\?(?=\s)/g, /\b(playstation\s*hits|xbox\s*classics|nintendo\s*selects|greatest\s*hits)\b/gi,
+  /\((?:[^)]*)\)/g, /\[(?:[^\]]*)\]/g,
+  /\b(playstation(\s*(vita|portable|[1-5]))?|nintendo\s*(switch\s*2|switch|wii[\s-]*u|wii|3ds|ds|64|gamecube)|sega\s*(genesis|saturn|dreamcast|cd)|xbox\s*(one|360|series\s*[xs](\s*\|\s*xbox\s*one)?))\b/gi,
   /\b(nintendo|sony|microsoft|sega|xbox)\b/gi,
-  /\b(wii\s*u|wii|switch\s*2|switch|ps[1-5]|psx|psp|ps\s*vita|vita|xbox\s*(one|360|series\s*[xs]?)|3ds|nds|ds|game\s*boy(\s*(advance|colou?r))?|gba|gbc|gamecube|game\s*cube|n64|snes|nes|genesis|mega\s*drive|sega\s*cd|saturn|dreamcast|game\s*gear)\b/gi,
+  /\b(wii[\s-]*u|wii|switch\s*2|switch|ps[1-5]|psx|psp|ps\s*vita|vita|xbox\s*(one|360|series\s*[xs]?)|3ds|nds|ds|game\s*boy(\s*(advance|colou?r))?|gba|gbc|gamecube|game\s*cube|n64|snes|nes|genesis|mega\s*drive|sega\s*cd|saturn|dreamcast|game\s*gear)\b/gi,
   /\b(game\s+of\s+the\s+year(\s+edition)?|goty(\s+edition)?)\b/gi,
   /\b(video\s*games?|games?|for|standard\s*edition|nintendo\s*selects|greatest\s*hits|platinum\s*hits|players?'?\s*choice|brand\s*new|new|factory\s*sealed|sealed|pre-?owned|used|refurbished|complete|cib|disc|cartridge|ntsc(-u|-j)?|pal|usa|us|version|import|region\s*free|english|physical|w\/|with\s*manual|manual|case only|rated\s*[etm]|esrb|blu-?ray|dvd|4k\s*ultra\s*hd|digital\s*code)\b/gi,
   /\b0?\d{11,13}\b/g];
-function cleanTitle(name) {
+function cleanTitle(name, brand) {
   let s = String(name || ""); for (const re of JUNK) s = s.replace(re, " ");
+  const br = String(brand || "").trim();        // UPCitemdb often appends the publisher: "... Wii U Warner Bros."
+  if (br.length > 2) { const t = s.trimEnd(); if (t.toLowerCase().endsWith(br.toLowerCase()) && t.length > br.length + 3) s = t.slice(0, -br.length); }
   s = s.replace(/\s{2,}/g, " ").replace(/\s+([:,])/g, "$1").replace(/[\s\-\u2013|:,;/]+$/g, "").replace(/^[\s\-\u2013|:,;/]+/g, "").trim();
   return s || String(name || "").trim();
 }
@@ -557,7 +564,7 @@ function openSettings(push = true) {
     <button class="secondary" id="sOut" type="button">Sign out &amp; delete data on this phone</button></div>
    <div class="setgroup"><h3>About</h3><p class="small dim">My Library phone app v${APP_VERSION} \u00b7 search, scan barcodes, add and update items (deletes only on the PC).
     Your data never goes to this website \u2014 it is read from and written to your own Google Drive and kept on this phone.
-    Barcode scanning uses the phone's built-in detector or ZXing (Apache-2.0, see vendor/ZXING-LICENSE.txt). Product names come from Open Products Facts / Open Library, or from your PC (UPCitemdb).</p></div>`;
+    Barcode scanning uses the phone's built-in detector or ZXing (Apache-2.0, see vendor/ZXING-LICENSE.txt). Product names come from your own lookup server (UPCitemdb), Open Library / Open Products Facts, or your PC as a last resort. Only the barcode number is sent for a lookup.</p></div>`;
   showSheet("settings", {sheet: "settings"}, push);
   $("#sSync").onclick = () => { history.back(); sync(true); };
   const ro = $("#sRO"); if (ro) ro.onclick = async () => { META.readonly = true; await DB.set("meta", META); token = null; history.back(); sync(true); };
@@ -574,10 +581,30 @@ async function signOut() {
 }
 
 /* ------------------------------------------------------------------ scanner (camera + BarcodeDetector / ZXing) */
+function validRead(raw, fmt) {
+  /* digits only, length right for the symbology, check digit OK -> normalized code; else "" (misread / partial) */
+  const d = String(raw || "");
+  if (!/^\d+$/.test(d)) return "";
+  const lens = FORMAT_LEN[fmt]; if (!lens || !lens.includes(d.length)) return "";
+  let x = d;
+  if (fmt === "upc_e") { if (d.length === 6) x = "0" + d; if (x.length === 7) return ""; }   // 6-digit UPC-E has no check digit to test
+  const c = normBarcode(x, fmt);
+  return c && gtinOk(c) ? c : "";
+}
+function codeLabel(code, fmt) {
+  const f = FORMAT_NAME[fmt] || (code.length === 8 ? "EAN-8" : code[0] === "0" ? "UPC-A" : "EAN-13");
+  let d = prettyCode(code);
+  if (d.length === 12) d = `${d[0]} ${d.slice(1, 6)} ${d.slice(6, 11)} ${d[11]}`;
+  else if (d.length === 13) d = `${d[0]} ${d.slice(1, 7)} ${d.slice(7)}`;
+  else if (d.length === 8) d = `${d.slice(0, 4)} ${d.slice(4)}`;
+  return `<div class="codeline"><span class="fmt">${esc(f)}</span> <span class="digits">${esc(d)}</span>
+    <button type="button" class="link rescan" data-rescan="1">Wrong number? Rescan</button></div>`;
+}
 const Scanner = {
-  stream: null, track: null, timer: null, detector: null, zx: null, canvas: null, last: "", hits: 0, onCode: null, torchOn: false, engine: "",
+  stream: null, track: null, timer: null, detector: null, zx: null, canvas: null, last: "", hits: 0, misses: 0, onCode: null, torchOn: false, engine: "",
+  audio: null, rejected: 0,
   async start(onCode) {
-    this.stop(); this.onCode = onCode; this.last = ""; this.hits = 0;
+    this.stop(); this.onCode = onCode; this.last = ""; this.hits = 0; this.misses = 0; this.rejected = 0;
     const st = $("#scStatus"); st.textContent = "Starting camera\u2026"; $("#scTorch").hidden = true;
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { st.textContent = "No camera access in this browser \u2014 type the number below."; return false; }
     try {
@@ -593,13 +620,13 @@ const Scanner = {
     try { const caps = this.track.getCapabilities ? this.track.getCapabilities() : {}; $("#scTorch").hidden = !caps.torch; } catch (e) {}
     try {
       if ("BarcodeDetector" in window) {
-        const want = ["upc_a", "ean_13", "ean_8", "upc_e"];
+        const want = SCAN_FORMATS;
         let fm = want; try { const sup = await BarcodeDetector.getSupportedFormats(); fm = want.filter((f) => sup.includes(f)); } catch (e) {}
         if (fm.length) { this.detector = new BarcodeDetector({formats: fm}); this.engine = "native"; }
       }
       if (!this.detector) { st.textContent = "Loading scanner\u2026"; await this.loadZxing(); this.engine = "zxing"; }
     } catch (e) { console.warn("scanner", e); st.textContent = "Scanner unavailable \u2014 type the number below."; return false; }
-    st.textContent = "Point at the barcode on the back of the box";
+    st.textContent = "Fit the barcode inside the box";
     this.loop(); return true;
   },
   loadZxing() {
@@ -616,7 +643,8 @@ const Scanner = {
   async detectOnce() {
     const v = $("#scVideo"); if (!v.videoWidth) return null;
     if (this.detector) {
-      const r = await this.detector.detect(v); const b = (r || []).find((x) => x.rawValue);
+      const r = await this.detector.detect(v);
+      const b = (r || []).find((x) => x.rawValue && SCAN_FORMATS.includes(x.format));   // ignore QR / Code 128 / ...
       return b ? {code: b.rawValue, format: b.format} : null;
     }
     const Z = window.ZXing, w = v.videoWidth, h = v.videoHeight, cw = Math.round(w * 0.9), ch = Math.round(h * 0.5);
@@ -624,25 +652,47 @@ const Scanner = {
     const ctx = c.getContext("2d", {willReadFrequently: true}); ctx.drawImage(v, (w - cw) / 2, (h - ch) / 2, cw, ch, 0, 0, cw, ch);
     try {
       const src = new Z.HTMLCanvasElementLuminanceSource(c), bmp = new Z.BinaryBitmap(new Z.HybridBinarizer(src));
-      const r = this.zx.decodeWithState(bmp); const fm = Z.BarcodeFormat[r.getBarcodeFormat()] || "";
-      return {code: r.getText(), format: String(fm).toLowerCase()};
+      const r = this.zx.decodeWithState(bmp); const fm = String(Z.BarcodeFormat[r.getBarcodeFormat()] || "").toLowerCase();
+      return SCAN_FORMATS.includes(fm) ? {code: r.getText(), format: fm} : null;
     } catch (e) { return null; }   // NotFoundException on most frames
   },
   loop() {
+    const st = $("#scStatus");
     const tick = async () => {
       if (!this.stream) return;
       let hit = null; try { hit = await this.detectOnce(); } catch (e) {}
-      if (hit && gtinOk(normBarcode(hit.code, hit.format))) {
-        const c = normBarcode(hit.code, hit.format);
-        this.hits = c === this.last ? this.hits + 1 : 1; this.last = c;
-        if (this.engine === "native" || this.hits >= 2) {     // ZXing: require two identical reads
-          try { navigator.vibrate && navigator.vibrate(60); } catch (e) {}
+      const c = hit ? validRead(hit.code, hit.format) : "";
+      if (c) {
+        this.hits = c === this.last ? this.hits + 1 : 1; this.last = c; this.misses = 0;
+        if (this.hits >= NEED_READS) {
+          this.feedback();
           const cb = this.onCode; this.stop(); cb && cb(c, hit.format); return;
         }
+        st.textContent = "Reading\u2026 hold steady"; $("#camwrap").classList.add("reading");
+      } else {
+        if (hit) this.rejected++;                       // a misread / partial code: never accepted, restarts the count
+        if (++this.misses > 1 || hit) {
+          this.hits = 0; this.last = ""; $("#camwrap").classList.remove("reading");
+          const msg = this.misses >= 6 && this.rejected > 3 ? "Can't read it cleanly \u2014 try more light (\ud83d\udd26) or type the number" : "Fit the barcode inside the box";
+          if (st.textContent !== msg) st.textContent = msg;
+        }
       }
-      this.timer = setTimeout(tick, this.engine === "native" ? 120 : 160);
+      this.timer = setTimeout(tick, this.engine === "native" ? 90 : 140);
     };
     tick();
+  },
+  unlockAudio() {      // must run inside a tap (the Scan button) so the beep may play later
+    try { if (!this.audio) this.audio = new (window.AudioContext || window.webkitAudioContext)(); if (this.audio.state === "suspended") this.audio.resume(); } catch (e) {}
+  },
+  feedback() {
+    try { navigator.vibrate && navigator.vibrate(70); } catch (e) {}
+    try {
+      const a = this.audio; if (!a || a.state !== "running") return;
+      const o = a.createOscillator(), g = a.createGain(); o.type = "sine"; o.frequency.value = 1760;
+      g.gain.setValueAtTime(0.0001, a.currentTime); g.gain.exponentialRampToValueAtTime(0.25, a.currentTime + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + 0.12);
+      o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + 0.13);
+    } catch (e) {}
   },
   async torch() {
     if (!this.track) return; this.torchOn = !this.torchOn;
@@ -653,6 +703,7 @@ const Scanner = {
     clearTimeout(this.timer); this.timer = null;
     if (this.stream) for (const t of this.stream.getTracks()) t.stop();
     this.stream = null; this.track = null; this.detector = null; this.torchOn = false;
+    const cw = document.getElementById("camwrap"); if (cw) cw.classList.remove("reading");
     const v = document.getElementById("scVideo"); if (v) v.srcObject = null;
   }
 };
@@ -661,7 +712,7 @@ function openScanner(ctx = {mode: "find"}, push = true) {
   scanCtx = ctx;
   const it = ctx.mode === "link" ? ITEMS.find((x) => x.id === ctx.id) : null;
   $("#scTitle").textContent = it ? `Link barcode: ${it.title}` : "Scan a barcode";
-  $("#manualCode").value = ""; renderRecent();
+  $("#manualCode").value = ""; renderRecent(); Scanner.unlockAudio();
   showSheet("scanner", {sheet: "scanner", ctx}, push);
   Scanner.start((code, fmt) => handleCode(code, fmt));
 }
@@ -708,15 +759,18 @@ function handleCode(raw, fmt, push = "replace") {
     const o = OWNED[it.owned] || OWNED.yes;
     const banner = it.owned === "wishlist" ? `<div class="banner wishlist">\u2605 ON YOUR WISHLIST</div>`
       : `<div class="banner ${o[1]}">${o[2]}</div>`;
-    showResult(`<div class="codeline">${esc(prettyCode(code))}</div>${banner}
+    showResult(`${codeLabel(code, fmt)}${banner}
       ${it.done ? `<div class="banner done" style="background:var(--ok)">\u2713 ${it.status === "100" ? "100% COMPLETE" : "PLAYED / WATCHED"}</div>` : ""}
       ${itemCard(it, `<button type="button" class="secondary" data-open="${esc(it.id)}">Open</button>`)}
       ${it.owned === "wishlist" ? `<div class="actions"><button type="button" class="primary" id="srBought">\u2713 I bought it \u2014 add to Collection</button></div>` : ""}`, code, push);
     const b = $("#srBought"); if (b) b.onclick = () => { queueChange("set_owned", it.id, {owned: "yes"}); toast("Moved to your Collection \u2014 enjoy!"); handleCode(code, fmt, "replace"); };
     return "own";
   }
-  showResult(`<div class="codeline">${esc(prettyCode(code))}</div><div class="banner sold" style="background:#2b2b55">Looking it up\u2026</div>`, code, push);
-  lookupProduct(code).then((info) => { if (!$("#scanResult").hidden && history.state && history.state.code === code) renderLookupResult(code, fmt, info); });
+  showResult(`${codeLabel(code, fmt)}<div class="looking"><i class="spin"></i><div><b>Looking up\u2026</b><div class="small dim" id="lookStep">Checking product databases</div></div></div>`,
+    code, push);
+  const still = () => !$("#scanResult").hidden && history.state && history.state.code === code;
+  lookupProduct(code, (step) => { const el = $("#lookStep"); if (el && still()) el.textContent = step; })
+    .then((info) => { if (still()) renderLookupResult(code, fmt, info); });
   return "lookup";
 }
 function withTimeout(p, ms) { return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), ms))]); }
@@ -725,26 +779,45 @@ async function fetchJson(url, ms = 7000) {
   try { const r = await fetch(url, {signal: ctl.signal, headers: {Accept: "application/json"}}); if (!r.ok) return {_status: r.status}; return await r.json(); }
   finally { clearTimeout(t); }
 }
-async function lookupProduct(code) {
+function relayBase() {
+  const u = (DATA && DATA.upc_relay) || CFG.upcRelay || "";
+  return /^https:\/\//.test(u) ? u.replace(/\/+$/, "") : "";
+}
+async function lookupProduct(code, step = () => {}) {
+  /* order: PC-resolved names in the export -> names found before on this phone -> UPC relay (UPCitemdb + Open Library +
+     Open Products Facts, cached on Arthur's server) -> Open Library / Open Products Facts directly -> give up (PC queue) */
   const pc = DATA && DATA.barcode_lookups && DATA.barcode_lookups[code];
   if (pc && pc.found) return Object.assign({}, pc, {source: (pc.source || "UPCitemdb") + " (via PC)"});
   if (LOOKUPS[code] && LOOKUPS[code].found) return LOOKUPS[code];
   if (!navigator.onLine) return {found: false, offline: true};
-  let info = null;
-  try {
-    if (isIsbn(code)) {   // Open Library search API: CORS *, no key, always 200 (numFound 0 when unknown)
-      const j = await fetchJson(`https://openlibrary.org/search.json?isbn=${code}&fields=title,subtitle,author_name&limit=1`);
-      const d = j && j.docs && j.docs[0];
-      if (d && d.title) info = {found: true, source: "Open Library", title: d.title + (d.subtitle ? ": " + d.subtitle : ""),
-        brand: (d.author_name || []).slice(0, 2).join(", "), category: "Books", kind: "book"};
-    }
-    if (!info) {          // Open Products Facts search-by-code: CORS *, no key, 200 with products [] when unknown
-      const j = await fetchJson(`https://world.openproductsfacts.org/api/v2/search?code=${code}&fields=code,product_name,product_name_en,brands,categories&page_size=1`);
-      const p = j && j.products && j.products.find((x) => normBarcode(x.code) === code);
-      if (p && (p.product_name_en || p.product_name)) info = {found: true, source: "Open Products Facts", title: p.product_name_en || p.product_name, brand: p.brands || "", category: p.categories || ""};
-    }
-  } catch (e) { console.warn("lookup", e && e.name); if (e && e.name === "AbortError") info = {found: false, timeout: true}; }
-  info = info || {found: false};
+  let info = null, relayAnswered = false;
+  const relay = relayBase();
+  if (relay) {
+    step("Checking UPC database\u2026");
+    try {
+      const j = await fetchJson(`${relay}/upc/${code}`, 15000);
+      if (j && j.ok && j.found && j.title) info = {found: true, source: j.source || "UPC relay", title: j.title, brand: j.brand || "", category: j.category || "", kind: j.kind || ""};
+      else if (j && j.ok && j.found === false && !j.incomplete) relayAnswered = true;   // every source said no
+    } catch (e) { console.warn("relay", e && e.name); }
+  }
+  if (!info && !relayAnswered) {
+    try {
+      if (isIsbn(code)) {   // Open Library search API: CORS *, no key, always 200 (numFound 0 when unknown)
+        step("Checking Open Library\u2026");
+        const j = await fetchJson(`https://openlibrary.org/search.json?isbn=${code}&fields=title,subtitle,author_name&limit=1`);
+        const d = j && j.docs && j.docs[0];
+        if (d && d.title) info = {found: true, source: "Open Library", title: d.title + (d.subtitle ? ": " + d.subtitle : ""),
+          brand: (d.author_name || []).slice(0, 2).join(", "), category: "Books", kind: "book"};
+      }
+      if (!info) {          // Open Products Facts search-by-code: CORS *, no key, 200 with products [] when unknown
+        step("Checking Open Products Facts\u2026");
+        const j = await fetchJson(`https://world.openproductsfacts.org/api/v2/search?code=${code}&fields=code,product_name,product_name_en,brands,categories&page_size=1`);
+        const p = j && j.products && j.products.find((x) => normBarcode(x.code) === code);
+        if (p && (p.product_name_en || p.product_name)) info = {found: true, source: "Open Products Facts", title: p.product_name_en || p.product_name, brand: p.brands || "", category: p.categories || ""};
+      }
+    } catch (e) { console.warn("lookup", e && e.name); }
+  }
+  info = info || {found: false, definitive: relayAnswered};
   info.code = code; info.looked_up = Date.now();
   if (info.found) { LOOKUPS[code] = info; DB.set("lookups", LOOKUPS); }
   return info;
@@ -757,17 +830,17 @@ function queuePcLookup(code, fmt) {
 }
 function renderLookupResult(code, fmt, info) {
   const name = info.found ? info.title : "";
-  const title = name ? cleanTitle(name) : "";
+  const title = name ? cleanTitle(name, info.brand) : "";
   const platform = info.kind === "book" ? "" : guessPlatform([name, info.category].join(" "));
   const category = info.kind === "book" ? "Books" : guessCategory([name, info.category].join(" "), code);
   const pcTried = DATA && DATA.barcode_lookups && DATA.barcode_lookups[code];
   let queued = false;
-  if (!info.found) queued = queuePcLookup(code, fmt);
+  if (!info.found && !info.definitive) queued = queuePcLookup(code, fmt);   // last resort: the PC tries UPCitemdb later
   rememberScan(code, info.found ? "found" : (queued || QUEUE.some((c) => c.type === "lookup" && c.data.barcode === code) ? "queued" : "unknown"), title);
-  const why = info.offline ? "You're offline \u2014 saved; the name will be looked up later."
-    : info.found ? "" : (pcTried && !pcTried.found ? "No product database knows this barcode." :
-      "Not in the free product databases this phone can reach. Your PC will look it up (UPCitemdb) at its next sync \u2014 or type the title below.");
-  $("#srBody").innerHTML = `<div class="codeline">${esc(prettyCode(code))}</div>
+  const why = info.offline ? "You're offline \u2014 saved; the name will be looked up when you're back online (or type the title)."
+    : info.found ? "" : (info.definitive || (pcTried && !pcTried.found)) ? "None of the product databases know this barcode. Type the title below, or add it."
+      : "Couldn't reach the UPC database right now. Your PC will look it up at its next sync \u2014 or type the title below.";
+  $("#srBody").innerHTML = `${codeLabel(code, fmt)}
     ${info.found ? `<div class="product"><div class="small dim">Found on ${esc(info.source)}</div><b>${esc(name)}</b>${info.brand ? `<div class="dim">${esc(info.brand)}</div>` : ""}</div>`
       : `<div class="product"><b>Unknown product</b><div class="small dim">${esc(why)}</div></div>`}
     <div class="form"><label>Title<input id="srTitle" value="${esc(title)}" placeholder="Type the title on the box" autocapitalize="words"></label></div>
@@ -777,9 +850,9 @@ function renderLookupResult(code, fmt, info) {
     const t = $("#srTitle").value.trim(), m = findMatches(t, platform, 5, category);
     $("#srMatches").innerHTML = m.length ? `<h3 style="margin:8px 0">Is it one of these?</h3>` +
       m.map((it) => itemCard(it, `<button type="button" class="primary" data-link="${esc(it.id)}">Yes \u2713</button>`)).join("") : "";
-    $("#srNot").innerHTML = t ? `${m.length ? "" : `<div class="banner sold" style="background:#5a2230">\u2715 NOT IN YOUR LIBRARY</div>`}
+    $("#srNot").innerHTML = (t || !info.found) ? `${m.length ? "" : `<div class="banner sold" style="background:#5a2230">\u2715 NOT IN YOUR LIBRARY</div>`}
       <div class="actions"><button type="button" class="primary" id="srAddC">+ Add to Collection</button><button type="button" class="primary wish-btn" id="srAddW">\u2605 Add to Wishlist</button></div>
-      <p class="small dim">${m.length ? "None of these? " : ""}Opens the add form prefilled (${esc([category, platform].filter(Boolean).join(", "))}) so you can fix anything first.</p>` : "";
+      <p class="small dim">${m.length ? "None of these? " : ""}Opens the add form ${t ? `prefilled (${esc([category, platform].filter(Boolean).join(", "))})` : "with this barcode"} so you can fix anything first.</p>` : "";
     const pre = (owned) => ({title: t, category, platform, owned, in_collection: true, barcode: code, barcode_format: fmt || "",
       format: category === "Video Game" && /^(ps[1-5]|xbox.*|wii|wii u|gamecube|pc|saturn|dreamcast|sega cd)$/i.test(platform) ? "disc" : (category === "Video Game" && platform ? "cartridge" : "")});
     const c = $("#srAddC"); if (c) c.onclick = () => openEditor(pre("yes"), "replace");
@@ -877,7 +950,7 @@ function refreshScansFromExport() {
   let changed = false;
   for (const s of SCANS) if (s.state === "queued" && looks[s.code]) {
     changed = true; s.state = looks[s.code].found ? "found" : "unknown";
-    if (looks[s.code].found) { s.title = cleanTitle(looks[s.code].title); n++; }
+    if (looks[s.code].found) { s.title = cleanTitle(looks[s.code].title, looks[s.code].brand); n++; }
   }
   if (changed) saveScans();
   if (n) { setTimeout(() => toast(`Your PC identified ${n} scanned barcode${n > 1 ? "s" : ""} \u2014 see Scan \u2192 Recent`, 5000), 1500); }
@@ -968,13 +1041,15 @@ function bind() {
   $("#scanFab").onclick = () => { if (!DATA) return toast("Sign in first so the app knows your library"); openScanner(); };
   $("#addFab").onclick = () => { if (!DATA) return toast("Sign in first"); openEditor({title: ui.q || "", owned: ui.scope === "wishlist" ? "wishlist" : "yes"}); };
   for (const id of ["dBack", "sBack", "scBack", "srBack", "edBack"]) $("#" + id).onclick = () => history.back();
-  $("#srAgain").onclick = () => openScanner({mode: "find"}, "replace");
+  $("#srAgain").onclick = () => { Scanner.unlockAudio(); openScanner({mode: "find"}, "replace"); };
   $("#scTorch").onclick = () => Scanner.torch();
   $("#manualForm").onsubmit = (e) => { e.preventDefault(); const v = $("#manualCode").value; if (!digits(v)) return;
     if (!gtinOk(normBarcode(v))) { toast(`\u201c${v}\u201d isn't a valid UPC / EAN barcode \u2014 check the numbers`); return; }
     Scanner.stop(); handleCode(v, ""); };
   $("#recentScans").onclick = (e) => { const r = e.target.closest("[data-code]"); if (r) { Scanner.stop(); handleCode(r.dataset.code, ""); } };
-  $("#srBody").addEventListener("click", (e) => { const b = e.target.closest("[data-open]"); if (b) openItemFromCard(b.dataset.open); });
+  $("#srBody").addEventListener("click", (e) => {
+    if (e.target.closest("[data-rescan]")) { Scanner.unlockAudio(); openScanner({mode: "find"}, "replace"); return; }
+    const b = e.target.closest("[data-open]"); if (b) openItemFromCard(b.dataset.open); });
   $("#edMatches").onclick = (e) => { const b = e.target.closest("[data-open]"); if (b) openItemFromCard(b.dataset.open); };
   const f = $("#edForm");
   f.addEventListener("submit", saveEditor);
@@ -1017,7 +1092,7 @@ async function start() {
   if (navigator.onLine && (STUB || savedToken())) sync(false);
   if (sp.get("scan") === "1") openScanner();     // home-screen shortcut
 }
-window.__ml = {ui, render, sync, handleCode, cleanTitle, guessPlatform, guessCategory, findMatches, normBarcode, gtinOk, Scanner, lookupProduct,
+window.__ml = {ui, render, sync, handleCode, validRead, relayBase, cleanTitle, guessPlatform, guessCategory, findMatches, normBarcode, gtinOk, Scanner, lookupProduct,
   state: () => ({items: ITEMS.length, thumbs: Object.keys(THUMBS).length, exported: DATA && DATA.exported, meta: META,
     queue: QUEUE.map((c) => ({id: c.id, type: c.type, item_id: c.item_id, data: c.data, state: c._state})), scans: SCANS.slice(),
     pending: ITEMS.filter((i) => i._pending).map((i) => i.id), item: (id) => ITEMS.find((i) => i.id === id)})};

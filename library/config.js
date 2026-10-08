@@ -6,5 +6,8 @@ window.LIBRARY_CONFIG = {
   exportName: "collection-export.json",
   thumbsName: "collection-thumbs.json",
   folderName: "MyLibrary",
+  // UPC lookup relay on Arthur's own server (instant product names for scanned barcodes). It changes only if the
+  // server's Cloudflare quick tunnel restarts; leave "" to skip it (the phone then asks the PC instead).
+  upcRelay: "https://sellers-stewart-narrative-pittsburgh.trycloudflare.com",
   loginHint: ""   // optional; left blank so no e-mail address is published (the app remembers it after the first sign-in)
 };

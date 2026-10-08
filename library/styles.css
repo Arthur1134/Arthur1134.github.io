@@ -199,3 +199,20 @@ body{padding-bottom:calc(120px + var(--safe-bot))}
 .toggles button{height:50px;border-radius:12px;border:1px solid var(--line);background:var(--card);font-weight:800;font-size:15px;cursor:pointer}
 .toggles button.on{background:#1d5c33;border-color:#2e9d4f;color:#c9ffd9}
 .pill.queue span{color:var(--wish)}
+
+/* ---- v1.2: steadier scanning + lookup progress ---- */
+.aim i{position:relative;border-color:#ffffff60}
+.aim i b{position:absolute;width:28px;height:28px;border:5px solid #fff;border-radius:4px}
+.aim i .c1{left:-5px;top:-5px;border-right:0;border-bottom:0}.aim i .c2{right:-5px;top:-5px;border-left:0;border-bottom:0}
+.aim i .c3{left:-5px;bottom:-5px;border-right:0;border-top:0}.aim i .c4{right:-5px;bottom:-5px;border-left:0;border-top:0}
+.aimhint{position:absolute;top:calc(33% - 34px);left:0;right:0;text-align:center;color:#fff;font-weight:700;font-size:14px;text-shadow:0 1px 3px #000}
+.camwrap.reading .aim i,.camwrap.reading .aim i b{border-color:#3ddc84}
+.camwrap.reading .aim i::after{background:#3ddc84;box-shadow:0 0 10px #3ddc84}
+.codeline{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 10px}
+.codeline .fmt{font:800 12px system-ui,sans-serif;letter-spacing:.08em;background:#ffffff1a;color:var(--dim);padding:3px 7px;border-radius:6px}
+.codeline .digits{font:700 22px ui-monospace,monospace;color:var(--text);letter-spacing:.04em}
+.codeline .rescan{margin-left:auto;font-size:14px;color:var(--wish);background:none;border:0;padding:6px 0;cursor:pointer;text-decoration:underline}
+.looking{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin:10px 0}
+.looking b{font-size:18px}
+.spin{width:28px;height:28px;border-radius:50%;border:4px solid #ffffff30;border-top-color:var(--accent);animation:spin .8s linear infinite;flex:none}
+@keyframes spin{to{transform:rotate(360deg)}}

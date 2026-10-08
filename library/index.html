@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1a1a2e">
+<meta name="color-scheme" content="dark">
+<meta name="robots" content="noindex">
+<meta name="description" content="My Library - search my game and media collection and wishlist (private data from my Google Drive)">
+<title>My Library</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <img class="logo" src="icons/icon-192.png" alt="" width="34" height="34">
+  <div class="brand"><span>MY</span> LIBRARY</div>
+  <button id="syncPill" class="pill" type="button" aria-label="Sync status">—</button>
+  <button id="syncBtn" class="iconbtn" type="button" aria-label="Refresh from Google Drive" title="Refresh from Google Drive">&#x27F3;</button>
+  <button id="menuBtn" class="iconbtn" type="button" aria-label="Settings" title="Settings">&#x2630;</button>
+</header>
+
+<div class="searchwrap">
+  <div class="search">
+    <span class="mag" aria-hidden="true">&#x1F50D;&#xFE0E;</span>
+    <input id="q" type="search" inputmode="search" autocomplete="off" autocorrect="off" autocapitalize="off"
+           spellcheck="false" enterkeyhint="search" placeholder="Search title, platform, category" aria-label="Search">
+    <button id="clearQ" class="clear" type="button" aria-label="Clear search" hidden>&#x2715;</button>
+  </div>
+  <nav class="tabs" id="tabs" role="tablist">
+    <button role="tab" data-scope="all">All <b></b></button>
+    <button role="tab" data-scope="collection">Collection <b></b></button>
+    <button role="tab" data-scope="watched">Played <b></b></button>
+    <button role="tab" data-scope="wishlist" class="wish">Wishlist <b></b></button>
+  </nav>
+  <div class="chips" id="catChips" aria-label="Category filter"></div>
+  <div class="chips plat" id="platChips" aria-label="Platform filter"></div>
+</div>
+
+<main id="main">
+  <div class="resultbar"><span id="count"></span><button id="sortBtn" class="link" type="button">A&ndash;Z</button></div>
+  <ul id="list" class="list"></ul>
+  <div id="empty" class="empty" hidden></div>
+  <button id="more" class="more" type="button" hidden>Show more</button>
+</main>
+
+<section id="welcome" class="welcome" hidden>
+  <img src="icons/icon-512.png" alt="" width="132" height="132">
+  <h1>MY LIBRARY</h1>
+  <p>Your collection, wishlist and watched / played list from <b>My Library Launcher</b>, read from your own Google Drive.</p>
+  <button id="signinBtn" class="primary big" type="button">Sign in with Google</button>
+  <p class="small dim">Only reads the <code>MyLibrary</code> files the launcher uploads (Drive access limited to this app's files). Data stays on your phone for offline use.</p>
+  <p id="welcomeMsg" class="msg"></p>
+</section>
+
+<div id="detail" class="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="dTitle">
+  <div class="sheetbar"><button id="dBack" class="iconbtn" type="button" aria-label="Back">&#x2190;</button><span class="sheettitle">Details</span></div>
+  <div class="sheetbody" id="dBody"></div>
+</div>
+
+<div id="settings" class="sheet" hidden role="dialog" aria-modal="true">
+  <div class="sheetbar"><button id="sBack" class="iconbtn" type="button" aria-label="Back">&#x2190;</button><span class="sheettitle">Settings</span></div>
+  <div class="sheetbody" id="sBody"></div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

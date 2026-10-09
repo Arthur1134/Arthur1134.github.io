@@ -9,7 +9,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Grocery List">
-    <title>Grocery List v2.0 · Retro Gaming Dad</title>
+    <title>Grocery List v2.1 · Retro Gaming Dad</title>
     <link rel="icon" href="icons/favicon.ico" sizes="any">
     <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -239,6 +239,26 @@
         .ck.eq { background: linear-gradient(to bottom, var(--sage), var(--sage-mid)); color: #fff; border-color: var(--sage-dark); box-shadow: 0 2px 0 var(--sage-dark); }
         .ck.zero { grid-column: span 2; }
 
+
+        /* ---------- Sync ---------- */
+        .sync-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 10px; max-width: 560px; margin: 4px auto 0;
+            padding: 6px 12px; border: 1px dashed #CDB58F; border-radius: 12px; background: #FBF6EC; font-size: .92em; }
+        .sync-dot { width: 10px; height: 10px; border-radius: 50%; background: #B9A88E; flex: none; }
+        .sync-bar[data-state="ok"] .sync-dot { background: #5E8F5A; }
+        .sync-bar[data-state="busy"] .sync-dot { background: #D9A441; animation: pulse 1s infinite alternate; }
+        .sync-bar[data-state="need"] .sync-dot, .sync-bar[data-state="error"] .sync-dot { background: #C0583F; }
+        .sync-bar[data-state="offline"] .sync-dot { background: #8B7B66; }
+        @keyframes pulse { from { opacity: .4; } to { opacity: 1; } }
+        .sync-text { color: var(--ink-soft); }
+        .sync-now { min-height: 40px; padding: 6px 12px; font-size: .95em; text-decoration: none; }
+        .sync-now:disabled { opacity: .5; cursor: default; transform: none; }
+        .gbtn { min-height: 44px; display: inline-flex; align-items: center; gap: 10px; padding: 6px 14px; border-radius: 22px;
+            border: 1px solid #747775; background: #fff; color: #1F1F1F; font-family: Roboto, Arial, sans-serif; font-weight: 500; font-size: .95em; }
+        .gbtn:hover { background: #F7F8F8; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+        .g-logo { width: 18px; height: 18px; }
+        .bb-sync { font-size: .85em; opacity: .95; white-space: nowrap; }
+        .share-people { list-style: none; margin: 4px 0 10px; font-size: .92em; color: var(--ink-soft); }
+        .share-people li { padding: 3px 0; overflow-wrap: anywhere; }
         @media (max-width: 600px) {
             :root { --bar-h: 72px; }
             body { padding: 8px 8px calc(var(--bar-h) + 24px + env(safe-area-inset-bottom)); }
@@ -281,6 +301,14 @@
             <p class="subtitle" id="subtitle">Tick items to add them to your shopping list</p>
         </header>
 
+        <div class="sync-bar" id="syncBar" data-state="off">
+            <span class="sync-dot" aria-hidden="true"></span>
+            <span class="sync-text" id="syncText" role="status" aria-live="polite">Sync: off — this device only</span>
+            <button type="button" class="gbtn" id="syncSignIn" hidden><svg class="g-logo" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg><span id="syncSignInTxt">Sign in with Google</span></button>
+            <button type="button" class="btn btn-light sync-now" id="syncNow" hidden>⟳ Sync now</button>
+            <a class="btn btn-light sync-now" id="syncOpenOnline" href="https://arthur1134.github.io/grocery/" target="_blank" rel="noopener" hidden>☁ Open online version (brings this list)</a>
+        </div>
+
         <div class="search-container" id="searchContainer" role="search">
             <span class="search-icon" aria-hidden="true">🔍</span>
             <input type="search" class="search-input" id="searchInput" placeholder="Search sections or items..." autocomplete="off" aria-label="Search sections or items" aria-controls="searchResults">
@@ -314,8 +342,14 @@
         <div class="divider"></div>
 
         <section class="tools" aria-labelledby="toolsTitle">
-            <h2 id="toolsTitle">💾 Backup &amp; Reset</h2>
-            <p class="tools-note">Your list is saved in this browser only. Export a backup now and then (and before moving to a new phone or PC).</p>
+            <h2 id="toolsTitle">💾 Backup &amp; Sync</h2>
+            <p class="tools-note" id="syncInfo">Sign in with Google (at the top) to keep this list the same on your phone and PC.</p>
+            <div class="tools-row" style="margin-bottom:12px">
+                <button type="button" class="btn btn-light" id="shareBtn" hidden>👥 Share list with…</button>
+                <button type="button" class="btn btn-light" id="openSharedBtn" hidden>📂 Open a list shared with me</button>
+                <button type="button" class="btn btn-light" id="signOutBtn" hidden>Sign out of Google</button>
+            </div>
+            <p class="tools-note">Export a backup now and then (and before moving to a new phone or PC).</p>
             <div class="tools-row">
                 <button type="button" class="btn btn-light" id="exportBtn">⬇ Export Backup</button>
                 <button type="button" class="btn btn-light" id="importBtn">⬆ Import Backup</button>
@@ -327,14 +361,14 @@
 
         <footer>
             <p class="footer-note">🌻 Check items to add to your shopping list 🌻</p>
-            <p class="credit">Grocery List <span id="versionLabel">v2.0</span> · Made by Retro Gaming Dad 🎮</p>
+            <p class="credit">Grocery List <span id="versionLabel">v2.1</span> · Made by Retro Gaming Dad 🎮</p>
         </footer>
     </div>
 
     <nav class="bottom-bar" aria-label="Totals and tools">
         <div class="bottom-inner">
             <div class="bb-total">
-                <div class="bb-label" id="bbLabel">Shopping Total</div>
+                <div class="bb-label"><span id="bbLabel">Shopping Total</span> <span class="bb-sync" id="bbSync"></span></div>
                 <div class="bb-amount" id="runningTotal" aria-live="polite">$0.00</div>
                 <div class="bb-sub" id="bbSub" hidden></div>
             </div>
@@ -366,6 +400,24 @@
                 <button type="button" class="btn btn-light" id="fRestore" hidden>Restore original</button>
                 <button type="button" class="btn btn-light" id="fCancel">Cancel</button>
                 <button type="submit" class="btn btn-green" id="fSave">Add</button>
+            </div>
+        </form>
+    </dialog>
+
+    <dialog id="shareDialog" class="form-dialog" aria-labelledby="shareTitle">
+        <form id="shareForm" class="form-card" novalidate>
+            <h2 id="shareTitle">Share list with…</h2>
+            <p class="field-hint" style="margin-bottom:12px">They get “can edit” access to your grocery-list.json in Google Drive. Google does not e-mail them — tell them yourself.</p>
+            <div class="field">
+                <label for="shareEmail">Their Google account e-mail</label>
+                <input id="shareEmail" type="email" autocomplete="off" inputmode="email" placeholder="name@gmail.com" required>
+            </div>
+            <p class="field-hint">People who already have access:</p>
+            <ul class="share-people" id="sharePeople"></ul>
+            <p class="form-error" id="shareError" role="alert"></p>
+            <div class="dialog-actions">
+                <button type="button" class="btn btn-light" id="shareCancel">Cancel</button>
+                <button type="submit" class="btn btn-green" id="shareGo">Share (can edit)</button>
             </div>
         </form>
     </dialog>
@@ -413,7 +465,7 @@
     <script>
     'use strict';
     (function () {
-        const APP_VERSION = '2.0';
+        const APP_VERSION = '2.1';
         const STORE_KEY = 'groceryApp.v2';
         const CALC_KEY = 'groceryApp.calc';
         const LEGACY_BACKUP_KEY = 'groceryApp.legacyBackup';
@@ -581,47 +633,186 @@
             return normalizeState(s);
         }
 
-        function loadState() {
-            const raw = storage.get(STORE_KEY);
+        // ================= v2.1: sync-ready document =================
+        // Every editable value is a register [value, timestamp]. Merging two copies keeps, per item and
+        // per field, the value with the newest timestamp, so edits made on different devices all survive.
+        // A delete is a register too (a "tombstone"); a later edit on another device brings the item back.
+        const DOC_KEY = 'groceryApp.v3';
+        const LOCAL_KEY = 'groceryApp.local';
+        const PRESYNC_KEY = 'groceryApp.preSyncBackup';
+        const FIELDS = ['name', 'price', 'cat', 'checked', 'qty', 'purchased', 'del'];
+        const CONTENT_FIELDS = ['name', 'price', 'cat', 'checked', 'qty', 'purchased'];
+        const CUSTOM_ID = /^c:[a-z0-9]{4,38}$/;
+        const MAX_SKEW = 400 * 24 * 3600e3;
+
+        let lastT = 0;
+        function tick() { lastT = Math.max(Date.now(), lastT + 1); return lastT; }
+        function observeT(d) { for (const r of Object.values(d.items)) for (const f of FIELDS) if (r[f] && r[f][1] > lastT) lastT = r[f][1]; }
+
+        function emptyDoc() { return { v: 3, items: {} }; }
+        function validId(id) { return BUILTIN_BY_ID.has(id) || CUSTOM_ID.test(id); }
+        function cleanReg(f, reg, isCustom) {
+            if (!Array.isArray(reg) || reg.length !== 2) return null;
+            let v = reg[0]; const t = reg[1];
+            if (typeof t !== 'number' || !Number.isFinite(t) || t < 0 || t > Date.now() + MAX_SKEW) return null;
+            switch (f) {
+                case 'name': if (v === null && !isCustom) break; v = cleanName(v); if (!v) return null; break;
+                case 'price': if (v === null && !isCustom) break; v = toPrice(v); if (v === null) return null; break;
+                case 'cat': if (!isCustom || !CAT_IDS.has(v)) return null; break;
+                case 'qty': v = clampQty(v); break;
+                default: if (typeof v !== 'boolean') return null;
+            }
+            return [v, t];
+        }
+        function normalizeDoc(raw) {
+            const d = emptyDoc();
+            if (!raw || typeof raw !== 'object' || !raw.items || typeof raw.items !== 'object') return d;
+            for (const [id, r] of Object.entries(raw.items)) {
+                if (!validId(id) || !r || typeof r !== 'object') continue;
+                const isCustom = !BUILTIN_BY_ID.has(id), out = {};
+                for (const f of FIELDS) { const c = cleanReg(f, r[f], isCustom); if (c) out[f] = c; }
+                if (Object.keys(out).length) d.items[id] = out;
+            }
+            return d;
+        }
+        // Pure merge: commutative, associative and idempotent (safe to repeat, in any order).
+        function newer(a, b) {
+            if (!a) return b;
+            if (!b) return a;
+            if (a[1] !== b[1]) return a[1] > b[1] ? a : b;
+            return JSON.stringify(a[0]) >= JSON.stringify(b[0]) ? a : b;   // same time: deterministic pick
+        }
+        function mergeDocs(a, b) {
+            const out = emptyDoc();
+            const ids = new Set([...Object.keys(a.items), ...Object.keys(b.items)]);
+            for (const id of ids) {
+                const ra = a.items[id] || {}, rb = b.items[id] || {}, r = {};
+                for (const f of FIELDS) { const w = newer(ra[f], rb[f]); if (w) r[f] = [w[0], w[1]]; }
+                out.items[id] = r;
+            }
+            return out;
+        }
+        function canonical(d) {
+            return JSON.stringify(Object.keys(d.items).sort().map(id => [id, FIELDS.map(f => d.items[id][f] || 0)]));
+        }
+        // What an item looks like right now (null = not a valid item)
+        function effRec(d, id) {
+            const r = d.items[id] || {}, b = BUILTIN_BY_ID.get(id);
+            const g = (f, dflt) => r[f] ? r[f][0] : dflt;
+            let name, price, cat;
+            if (b) { name = g('name', null) ?? b.name; price = g('price', null) ?? b.price; cat = b.cat; }
+            else {
+                name = g('name', null); price = g('price', null); cat = g('cat', null);
+                if (!name || typeof price !== 'number' || !CAT_IDS.has(cat)) return null;
+            }
+            const checked = g('checked', false) === true;
+            const qty = clampQty(g('qty', 1));
+            const purchased = checked && g('purchased', false) === true;
+            let del = g('del', false) === true;
+            if (del && CONTENT_FIELDS.some(f => r[f] && r[f][1] > r.del[1])) del = false;   // edited after the delete
+            return { id, cat, name, price, checked, qty, purchased, del, custom: !b, orig: b || null };
+        }
+        function effAll(d) {
+            const m = new Map();
+            for (const b of BUILTIN_ITEMS) m.set(b.id, effRec(d, b.id));
+            for (const id of Object.keys(d.items)) if (!BUILTIN_BY_ID.has(id)) { const e = effRec(d, id); if (e) m.set(id, e); }
+            return m;
+        }
+        function effSignature(d) {
+            return JSON.stringify([...effAll(d).values()].map(e => [e.id, e.name, e.price, e.cat, e.del, e.checked, e.qty, e.purchased]));
+        }
+
+        // v2 state -> v3 document (the upgrade, v2 backups and v1 data all come through here)
+        function docFromV2(s, t) {
+            const d = emptyDoc(), put = (id, f, v) => { (d.items[id] = d.items[id] || {})[f] = [v, t]; };
+            for (const [id, o] of Object.entries(s.overrides)) {
+                if (o.name !== undefined) put(id, 'name', o.name);
+                if (o.price !== undefined) put(id, 'price', o.price);
+            }
+            for (const c of s.custom) {
+                if (!CUSTOM_ID.test(c.id)) continue;
+                put(c.id, 'name', c.name); put(c.id, 'price', c.price); put(c.id, 'cat', c.cat);
+            }
+            for (const id of s.deleted) put(id, 'del', true);
+            for (const [id, v] of Object.entries(s.sel)) {
+                if (!d.items[id] && !BUILTIN_BY_ID.has(id)) continue;
+                if (v.checked) put(id, 'checked', true);
+                if (v.qty > 1) put(id, 'qty', v.qty);
+                if (v.purchased) put(id, 'purchased', true);
+            }
+            return normalizeDoc(d);
+        }
+
+        function loadDoc() {
+            const raw = storage.get(DOC_KEY);
             if (raw) {
-                try { return { state: normalizeState(JSON.parse(raw)), migrated: false }; }
-                catch (e) { storage.set(STORE_KEY + '.corrupt', raw); }
+                try { return { doc: normalizeDoc(JSON.parse(raw)), upgraded: '' }; }
+                catch (e) { storage.set(DOC_KEY + '.corrupt', raw); }
+            }
+            const v2 = storage.get(STORE_KEY);   // v2.0 data (left in place as a backup)
+            if (v2) {
+                try { const s = normalizeState(JSON.parse(v2)); return { doc: docFromV2(s, Date.now()), upgraded: 'v2', hide: s.settings.hidePurchased }; }
+                catch (e) { /* fall through */ }
             }
             const legacy = {}; let any = false;
             for (const k of LEGACY_KEYS) { const v = storage.get(k); if (v !== null) { legacy[k] = v; any = true; } }
             if (any) {
                 if (!storage.get(LEGACY_BACKUP_KEY)) {
-                    storage.set(LEGACY_BACKUP_KEY, JSON.stringify({ savedAt: new Date().toISOString(), note: 'Raw copy of Grocery List v1 data, kept by the v2.0 upgrade', keys: legacy }));
+                    storage.set(LEGACY_BACKUP_KEY, JSON.stringify({ savedAt: new Date().toISOString(), note: 'Raw copy of Grocery List v1 data, kept by the upgrade', keys: legacy }));
                 }
-                return { state: migrateLegacy(legacy), migrated: true };
+                return { doc: docFromV2(migrateLegacy(legacy), Date.now()), upgraded: 'v1' };
             }
-            return { state: freshState(), migrated: false };
+            return { doc: emptyDoc(), upgraded: '' };
         }
 
-        let state;
-        function save(msg) {
-            const ok = storage.set(STORE_KEY, JSON.stringify(state));
+        let doc = emptyDoc();
+        let localPrefs = { hidePurchased: false };
+        let changeSeq = 0;
+        function setReg(id, f, v) { (doc.items[id] = doc.items[id] || {})[f] = [v, tick()]; }
+        function persist() { return storage.set(DOC_KEY, JSON.stringify(doc)); }
+        function commit(msg) {
+            const ok = persist();
+            changeSeq++;
+            Sync.markDirty();
             toast(ok ? (msg || '✓ Saved') : '⚠ Could not save — browser storage is blocked or full');
         }
 
         // ---------- derived data ----------
-        function allItems() {
-            const del = new Set(state.deleted), list = [];
-            for (const b of BUILTIN_ITEMS) {
-                if (del.has(b.id)) continue;
-                const o = state.overrides[b.id] || {};
-                list.push({ id: b.id, cat: b.cat, name: o.name ?? b.name, price: o.price ?? b.price, custom: false, orig: b });
-            }
-            for (const c of state.custom) list.push({ ...c, custom: true });
-            return list;
+        function allItems() { return [...effAll(doc).values()].filter(e => e && !e.del); }
+        function itemById(id) { const e = effRec(doc, id); return e && !e.del ? e : null; }
+        function deletedBuiltins() { return BUILTIN_ITEMS.filter(b => effRec(doc, b.id).del); }
+        function selOf(id) {
+            const e = effRec(doc, id);
+            return e ? { checked: e.checked, qty: e.qty, purchased: e.purchased } : { checked: false, qty: 1, purchased: false };
         }
-        function itemById(id) { return allItems().find(i => i.id === id); }
-        function selOf(id) { return state.sel[id] || { checked: false, qty: 1, purchased: false }; }
         function setSel(id, patch) {
-            const cur = Object.assign({}, selOf(id), patch);
-            cur.qty = clampQty(cur.qty);
-            if (!cur.checked) cur.purchased = false;          // un-ticking clears the crossed-off state
-            if (!cur.checked && cur.qty === 1) delete state.sel[id]; else state.sel[id] = cur;
+            const cur = selOf(id), next = Object.assign({}, cur, patch);
+            next.qty = clampQty(next.qty);
+            if (!next.checked) next.purchased = false;          // un-ticking clears the crossed-off state
+            for (const f of ['checked', 'qty', 'purchased']) if (next[f] !== cur[f]) setReg(id, f, next[f]);
+            const rawP = (doc.items[id] || {}).purchased;       // clear a stale crossed-off mark so re-ticking starts fresh
+            if (next.checked !== cur.checked && rawP && rawP[0] === true && !next.purchased) setReg(id, 'purchased', false);
+        }
+        // Make the list look like `target` (Map id -> effective item) by writing new registers (used by Reset/Import)
+        function applyTarget(target) {
+            const cur = effAll(doc);
+            for (const id of new Set([...cur.keys(), ...target.keys()])) {
+                const c = cur.get(id), t = target.get(id), b = BUILTIN_BY_ID.get(id);
+                if (!t || t.del) {
+                    if (c && !c.del) { setSel(id, { checked: false, qty: 1, purchased: false }); setReg(id, 'del', true); }
+                    continue;
+                }
+                if (b) {
+                    if (!c || c.name !== t.name) setReg(id, 'name', t.name === b.name ? null : t.name);
+                    if (!c || c.price !== t.price) setReg(id, 'price', t.price === b.price ? null : t.price);
+                } else {
+                    if (!c || c.name !== t.name) setReg(id, 'name', t.name);
+                    if (!c || c.price !== t.price) setReg(id, 'price', t.price);
+                    if (!c || c.cat !== t.cat) setReg(id, 'cat', t.cat);
+                }
+                for (const f of ['checked', 'qty', 'purchased']) if (!c || c[f] !== t[f]) setReg(id, f, t[f]);
+                if (!c || c.del) setReg(id, 'del', false);
+            }
         }
         const byName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
         function groupByCat(items) {
@@ -634,11 +825,10 @@
             const t = { total: 0, left: 0, count: 0, done: 0, cat: {} };
             CATS.forEach(c => t.cat[c.id] = 0);
             for (const it of allItems()) {
-                const s = selOf(it.id);
-                if (!s.checked) continue;
-                const line = it.price * s.qty;
+                if (!it.checked) continue;
+                const line = it.price * it.qty;
                 t.total += line; t.cat[it.cat] += line; t.count++;
-                if (s.purchased) t.done++; else t.left += line;
+                if (it.purchased) t.done++; else t.left += line;
             }
             return t;
         }
@@ -712,7 +902,7 @@
             $('shopProgress').value = t.done;
             $('shopLeft').textContent = money(t.left);
             $('shopTotal').textContent = money(t.total);
-            const delCount = state.deleted.length;
+            const delCount = deletedBuiltins().length;
             $('restoreDeletedBtn').hidden = delCount === 0;
             $('restoreDeletedBtn').textContent = '↺ Restore Deleted Items (' + delCount + ')';
         }
@@ -720,7 +910,7 @@
         function renderShopping() {
             const t = totals();
             const items = allItems().filter(i => selOf(i.id).checked);
-            const hide = state.settings.hidePurchased;
+            const hide = localPrefs.hidePurchased;
             $('hidePurchased').checked = hide;
             const frag = document.createDocumentFragment();
             if (!items.length) {
@@ -786,7 +976,7 @@
             if (t.dataset.action !== 'check') return;
             const id = t.closest('li[data-id]').dataset.id;
             setSel(id, { checked: t.checked });
-            save(); refreshRow(id);
+            commit(); refreshRow(id);
         });
         mainView.addEventListener('click', (e) => {
             const btn = e.target.closest('button[data-action]');
@@ -797,7 +987,7 @@
             const id = li.dataset.id, s = selOf(id);
             if (action === 'inc' || action === 'dec') {
                 setSel(id, { qty: s.qty + (action === 'inc' ? 1 : -1) });
-                save(); refreshRow(id);
+                commit(); refreshRow(id);
             } else if (action === 'edit') {
                 openItemDialog('edit', id);
             } else if (action === 'delete') {
@@ -811,10 +1001,9 @@
             const row = findRow(mainView, id);
             const near = row && (row.nextElementSibling || row.previousElementSibling);
             const nearId = near && near.dataset.id;
-            if (it.custom) state.custom = state.custom.filter(c => c.id !== id);
-            else if (!state.deleted.includes(id)) state.deleted.push(id);
-            delete state.sel[id];
-            save('Deleted ' + it.name);
+            setSel(id, { checked: false, qty: 1, purchased: false });
+            setReg(id, 'del', true);
+            commit('Deleted ' + it.name);
             renderMain();
             const focusRow = nearId ? findRow(mainView, nearId) : null;
             if (focusRow) focusRow.querySelector('.delete-item-btn').focus({ preventScroll: true });
@@ -826,7 +1015,7 @@
             if (t.dataset.action !== 'purchase') return;
             const id = t.closest('li[data-id]').dataset.id;
             setSel(id, { purchased: t.checked });
-            save();
+            commit();
             const y = window.scrollY;
             renderShopping();
             window.scrollTo(0, y);
@@ -834,16 +1023,18 @@
             if (row) row.querySelector('.check').focus({ preventScroll: true });
         });
         $('hidePurchased').addEventListener('change', (e) => {
-            state.settings.hidePurchased = e.target.checked; save(); renderShopping();
+            localPrefs.hidePurchased = e.target.checked; storage.set(LOCAL_KEY, JSON.stringify(localPrefs)); renderShopping();
         });
         $('viewToggleBtn').addEventListener('click', () => setView(view === 'main' ? 'shop' : 'main'));
 
         // ---------- toolbar ----------
         $('addItemBtn').addEventListener('click', () => openItemDialog('add', null, CATS[0].id));
         $('clearAllBtn').addEventListener('click', () => {
-            if (!Object.keys(state.sel).length) return toast('Nothing selected');
+            const picked = allItems().filter(i => i.checked || i.qty > 1 || i.purchased);
+            if (!picked.length) return toast('Nothing selected');
             if (!confirm('Clear all selections? This unticks every item and resets quantities to 1.')) return;
-            state.sel = {}; save('Selections cleared'); render();
+            picked.forEach(i => setSel(i.id, { checked: false, qty: 1, purchased: false }));
+            commit('Selections cleared'); render();
         });
 
         // ---------- add / edit dialog ----------
@@ -863,7 +1054,7 @@
             const builtin = !!(it && !it.custom);
             $('fCat').disabled = builtin;
             $('fCatHint').hidden = !builtin;
-            $('fRestore').hidden = !(builtin && state.overrides[id]);
+            $('fRestore').hidden = !(builtin && (it.name !== it.orig.name || it.price !== it.orig.price));
             $('fError').textContent = '';
             itemDialog.showModal();
             $('fName').focus();
@@ -874,8 +1065,8 @@
         itemDialog.addEventListener('click', (e) => { if (e.target === itemDialog) closeItemDialog(); });
         $('fRestore').addEventListener('click', () => {
             if (!dialogCtx || !dialogCtx.id) return;
-            delete state.overrides[dialogCtx.id];
-            save('Restored original name and price'); closeItemDialog(); render();
+            setReg(dialogCtx.id, 'name', null); setReg(dialogCtx.id, 'price', null);
+            commit('Restored original name and price'); closeItemDialog(); render();
         });
         $('itemForm').addEventListener('submit', (e) => {
             e.preventDefault();
@@ -897,21 +1088,22 @@
 
             let focusId;
             if (!editing) {
-                const item = { id: newId(), cat, name, price };
-                state.custom.push(item); focusId = item.id;
-                save('Added ' + name);
+                const id = newId();
+                setReg(id, 'name', name); setReg(id, 'price', price); setReg(id, 'cat', cat);
+                focusId = id;
+                commit('Added ' + name);
             } else {
+                const id = editing.id;
                 if (editing.custom) {
-                    const c = state.custom.find(x => x.id === editing.id);
-                    c.name = name; c.price = price; c.cat = cat;
+                    if (name !== editing.name) setReg(id, 'name', name);
+                    if (price !== editing.price) setReg(id, 'price', price);
+                    if (cat !== editing.cat) setReg(id, 'cat', cat);
                 } else {
-                    const o = {};
-                    if (name !== editing.orig.name) o.name = name;
-                    if (price !== editing.orig.price) o.price = price;
-                    if (Object.keys(o).length) state.overrides[editing.id] = o; else delete state.overrides[editing.id];
+                    if (name !== editing.name) setReg(id, 'name', name === editing.orig.name ? null : name);
+                    if (price !== editing.price) setReg(id, 'price', price === editing.orig.price ? null : price);
                 }
-                focusId = editing.id;
-                save('Saved ' + name);
+                focusId = id;
+                commit('Saved ' + name);
             }
             closeItemDialog();
             render();
@@ -967,7 +1159,7 @@
         // ---------- backup / import / reset ----------
         function localDate() { const d = new Date(), z = (n) => String(n).padStart(2, '0'); return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()); }
         $('exportBtn').addEventListener('click', () => {
-            const data = { app: BACKUP_APP_ID, version: APP_VERSION, exportedAt: new Date().toISOString(), state };
+            const data = { app: BACKUP_APP_ID, format: 'grocery-backup', version: APP_VERSION, exportedAt: new Date().toISOString(), doc };
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
             const a = el('a', { href: URL.createObjectURL(blob), download: 'grocery-backup-' + localDate() + '.json' });
             document.body.append(a); a.click(); a.remove();
@@ -983,25 +1175,26 @@
             let data;
             try { data = JSON.parse(await file.text()); } catch (err) { return alert('That file is not a valid backup (could not read it as JSON).'); }
             let next = null;
-            if (data && data.app === BACKUP_APP_ID && data.state) next = normalizeState(data.state);
+            if (data && data.app === BACKUP_APP_ID && data.doc) next = normalizeDoc(data.doc);
+            else if (data && data.app === BACKUP_APP_ID && data.state) next = docFromV2(normalizeState(data.state), Date.now());
             else if (data && typeof data === 'object') {
                 const src = data.keys && typeof data.keys === 'object' ? data.keys : data;
-                if (LEGACY_KEYS.some(k => has(src, k))) next = migrateLegacy(src);
+                if (LEGACY_KEYS.some(k => has(src, k))) next = docFromV2(migrateLegacy(src), Date.now());
             }
             if (!next) return alert("That file doesn't look like a Grocery List backup.");
-            if (!confirm('Replace your current list with the backup "' + file.name + '"?')) return;
-            storage.set(PRE_RESET_KEY, JSON.stringify({ savedAt: new Date().toISOString(), reason: 'before import', state }));
-            state = next; save('Backup imported'); render();
+            if (!confirm('Replace your current list with the backup "' + file.name + '"?' + (Sync.signedIn() ? '\n\nYour other synced devices will get this list too.' : ''))) return;
+            storage.set(PRE_RESET_KEY, JSON.stringify({ savedAt: new Date().toISOString(), reason: 'before import', doc }));
+            applyTarget(effAll(next)); commit('Backup imported'); render();
         });
         $('restoreDeletedBtn').addEventListener('click', () => {
-            const n = state.deleted.length;
+            const gone = deletedBuiltins(), n = gone.length;
             if (!n || !confirm('Bring back ' + n + ' deleted built-in item' + (n > 1 ? 's' : '') + '?')) return;
-            state.deleted = []; save('Restored deleted items'); render();
+            gone.forEach(b => setReg(b.id, 'del', false)); commit('Restored deleted items'); render();
         });
         $('resetBtn').addEventListener('click', () => {
-            if (!confirm('Reset the whole app?\n\nThis removes your added items, edits, deletions and ticks, and puts the original list back.\n\nTip: press Cancel and Export a backup first if you might want them later.')) return;
-            storage.set(PRE_RESET_KEY, JSON.stringify({ savedAt: new Date().toISOString(), reason: 'before reset', state }));
-            state = freshState(); save('App reset to the original list'); render();
+            if (!confirm('Reset the whole app?\n\nThis removes your added items, edits, deletions and ticks, and puts the original list back.' + (Sync.signedIn() ? ' Your other synced devices will be reset too.' : '') + '\n\nTip: press Cancel and Export a backup first if you might want them later.')) return;
+            storage.set(PRE_RESET_KEY, JSON.stringify({ savedAt: new Date().toISOString(), reason: 'before reset', doc }));
+            applyTarget(effAll(emptyDoc())); commit('App reset to the original list'); render();
         });
 
         // ---------- calculator ----------
@@ -1202,19 +1395,384 @@
             grab.addEventListener('pointercancel', end);
         })();
 
+        // ================= Google Drive sync (optional) =================
+        const SYNC = {
+            // Same Google OAuth "Web application" client as the My Library phone app. A client ID is public by
+            // design; it only works on its authorized origin (https://arthur1134.github.io).
+            clientId: '172687019522-ubguh8de1h0uc4decopqt2c0k9lcmkhl.apps.googleusercontent.com',
+            appId: '172687019522',     // Google Cloud project number (first part of the client ID), used by Google Picker
+            // Browser API key for Google Picker - only needed to open a list someone else shared with you.
+            // Leave '' until the one-time setup is done; the "Open a list shared with me" button then explains it.
+            pickerApiKey: '',
+            scope: 'https://www.googleapis.com/auth/drive.file',
+            folderName: 'GroceryList',
+            fileName: 'grocery-list.json',
+            onlineUrl: 'https://arthur1134.github.io/grocery/',
+            metaKey: 'groceryApp.sync',
+            tokenKey: 'groceryApp.token'
+        };
+        const WEB = location.protocol === 'https:' || location.protocol === 'http:';
+        const LOCALHOST = ['localhost', '127.0.0.1'].includes(location.hostname);
+        const FAKE = LOCALHOST && new URLSearchParams(location.search).has('fakedrive') && typeof window.__fakeDrive === 'function';
+        const API = 'https://www.googleapis.com/drive/v3';
+        const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
+        const hhmm = (t) => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        const EMAIL_RE = /^[^\s@"<>]+@[^\s@"<>]+\.[a-z]{2,}$/i;
+
+        function loadScript(src) {
+            return new Promise((res, rej) => {
+                const s = document.createElement('script');
+                s.src = src; s.async = true;
+                s.onload = () => res();
+                s.onerror = () => { s.remove(); rej(new Error('Could not reach Google (offline?)')); };
+                document.head.append(s);
+            });
+        }
+        function onRemoteChange() { render(); toast('↻ List updated from another device'); }
+
+        const Sync = (() => {
+            let meta = {};
+            try { meta = JSON.parse(storage.get(SYNC.metaKey) || '{}') || {}; } catch (e) { meta = {}; }
+            let token = null;
+            try { token = JSON.parse(storage.get(SYNC.tokenKey) || 'null'); } catch (e) { token = null; }
+            let busy = false, again = false, timer = null, lastRun = 0, errMsg = '', gisPromise = null, gisReady = false, retryMs = 15000;
+            const saveMeta = () => storage.set(SYNC.metaKey, JSON.stringify(meta));
+            const tokenValid = () => FAKE ? !!meta.fakeSignedIn : !!(token && token.access_token && token.exp > Date.now() + 60e3);
+            function dropToken() { token = null; storage.set(SYNC.tokenKey, 'null'); if (FAKE) { meta.fakeSignedIn = false; saveMeta(); } }
+
+            // ----- Google sign-in (Google Identity Services token client, same as My Library) -----
+            function loadGis() {
+                if (window.google && google.accounts && google.accounts.oauth2) return Promise.resolve();
+                if (!gisPromise) gisPromise = loadScript('https://accounts.google.com/gsi/client').catch((e) => { gisPromise = null; throw e; });
+                return gisPromise;
+            }
+            async function getToken(interactive) {
+                if (tokenValid()) return FAKE ? 'fake' : token.access_token;
+                if (!interactive) return null;
+                if (FAKE) { meta.fakeSignedIn = true; saveMeta(); return 'fake'; }
+                await loadGis();
+                return new Promise((res, rej) => {
+                    const tc = google.accounts.oauth2.initTokenClient({
+                        client_id: SYNC.clientId, scope: SYNC.scope, login_hint: meta.email || undefined,
+                        callback: (r) => {
+                            if (r.error) return rej(new Error(r.error_description || r.error));
+                            if (!google.accounts.oauth2.hasGrantedAllScopes(r, SYNC.scope)) return rej(new Error('Google Drive access was not allowed'));
+                            token = { access_token: r.access_token, exp: Date.now() + (r.expires_in || 3600) * 1000 };
+                            storage.set(SYNC.tokenKey, JSON.stringify(token));
+                            res(token.access_token);
+                        },
+                        error_callback: (e) => rej(new Error(e && e.type === 'popup_closed' ? 'The Google sign-in window was closed' : (e && e.message) || 'Google sign-in failed'))
+                    });
+                    tc.requestAccessToken({ prompt: meta.consented ? '' : 'consent' });
+                });
+            }
+
+            // ----- Google Drive REST backend -----
+            async function req(url, init = {}, asJson = true) {
+                const r = await fetch(url, Object.assign({}, init, { headers: Object.assign({ Authorization: 'Bearer ' + token.access_token }, init.headers || {}) }));
+                if (r.status === 401) { dropToken(); throw Object.assign(new Error('Google sign-in expired'), { auth: true }); }
+                if (r.status === 404) throw Object.assign(new Error('Google Drive file not found'), { notFound: true });
+                if (r.status === 403) throw Object.assign(new Error('No permission for that Google Drive file'), { forbidden: true });
+                if (!r.ok) throw new Error('Google Drive error ' + r.status);
+                return asJson ? r.json() : r.text();
+            }
+            const list = (q, fields) => req(API + '/files?' + new URLSearchParams({ q, orderBy: 'modifiedTime desc', pageSize: '10', fields }));
+            const fileUrl = (id) => API + '/files/' + encodeURIComponent(id);
+            const GDrive = {
+                async email() { return ((await req(API + '/about?fields=user(emailAddress)')).user || {}).emailAddress || ''; },
+                async findFiles() { return (await list(`name = '${SYNC.fileName}' and trashed = false`, 'files(id,version)')).files || []; },
+                info: (id) => req(fileUrl(id) + '?fields=id,name,version,trashed,ownedByMe,owners(emailAddress)'),
+                read: (id) => req(fileUrl(id) + '?alt=media', {}, false),
+                write: (id, body) => req(UPLOAD + '/files/' + encodeURIComponent(id) + '?uploadType=media&fields=id,version',
+                    { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body }),
+                async create(body) {
+                    let folder = ((await list(`name = '${SYNC.folderName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`, 'files(id)')).files || [])[0];
+                    if (!folder) folder = await req(API + '/files?fields=id', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: SYNC.folderName, mimeType: 'application/vnd.google-apps.folder' }) });
+                    const b = 'grocery' + Math.random().toString(36).slice(2);
+                    const m = JSON.stringify({ name: SYNC.fileName, mimeType: 'application/json', parents: [folder.id] });
+                    const payload = '--' + b + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + m + '\r\n--' + b +
+                        '\r\nContent-Type: application/json\r\n\r\n' + body + '\r\n--' + b + '--';
+                    return req(UPLOAD + '/files?uploadType=multipart&fields=id,version', { method: 'POST', headers: { 'Content-Type': 'multipart/related; boundary=' + b }, body: payload });
+                },
+                // Gives one person "can edit" access to the list file. No e-mail is sent by Google; tell them yourself.
+                share: (id, email) => req(fileUrl(id) + '/permissions?sendNotificationEmail=false&fields=id',
+                    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role: 'writer', type: 'user', emailAddress: email }) }),
+                async people(id) { return (await req(fileUrl(id) + '/permissions?fields=permissions(emailAddress,role)')).permissions || []; }
+            };
+            // Local test double (only on localhost with ?fakedrive and a test harness attached)
+            const call = async (...a) => { const r = await window.__fakeDrive(...a); if (r && r.error) throw Object.assign(new Error(r.error), r.flags || {}); return r; };
+            const FakeDrive = { email: () => call('email'), findFiles: () => call('find'), info: (id) => call('info', id), read: (id) => call('read', id),
+                write: (id, body) => call('write', id, body), create: (body) => call('create', body), share: (id, e) => call('share', id, e), people: (id) => call('people', id) };
+            const backend = () => FAKE ? FakeDrive : GDrive;
+
+            function parseRemote(text) {
+                try { const data = JSON.parse(text); if (data && data.app === BACKUP_APP_ID && data.doc) return normalizeDoc(data.doc); } catch (e) { /* not ours / damaged */ }
+                return null;
+            }
+            function schedule(ms) { clearTimeout(timer); timer = setTimeout(() => run(false), ms); }
+
+            // Pull + merge + push. Safe to run any time; repeats harmlessly.
+            async function run(interactive) {
+                if (!WEB) return;
+                if (busy) { again = true; return; }
+                if (!navigator.onLine) { if (interactive) toast("You're offline — changes are saved here and will sync later"); paint(); return; }
+                if (!tokenValid() && !interactive) { paint(); return; }
+                busy = true; paint();
+                const seq0 = changeSeq;
+                try {
+                    await getToken(interactive);
+                    if (!tokenValid()) throw Object.assign(new Error('Sign-in needed'), { auth: true });
+                    const D = backend();
+                    if (!meta.email) meta.email = await D.email().catch((e) => { if (e.auth) throw e; return ''; });
+                    meta.everSignedIn = true; meta.consented = true; saveMeta();
+                    let done = false;
+                    for (let attempt = 0; attempt < 3 && !done; attempt++) {
+                        // 1) Which file? A shared list we opened wins; otherwise our own (newest first).
+                        const files = [];
+                        if (meta.pinnedFileId) {
+                            try {
+                                const inf = await D.info(meta.pinnedFileId);
+                                if (inf.trashed) throw Object.assign(new Error('trashed'), { notFound: true });
+                                files.push(inf);
+                            } catch (e) {
+                                if (e.auth || !(e.notFound || e.forbidden)) throw e;
+                                const who = meta.pinnedOwner;
+                                meta.pinnedFileId = ''; meta.pinnedOwner = ''; meta.fileInfoFor = ''; saveMeta();
+                                toast('The shared list' + (who ? ' from ' + who : '') + " can't be opened any more — using your own list");
+                            }
+                        }
+                        for (const f of await D.findFiles()) if (!files.some((x) => x.id === f.id)) files.push(f);
+                        // 2) Read and merge every copy we can see (this also heals accidental duplicates).
+                        let remote = emptyDoc(), primaryDoc = null;
+                        for (const f of files) {
+                            const rd = parseRemote(await D.read(f.id));
+                            if (rd) remote = mergeDocs(remote, rd);
+                            if (f === files[0]) primaryDoc = rd || emptyDoc();
+                        }
+                        const primary = files[0] || null;
+                        if (!meta.firstMergeDone) storage.set(PRESYNC_KEY, JSON.stringify({ savedAt: new Date().toISOString(), note: 'This device before its first Google Drive sync', doc }));
+                        const before = effSignature(doc);
+                        doc = mergeDocs(doc, remote); observeT(doc); persist();
+                        meta.firstMergeDone = true;
+                        if (effSignature(doc) !== before) onRemoteChange();
+                        // 3) Push if the file is missing anything. If someone saved meanwhile, go round again.
+                        if (!primary || canonical(doc) !== canonical(primaryDoc)) {
+                            const body = JSON.stringify({ app: BACKUP_APP_ID, format: 'grocery-sync', version: APP_VERSION,
+                                updated: new Date().toISOString(), by: meta.email || '', doc });
+                            if (!primary) { const c = await D.create(body); meta.fileId = c.id; }
+                            else {
+                                const now = await D.info(primary.id);
+                                if (String(now.version) !== String(primary.version)) continue;
+                                await D.write(primary.id, body); meta.fileId = primary.id;
+                            }
+                        } else meta.fileId = primary.id;
+                        if (meta.fileInfoFor !== meta.fileId) {
+                            const inf = await D.info(meta.fileId);
+                            meta.ownedByMe = !!inf.ownedByMe;
+                            meta.fileOwner = ((inf.owners || [])[0] || {}).emailAddress || '';
+                            if (meta.pinnedFileId === meta.fileId) meta.pinnedOwner = meta.fileOwner;
+                            meta.fileInfoFor = meta.fileId;
+                        }
+                        done = true;
+                    }
+                    if (!done) throw new Error('the list kept changing — trying again shortly');
+                    meta.lastSync = Date.now(); errMsg = ''; retryMs = 15000;
+                    if (changeSeq === seq0) meta.dirty = false;
+                } catch (e) {
+                    if (e.auth) { dropToken(); errMsg = ''; if (interactive) toast(e.message); }
+                    else {
+                        errMsg = e.message || 'sync failed';
+                        schedule(retryMs); retryMs = Math.min(retryMs * 2, 300000);
+                        if (interactive) toast('Sync problem: ' + errMsg);
+                    }
+                } finally {
+                    busy = false; lastRun = Date.now(); saveMeta(); paint();
+                    if (again || (meta.dirty && changeSeq !== seq0 && tokenValid())) { again = false; schedule(1500); }
+                }
+            }
+
+            function markDirty() {
+                meta.dirty = true; saveMeta(); paint();
+                if (WEB && tokenValid()) schedule(3000);
+            }
+
+            function state() {
+                if (!WEB) return { k: 'local', text: 'Sync: available in the online version' };
+                if (busy) return { k: 'busy', text: 'Sync: syncing…' };
+                if (!meta.everSignedIn) return { k: 'off', text: 'Sync: off — this device only' };
+                const last = meta.lastSync ? ' · last synced ' + hhmm(meta.lastSync) : '';
+                if (!navigator.onLine) return { k: 'offline', text: 'Sync: offline' + (meta.dirty ? ' · changes saved here, will sync later' : last) };
+                if (!tokenValid()) return { k: 'need', text: 'Sync: sign-in needed' + (meta.dirty ? ' · changes waiting' : last) };
+                if (errMsg) return { k: 'error', text: 'Sync: problem — ' + errMsg };
+                return { k: 'ok', text: 'Sync: signed in' + last + (meta.dirty ? ' · saving…' : '') };
+            }
+            function paint() {
+                const s = state();
+                $('syncBar').dataset.state = s.k;
+                $('syncText').textContent = s.text;
+                $('syncSignIn').hidden = !(s.k === 'off' || s.k === 'need');
+                $('syncSignInTxt').textContent = s.k === 'need' ? 'Sign in again' : 'Sign in with Google';
+                $('syncNow').hidden = !(s.k === 'ok' || s.k === 'error' || s.k === 'busy' || s.k === 'offline');
+                $('syncNow').disabled = s.k === 'busy' || s.k === 'offline';
+                $('syncOpenOnline').hidden = WEB;
+                $('bbSync').textContent = { local: '', off: '', busy: '☁ syncing', offline: '☁ offline', need: '☁ sign-in needed', error: '☁ retrying',
+                    ok: '☁ synced ' + (meta.lastSync ? hhmm(meta.lastSync) : '') }[s.k];
+                // Backup & sync panel
+                let info;
+                if (!WEB) info = 'Google sign-in only works in the online version (' + SYNC.onlineUrl + '). Use “Open online version” at the top to take this list there.';
+                else if (!meta.everSignedIn) info = 'Sign in with Google (at the top) to keep this list the same on your phone and PC. It is saved as GroceryList/grocery-list.json in your Google Drive.';
+                else {
+                    info = 'Signed in' + (meta.email ? ' as ' + meta.email : '') + '. ';
+                    if (meta.pinnedFileId) info += 'Using the list shared by ' + (meta.pinnedOwner || 'someone else') + '.';
+                    else if (meta.fileId && meta.ownedByMe === false) info += 'Using a list shared by ' + (meta.fileOwner || 'someone else') + '.';
+                    else info += 'Your list file: GroceryList/grocery-list.json in your Google Drive.';
+                }
+                $('syncInfo').textContent = info;
+                $('signOutBtn').hidden = !meta.everSignedIn;
+                $('shareBtn').hidden = !(WEB && meta.everSignedIn && meta.fileId && meta.ownedByMe);
+                $('openSharedBtn').hidden = !WEB;
+                $('openSharedBtn').textContent = meta.pinnedFileId ? '✕ Stop using the shared list' : '📂 Open a list shared with me';
+            }
+
+            // ----- sharing (owner) -----
+            const shareDialog = $('shareDialog');
+            async function openShare() {
+                $('shareEmail').value = ''; $('shareError').textContent = ''; $('sharePeople').replaceChildren();
+                shareDialog.showModal(); $('shareEmail').focus();
+                try {
+                    await getToken(true);
+                    const people = await backend().people(meta.fileId);
+                    $('sharePeople').replaceChildren(...people.filter((p) => p.emailAddress).map((p) =>
+                        el('li', { text: p.emailAddress + (p.role === 'owner' ? ' (owner)' : p.role === 'writer' ? ' (can edit)' : ' (' + p.role + ')') })));
+                } catch (e) { $('shareError').textContent = 'Could not load who has access: ' + e.message; }
+            }
+            async function doShare(e) {
+                e.preventDefault();
+                const email = $('shareEmail').value.trim();
+                if (!EMAIL_RE.test(email)) { $('shareError').textContent = 'Please enter a full e-mail address (the Google account to share with).'; return; }
+                $('shareGo').disabled = true; $('shareError').textContent = '';
+                try {
+                    await getToken(true);
+                    await backend().share(meta.fileId, email);
+                    shareDialog.close();
+                    alert('Shared with ' + email + ' (can edit).\n\nGoogle does not e-mail them. Tell them to:\n1) open ' + SYNC.onlineUrl + '\n2) tap “Sign in with Google” with ' + email + '\n3) tap “Open a list shared with me” (Backup & Sync section) and pick grocery-list.json.');
+                } catch (err) {
+                    $('shareError').textContent = 'Could not share: ' + err.message + (err.forbidden ? ' (only the owner of the list can share it)' : '');
+                } finally { $('shareGo').disabled = false; }
+            }
+
+            // ----- opening a list someone shared with us (Google Picker) -----
+            async function openShared() {
+                if (meta.pinnedFileId) {
+                    if (!confirm('Stop using the shared list? This device goes back to your own list file (everything on this device is kept).')) return;
+                    meta.pinnedFileId = ''; meta.pinnedOwner = ''; meta.fileInfoFor = ''; saveMeta(); paint(); run(true); return;
+                }
+                if (!navigator.onLine) return toast("You're offline");
+                try {
+                    const at = await getToken(true);
+                    let picked = null;
+                    if (FAKE) picked = await call('pick');
+                    else {
+                        if (!SYNC.pickerApiKey) {
+                            alert('Opening a shared list needs a one-time Google setup (a Google Picker API key for this app).\n\nUntil that is done, the person who owns the list can keep using it, and you can use Export/Import Backup to copy lists by hand.');
+                            return;
+                        }
+                        await loadScript('https://apis.google.com/js/api.js');
+                        await new Promise((res) => gapi.load('picker', res));
+                        picked = await new Promise((res) => {
+                            const view = new google.picker.DocsView(google.picker.ViewId.DOCS).setMimeTypes('application/json')
+                                .setOwnedByMe(false).setMode(google.picker.DocsViewMode.LIST);
+                            new google.picker.PickerBuilder().setAppId(SYNC.appId).setOAuthToken(at).setDeveloperKey(SYNC.pickerApiKey)
+                                .addView(view).setTitle('Pick the shared grocery-list.json')
+                                .setCallback((data) => {
+                                    if (data.action === google.picker.Action.PICKED) { const d = (data.docs || [])[0]; res(d ? { id: d.id, name: d.name } : null); }
+                                    else if (data.action === google.picker.Action.CANCEL) res(null);
+                                }).build().setVisible(true);
+                        });
+                    }
+                    if (!picked) return;
+                    if (picked.name && picked.name !== SYNC.fileName && !confirm('That file is called "' + picked.name + '". Use it as the grocery list anyway?')) return;
+                    meta.pinnedFileId = picked.id; meta.fileInfoFor = ''; saveMeta();
+                    toast('Opening the shared list…');
+                    await run(true);
+                } catch (e) { toast('Could not open the shared list: ' + e.message); }
+            }
+
+            function signOut() {
+                if (!confirm('Sign out of Google on this device?\n\nYour list stays on this device; it just stops syncing until you sign in again.')) return;
+                try { if (token && window.google && google.accounts && google.accounts.oauth2) google.accounts.oauth2.revoke(token.access_token, () => {}); } catch (e) { /* ignore */ }
+                dropToken(); meta = {}; errMsg = ''; saveMeta(); paint(); toast('Signed out — this device only');
+            }
+
+            function start() {
+                $('syncSignIn').addEventListener('click', () => run(true));
+                $('syncNow').addEventListener('click', () => run(true));
+                $('signOutBtn').addEventListener('click', signOut);
+                $('shareBtn').addEventListener('click', openShare);
+                $('shareForm').addEventListener('submit', doShare);
+                $('shareCancel').addEventListener('click', () => shareDialog.close());
+                $('openSharedBtn').addEventListener('click', openShared);
+                $('syncOpenOnline').addEventListener('click', () => {
+                    const has = Object.keys(doc.items).length > 0;
+                    $('syncOpenOnline').href = SYNC.onlineUrl + (has ? '#merge=' + encodeURIComponent(JSON.stringify({ app: BACKUP_APP_ID, doc })) : '');
+                });
+                paint();
+                if (!WEB) return;
+                if (navigator.onLine && !FAKE) loadGis().then(() => { gisReady = true; }).catch(() => { /* offline: sign-in button retries */ });
+                if (navigator.onLine && tokenValid()) run(false);
+                document.addEventListener('visibilitychange', () => {
+                    if (document.hidden) { if (meta.dirty) run(false); }
+                    else if (Date.now() - lastRun > 10000) run(false);
+                });
+                window.addEventListener('focus', () => { if (Date.now() - lastRun > 10000) run(false); });
+                window.addEventListener('online', () => { paint(); run(false); });
+                window.addEventListener('offline', paint);
+                setInterval(() => { if (!document.hidden && navigator.onLine && tokenValid()) run(false); else paint(); }, 90000);
+                window.addEventListener('storage', (e) => {   // another tab of the app changed the list
+                    if (e.key !== DOC_KEY || !e.newValue) return;
+                    try { const before = effSignature(doc); doc = mergeDocs(doc, normalizeDoc(JSON.parse(e.newValue))); observeT(doc); if (effSignature(doc) !== before) render(); } catch (err) { /* ignore */ }
+                });
+            }
+            return {
+                start, run, markDirty, paint,
+                signedIn: () => !!meta.everSignedIn,
+                info: () => ({ state: state().k, text: state().text, gisReady, fake: FAKE, meta: JSON.parse(JSON.stringify(meta)) })
+            };
+        })();
+
         // ---------- start ----------
-        const loaded = loadState();
-        state = loaded.state;
-        if (loaded.migrated) {
-            storage.set(STORE_KEY, JSON.stringify(state));
-            setTimeout(() => toast('Your saved list was upgraded to v2.0 (old data kept as a backup)'), 300);
+        const loaded = loadDoc();
+        doc = loaded.doc; observeT(doc);
+        try {
+            const lp = JSON.parse(storage.get(LOCAL_KEY) || 'null');
+            if (lp && typeof lp === 'object') localPrefs.hidePurchased = lp.hidePurchased === true;
+            else if (loaded.hide) localPrefs.hidePurchased = true;
+        } catch (e) { /* defaults */ }
+        if (loaded.upgraded) {
+            persist();
+            setTimeout(() => toast(loaded.upgraded === 'v1' ? 'Your saved list was upgraded (old data kept as a backup)' : 'Updated to v' + APP_VERSION + ' — your list is safe'), 300);
         }
         $('versionLabel').textContent = 'v' + APP_VERSION;
         renderMain();
         if (!storage.ok) toast('⚠ This browser is blocking storage — changes will not be saved');
 
+        // A list carried over from the double-clicked PC copy (file://) via "Open online version"
+        if (WEB && location.hash.startsWith('#merge=')) {
+            const raw = location.hash.slice(7);
+            history.replaceState(null, '', location.pathname + location.search);
+            let incoming = null;
+            try { const data = JSON.parse(decodeURIComponent(raw)); if (data && data.app === BACKUP_APP_ID && data.doc) incoming = normalizeDoc(data.doc); } catch (e) { /* ignore */ }
+            if (incoming && Object.keys(incoming.items).length &&
+                confirm('Bring in the list from your PC copy (' + Object.keys(incoming.items).length + ' changed items)?\n\nIt is combined with this list — nothing is lost.')) {
+                storage.set(PRESYNC_KEY + '.beforePcMerge', JSON.stringify({ savedAt: new Date().toISOString(), doc }));
+                doc = mergeDocs(doc, incoming); observeT(doc); commit('Added the list from your PC copy'); renderMain();
+            }
+        }
+        Sync.start();
+
         // PWA bits only work over http(s); a double-clicked file:// copy skips them quietly.
-        if (location.protocol === 'http:' || location.protocol === 'https:') {
+        if (WEB) {
             document.head.append(el('link', { rel: 'manifest', href: 'manifest.json' }));
             if ('serviceWorker' in navigator) {
                 window.addEventListener('load', () => {
@@ -1223,8 +1781,13 @@
             }
         }
 
-        // Read-only hook for testing / troubleshooting from the console
-        window.groceryApp = Object.freeze({ version: APP_VERSION, getState: () => JSON.parse(JSON.stringify(state)), evaluate });
+        // Read-only hooks for testing / troubleshooting from the console
+        window.groceryApp = Object.freeze({
+            version: APP_VERSION, evaluate, mergeDocs, normalizeDoc, effSignature, canonical,
+            getDoc: () => JSON.parse(JSON.stringify(doc)),
+            visible: () => allItems().map(i => ({ id: i.id, name: i.name, price: i.price, cat: i.cat, checked: i.checked, qty: i.qty, purchased: i.purchased })),
+            sync: () => Sync.info()
+        });
     })();
     </script>
 </body>

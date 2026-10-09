@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#8FA78E">
+    <meta name="description" content="Cottage-style grocery list with totals, shopping mode and a calculator. By Retro Gaming Dad.">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Grocery List">
+    <title>Grocery List v2.0 · Retro Gaming Dad</title>
+    <link rel="icon" href="icons/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+    <!-- manifest.json is linked from the script only when served over http(s); browsers block it on file:// -->
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        [hidden] { display: none !important; }
+        :root {
+            --ink: #5D4E37; --ink-soft: #6B5D4F; --ink-muted: #75664F;
+            --tan: #B8956A; --tan-dark: #8B7355; --cream: #FFFBF5; --paper: #FFFEF9;
+            --sage: #8FA78E; --sage-mid: #7A9B76; --sage-dark: #6B8B68; --danger: #A8432F;
+            --bar-h: 76px;
+        }
+        html { scrollbar-gutter: stable; }
+        html:has(dialog[open]) { overflow: hidden; }
+        body {
+            background: linear-gradient(to bottom, #F5F0E8 0%, #E8DCC4 50%, #D4C4A8 100%);
+            background-attachment: fixed;
+            font-family: 'Georgia', 'Garamond', serif;
+            color: var(--ink);
+            min-height: 100vh;
+            padding: 20px 20px calc(var(--bar-h) + 40px + env(safe-area-inset-bottom));
+        }
+        button, input, select { font-family: inherit; font-size: inherit; color: inherit; }
+        button, label, input { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        :focus-visible { outline: 3px solid #4F7A4C; outline-offset: 2px; }
+        .grocery-container {
+            background: var(--cream); border: 3px solid var(--tan); border-radius: 15px;
+            padding: 40px; max-width: 800px; margin: 0 auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2); position: relative;
+        }
+        .corner-decoration { position: absolute; width: 40px; height: 40px; border: 2px solid var(--tan-dark); pointer-events: none; }
+        .corner-decoration.top-left { top: 10px; left: 10px; border-right: none; border-bottom: none; }
+        .corner-decoration.top-right { top: 10px; right: 10px; border-left: none; border-bottom: none; }
+        .corner-decoration.bottom-left { bottom: 10px; left: 10px; border-right: none; border-top: none; }
+        .corner-decoration.bottom-right { bottom: 10px; right: 10px; border-left: none; border-top: none; }
+        .leaf { position: absolute; font-size: 24px; opacity: 0.3; pointer-events: none; }
+        .leaf1 { top: 60px; left: 20px; transform: rotate(-15deg); }
+        .leaf2 { top: 80px; right: 25px; transform: rotate(25deg); }
+        .leaf3 { bottom: 100px; left: 25px; transform: rotate(45deg); }
+        .leaf4 { bottom: 120px; right: 20px; transform: rotate(-35deg); }
+        h1 { text-align: center; color: var(--ink); font-size: 2.5em; margin-bottom: 10px; font-weight: normal; letter-spacing: 2px; }
+        .subtitle { text-align: center; color: var(--tan-dark); font-size: 1.1em; font-style: italic; margin-bottom: 12px; }
+        .divider { width: 100%; height: 2px; background: linear-gradient(to right, transparent, var(--tan) 20%, var(--tan) 80%, transparent); margin: 20px 0; }
+
+        .btn {
+            min-height: 44px; padding: 10px 18px; border-radius: 8px;
+            border: 2px solid #9B7A52; background: linear-gradient(to bottom, #C49B6B 0%, var(--tan) 100%);
+            color: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform .15s ease, box-shadow .15s ease;
+            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+            text-shadow: 0 1px 1px rgba(0,0,0,0.25);
+        }
+        .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
+        .btn:active { transform: translateY(0); }
+        .btn-green { background: linear-gradient(to bottom, var(--sage) 0%, var(--sage-mid) 100%); border-color: var(--sage-dark); font-weight: bold; }
+        .btn-light { background: var(--cream); color: var(--ink); border-color: var(--tan); text-shadow: none; }
+        .btn-danger { background: linear-gradient(to bottom, #C0583F, var(--danger)); border-color: #7E2F20; }
+        .toolbar { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin: 10px 0 4px; }
+
+        .search-container { position: relative; margin: 16px auto 8px; max-width: 480px; }
+        .search-input {
+            width: 100%; min-height: 44px; padding: 10px 16px 10px 40px; color: var(--ink);
+            background: var(--cream); border: 2px solid var(--tan); border-radius: 22px; outline: none;
+        }
+        .search-input:focus { border-color: var(--tan-dark); box-shadow: 0 0 0 3px rgba(143,167,142,.35); }
+        .search-input::placeholder { color: #9C7F58; font-style: italic; }
+        .search-icon { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+        .search-results {
+            position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: var(--cream);
+            border: 2px solid var(--tan); border-radius: 12px; max-height: 300px; overflow-y: auto;
+            z-index: 100; list-style: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .search-result-item {
+            width: 100%; min-height: 44px; padding: 10px 16px; text-align: left; background: none; border: none;
+            border-bottom: 1px solid #E8DCC4; color: var(--ink);
+            display: flex; align-items: center; justify-content: space-between; gap: 8px;
+        }
+        .search-results li:last-child .search-result-item { border-bottom: none; }
+        .search-result-item:hover, .search-result-item:focus-visible { background: #F5EDD8; }
+        .search-empty { padding: 12px 16px; color: #8B6B42; font-style: italic; }
+        .search-result-type { font-size: 0.75em; color: #8B6B42; background: #F0E8D8; padding: 2px 8px; border-radius: 8px; white-space: nowrap; }
+
+        .category { margin-bottom: 25px; border: 2px solid #D4C4A8; border-radius: 10px; padding: 20px; background: var(--paper); }
+        .category-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 2px solid var(--tan); }
+        .category-title { font-size: 1.4em; color: var(--ink); font-weight: normal; display: flex; align-items: center; gap: 10px; }
+        .category-title::before { content: '🌿'; font-size: 0.9em; }
+        .category-total { font-size: 1.2em; color: var(--ink-soft); font-weight: bold; white-space: nowrap; }
+        .item-list { list-style: none; margin: 4px 0 10px; }
+        .empty-note { color: var(--ink-muted); font-style: italic; padding: 10px 4px; }
+        .item {
+            display: grid;
+            grid-template-columns: 44px minmax(0, 1fr) auto auto 44px;
+            grid-template-areas: "chk name qty price del";
+            align-items: center; column-gap: 8px; padding: 4px 2px;
+            border-bottom: 1px dashed #E8DCC4; color: var(--ink-muted); font-size: 1.05em;
+            border-left: 4px solid transparent; border-radius: 4px; transition: background .2s;
+        }
+        .item:last-child { border-bottom: none; }
+        .item.checked { color: var(--ink); background: #F3F7F0; border-left-color: var(--sage); }
+        .item.checked .item-name { font-weight: bold; }
+        .check {
+            grid-area: chk; appearance: none; -webkit-appearance: none;
+            width: 44px; height: 44px; margin: 0; border: none; border-radius: 8px; cursor: pointer;
+            background: center / 26px 26px no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'%3E%3Crect x='2' y='2' width='22' height='22' rx='4' fill='%23FFFBF5' stroke='%238B7355' stroke-width='2.5'/%3E%3C/svg%3E");
+        }
+        .check:checked {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'%3E%3Crect x='2' y='2' width='22' height='22' rx='4' fill='%237A9B76' stroke='%236B8B68' stroke-width='2.5'/%3E%3Cpath d='M7 13.5l4 4 8-9' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        }
+        .item-name { grid-area: name; cursor: pointer; padding: 10px 0; overflow-wrap: anywhere; min-height: 44px; display: flex; align-items: center; }
+        .qty { grid-area: qty; display: flex; align-items: center; gap: 4px; }
+        .qty-btn {
+            width: 44px; height: 44px; border-radius: 8px; background: var(--sage); color: #fff;
+            border: 1px solid var(--sage-dark); font-size: 1.3em; font-weight: bold; line-height: 1;
+            display: flex; align-items: center; justify-content: center; user-select: none;
+        }
+        .qty-btn:hover { background: var(--sage-mid); }
+        .qty-btn:active { background: var(--sage-dark); }
+        .qty-btn:disabled { opacity: .45; cursor: default; }
+        .qty-display { min-width: 26px; text-align: center; font-weight: bold; color: var(--ink); }
+        .item-price {
+            grid-area: price; min-height: 44px; min-width: 76px; padding: 4px 8px;
+            background: none; border: 1px dashed transparent; border-radius: 6px;
+            font-weight: bold; color: var(--ink-soft); text-align: right;
+            display: flex; flex-direction: column; align-items: flex-end; justify-content: center;
+        }
+        .item-price:hover { background: #F0E8D8; border-color: var(--tan); }
+        .item-price .unit { font-size: .72em; font-weight: normal; color: var(--ink-muted); white-space: nowrap; }
+        .delete-item-btn { grid-area: del; width: 44px; height: 44px; border-radius: 8px; border: none; background: none; color: #A47652; font-size: 1.15em; }
+        .delete-item-btn:hover { color: #fff; background: var(--danger); }
+        .add-item-btn { margin-top: 6px; }
+        .search-highlight { animation: highlightFade 2s ease-out; }
+        @keyframes highlightFade { 0% { background: #D4E8C4; } 100% { background: transparent; } }
+        .shop-progress { background: var(--paper); border: 2px solid #D4C4A8; border-radius: 10px; padding: 14px 18px; margin-bottom: 20px; }
+        .shop-progress-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 16px; }
+        .shop-progress-count { font-size: 1.2em; font-weight: bold; }
+        .shop-progress progress { -webkit-appearance: none; appearance: none; display: block; width: 100%; height: 14px; margin-top: 10px; border: 1px solid #CDB58F; border-radius: 7px; background: #EFE6D6; overflow: hidden; }
+        .shop-progress progress::-webkit-progress-bar { background: #EFE6D6; border-radius: 7px; }
+        .shop-progress progress::-webkit-progress-value { background: linear-gradient(to right, var(--sage), var(--sage-mid)); border-radius: 7px; }
+        .shop-progress progress::-moz-progress-bar { background: var(--sage-mid); border-radius: 7px; }
+        .switch { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; }
+        .switch input { width: 22px; height: 22px; accent-color: var(--sage-mid); }
+        .shop-item { grid-template-columns: 44px minmax(0,1fr) auto auto; grid-template-areas: "chk name qty price"; color: var(--ink); }
+        .shop-item .shop-qty { grid-area: qty; color: var(--ink-soft); font-weight: bold; }
+        .shop-item .shop-price { grid-area: price; font-weight: bold; color: var(--ink-soft); min-width: 64px; text-align: right; padding-right: 6px; }
+        .shop-item.purchased .item-name, .shop-item.purchased .shop-price, .shop-item.purchased .shop-qty { text-decoration: line-through; color: #8A7A64; }
+        .shop-item.purchased { background: #F6F2EA; }
+        .shop-empty { text-align: center; color: var(--tan-dark); font-style: italic; padding: 30px 10px; }
+
+        .tools { text-align: center; }
+        .tools h2 { font-size: 1.2em; font-weight: normal; margin-bottom: 6px; }
+        .tools-note { font-size: .92em; color: var(--ink-muted); font-style: italic; margin-bottom: 12px; }
+        .tools-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+        .footer-note { text-align: center; margin-top: 22px; color: var(--tan-dark); font-style: italic; font-size: 0.95em; }
+        .credit { text-align: center; margin-top: 6px; font-size: .85em; color: var(--ink-muted); letter-spacing: .5px; }
+
+        .bottom-bar {
+            position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+            padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+            background: linear-gradient(to bottom, var(--sage) 0%, var(--sage-mid) 100%);
+            border-top: 2px solid var(--sage-dark); box-shadow: 0 -4px 14px rgba(0,0,0,0.18);
+        }
+        .bottom-inner { max-width: 800px; margin: 0 auto; display: flex; align-items: center; gap: 10px; min-height: 56px; }
+        .bb-total { flex: 1; color: #fff; min-width: 0; text-shadow: 0 1px 2px rgba(0,0,0,0.35); }
+        .bb-label { font-size: .85em; letter-spacing: .5px; }
+        .bb-amount { font-size: 1.7em; font-weight: bold; line-height: 1.1; }
+        .bb-sub { font-size: .8em; }
+        .bb-btn {
+            min-height: 52px; min-width: 52px; padding: 6px 14px; border-radius: 10px;
+            background: var(--cream); color: var(--ink); border: 2px solid var(--sage-dark);
+            font-weight: bold; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.12);
+        }
+        .bb-btn[aria-pressed="true"] { background: #F3E6CF; border-color: var(--tan-dark); }
+        .bb-btn .ico { font-size: 1.35em; }
+        .save-indicator {
+            position: fixed; left: 50%; bottom: calc(var(--bar-h) + 18px + env(safe-area-inset-bottom));
+            transform: translate(-50%, 20px); background: var(--sage-dark); color: #fff; padding: 10px 18px;
+            border-radius: 8px; font-size: 0.92em; opacity: 0; transition: all .25s ease; pointer-events: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 60; max-width: 90vw; text-align: center;
+        }
+        .save-indicator.show { opacity: 1; transform: translate(-50%, 0); }
+
+        dialog { border: none; padding: 0; background: transparent; color: var(--ink); max-width: none; max-height: none; }
+        dialog::backdrop { background: rgba(60, 45, 25, .45); }
+        .form-dialog { margin: auto; width: min(440px, calc(100vw - 24px)); }
+        .form-card { background: var(--cream); border: 3px solid var(--tan); border-radius: 14px; padding: 22px; box-shadow: 0 10px 30px rgba(0,0,0,.3); }
+        .form-card h2 { font-weight: normal; font-size: 1.5em; margin-bottom: 14px; text-align: center; }
+        .field { margin-bottom: 14px; }
+        .field label { display: block; font-size: .95em; margin-bottom: 4px; color: var(--ink-soft); }
+        .field input, .field select { width: 100%; min-height: 46px; padding: 8px 12px; font-size: 1.05em; border: 2px solid var(--tan); border-radius: 8px; background: #fff; color: var(--ink); }
+        .field input:focus, .field select:focus { outline: none; border-color: var(--sage-dark); box-shadow: 0 0 0 3px rgba(143,167,142,.35); }
+        .field select:disabled { background: #F3EEE6; }
+        .field-hint { font-size: .8em; color: var(--ink-muted); margin-top: 3px; }
+        .form-error { color: var(--danger); font-weight: bold; min-height: 1.3em; margin-bottom: 8px; }
+        .dialog-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
+
+        .sheet-dialog { margin: auto auto 0; width: 100%; max-width: 440px; }
+        .sheet {
+            background: var(--cream); border: 3px solid var(--tan); border-bottom: none;
+            border-radius: 18px 18px 0 0; box-shadow: 0 -10px 30px rgba(0,0,0,.3);
+            padding: 0 14px calc(14px + env(safe-area-inset-bottom));
+            transition: transform .2s ease; animation: sheetUp .22s ease-out; outline: none;
+        }
+        @keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        .sheet-grab { touch-action: none; cursor: grab; padding-top: 8px; }
+        .grabber { display: block; width: 48px; height: 6px; border-radius: 3px; background: #CDB58F; margin: 0 auto 6px; }
+        .sheet-head { display: flex; justify-content: space-between; align-items: center; }
+        .sheet-head h2 { font-weight: normal; font-size: 1.25em; }
+        .sheet-close { min-height: 44px; padding: 6px 14px; border-radius: 8px; border: 2px solid var(--tan); background: #fff; font-weight: bold; color: var(--ink); }
+        .calc-display { background: #fff; border: 2px solid #D4C4A8; border-radius: 10px; padding: 8px 12px; margin: 8px 0; text-align: right; min-height: 84px; }
+        .calc-expr { color: var(--ink-muted); font-size: 1.05em; min-height: 1.4em; overflow-wrap: anywhere; }
+        .calc-result { font-size: 2.1em; font-weight: bold; color: var(--ink); overflow-wrap: anywhere; line-height: 1.2; }
+        .calc-result.error { color: var(--danger); font-size: 1.3em; }
+        .calc-extras { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+        .calc-use { min-height: 44px; padding: 6px 12px; border-radius: 8px; border: 2px solid var(--sage-dark); background: #EEF4EC; color: var(--ink); font-weight: bold; }
+        .calc-history { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
+        .calc-chip { min-height: 44px; padding: 4px 12px; border-radius: 22px; border: 1px solid var(--tan); background: #FBF6EC; color: var(--ink-soft); font-size: .9em; }
+        .calc-keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        .ck {
+            min-height: 58px; border-radius: 10px; border: 2px solid #D4C4A8; background: #fff;
+            font-size: 1.45em; font-weight: bold; color: var(--ink); box-shadow: 0 2px 0 #D4C4A8;
+            touch-action: manipulation; user-select: none;
+        }
+        .ck:active, .ck.pressed { transform: translateY(2px); box-shadow: none; }
+        .ck.op { background: #F0E8D8; border-color: var(--tan); box-shadow: 0 2px 0 var(--tan); }
+        .ck.fn { background: #F6EEE3; color: var(--danger); }
+        .ck.eq { background: linear-gradient(to bottom, var(--sage), var(--sage-mid)); color: #fff; border-color: var(--sage-dark); box-shadow: 0 2px 0 var(--sage-dark); }
+        .ck.zero { grid-column: span 2; }
+
+        @media (max-width: 600px) {
+            :root { --bar-h: 72px; }
+            body { padding: 8px 8px calc(var(--bar-h) + 24px + env(safe-area-inset-bottom)); }
+            .grocery-container { padding: 26px 12px 20px; border-radius: 12px; }
+            .corner-decoration { width: 26px; height: 26px; }
+            .leaf { font-size: 18px; }
+            .leaf1 { top: 26px; left: 10px; } .leaf2 { top: 34px; right: 10px; }
+            h1 { font-size: 2em; }
+            .category { padding: 12px 8px; }
+            .category-title { font-size: 1.2em; }
+            .item { grid-template-columns: 44px minmax(0, 1fr) auto; grid-template-areas: "chk name price" ". qty del"; row-gap: 2px; padding: 4px 0 6px; }
+            .delete-item-btn { justify-self: end; }
+            .shop-item { grid-template-columns: 44px minmax(0,1fr) auto auto; grid-template-areas: "chk name qty price"; }
+            .bb-amount { font-size: 1.45em; }
+            .bb-btn { padding: 6px 10px; }
+            .bb-btn .txt { font-size: .9em; }
+        }
+        @media (max-width: 360px) { .bb-btn .txt { display: none; } }
+        @media print {
+            body { background: white; padding: 0; }
+            .grocery-container { box-shadow: none; border: none; }
+            .bottom-bar, .toolbar, .tools, .add-item-btn, .delete-item-btn, .qty-btn, .search-container, .save-indicator { display: none !important; }
+        }
+        @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+    </style>
+</head>
+<body>
+    <div class="grocery-container">
+        <div class="corner-decoration top-left" aria-hidden="true"></div>
+        <div class="corner-decoration top-right" aria-hidden="true"></div>
+        <div class="corner-decoration bottom-left" aria-hidden="true"></div>
+        <div class="corner-decoration bottom-right" aria-hidden="true"></div>
+        <div class="leaf leaf1" aria-hidden="true">🍂</div>
+        <div class="leaf leaf2" aria-hidden="true">🌿</div>
+        <div class="leaf leaf3" aria-hidden="true">🍃</div>
+        <div class="leaf leaf4" aria-hidden="true">🌾</div>
+
+        <header>
+            <h1>Grocery List</h1>
+            <p class="subtitle" id="subtitle">Tick items to add them to your shopping list</p>
+        </header>
+
+        <div class="search-container" id="searchContainer" role="search">
+            <span class="search-icon" aria-hidden="true">🔍</span>
+            <input type="search" class="search-input" id="searchInput" placeholder="Search sections or items..." autocomplete="off" aria-label="Search sections or items" aria-controls="searchResults">
+            <ul class="search-results" id="searchResults" hidden aria-label="Search results"></ul>
+        </div>
+
+        <div class="toolbar" id="toolbar">
+            <button type="button" class="btn btn-green" id="addItemBtn">➕ Add Item</button>
+            <button type="button" class="btn" id="clearAllBtn">Clear Selections</button>
+        </div>
+
+        <div class="divider"></div>
+
+        <main id="mainView" aria-label="Full grocery list"></main>
+
+        <section id="shopView" aria-label="Shopping list" hidden>
+            <div class="shop-progress">
+                <div class="shop-progress-row">
+                    <span class="shop-progress-count" id="shopCount" aria-live="polite">0 of 0 crossed off</span>
+                    <label class="switch"><input type="checkbox" id="hidePurchased"> Hide crossed-off</label>
+                </div>
+                <progress id="shopProgress" max="1" value="0" aria-label="Shopping progress"></progress>
+                <div class="shop-progress-row" style="margin-top:8px">
+                    <span>Left to buy: <strong id="shopLeft">$0.00</strong></span>
+                    <span>Trip total: <strong id="shopTotal">$0.00</strong></span>
+                </div>
+            </div>
+            <div id="shopList"></div>
+        </section>
+
+        <div class="divider"></div>
+
+        <section class="tools" aria-labelledby="toolsTitle">
+            <h2 id="toolsTitle">💾 Backup &amp; Reset</h2>
+            <p class="tools-note">Your list is saved in this browser only. Export a backup now and then (and before moving to a new phone or PC).</p>
+            <div class="tools-row">
+                <button type="button" class="btn btn-light" id="exportBtn">⬇ Export Backup</button>
+                <button type="button" class="btn btn-light" id="importBtn">⬆ Import Backup</button>
+                <input type="file" id="importFile" accept=".json,application/json" hidden>
+                <button type="button" class="btn btn-light" id="restoreDeletedBtn" hidden>↺ Restore Deleted Items</button>
+                <button type="button" class="btn btn-danger" id="resetBtn">⟲ Reset App</button>
+            </div>
+        </section>
+
+        <footer>
+            <p class="footer-note">🌻 Check items to add to your shopping list 🌻</p>
+            <p class="credit">Grocery List <span id="versionLabel">v2.0</span> · Made by Retro Gaming Dad 🎮</p>
+        </footer>
+    </div>
+
+    <nav class="bottom-bar" aria-label="Totals and tools">
+        <div class="bottom-inner">
+            <div class="bb-total">
+                <div class="bb-label" id="bbLabel">Shopping Total</div>
+                <div class="bb-amount" id="runningTotal" aria-live="polite">$0.00</div>
+                <div class="bb-sub" id="bbSub" hidden></div>
+            </div>
+            <button type="button" class="bb-btn" id="calcBtn" aria-haspopup="dialog" aria-controls="calcDialog"><span class="ico" aria-hidden="true">🧮</span><span class="txt">Calc</span></button>
+            <button type="button" class="bb-btn" id="viewToggleBtn" aria-pressed="false"><span class="ico" aria-hidden="true">🛒</span><span class="txt" id="viewToggleTxt">Shopping List</span></button>
+        </div>
+    </nav>
+
+    <div class="save-indicator" id="saveIndicator" role="status" aria-live="polite"></div>
+
+    <dialog id="itemDialog" class="form-dialog" aria-labelledby="itemDialogTitle">
+        <form id="itemForm" class="form-card" novalidate>
+            <h2 id="itemDialogTitle">Add Item</h2>
+            <div class="field">
+                <label for="fName">Item name</label>
+                <input id="fName" maxlength="60" autocomplete="off" enterkeyhint="next" required>
+            </div>
+            <div class="field">
+                <label for="fPrice">Price each ($)</label>
+                <input id="fPrice" inputmode="decimal" autocomplete="off" placeholder="0.00" enterkeyhint="done" required>
+            </div>
+            <div class="field">
+                <label for="fCat">Section</label>
+                <select id="fCat"></select>
+                <p class="field-hint" id="fCatHint" hidden>Built-in items stay in their section.</p>
+            </div>
+            <p class="form-error" id="fError" role="alert"></p>
+            <div class="dialog-actions">
+                <button type="button" class="btn btn-light" id="fRestore" hidden>Restore original</button>
+                <button type="button" class="btn btn-light" id="fCancel">Cancel</button>
+                <button type="submit" class="btn btn-green" id="fSave">Add</button>
+            </div>
+        </form>
+    </dialog>
+
+    <dialog id="calcDialog" class="sheet-dialog" aria-labelledby="calcTitle">
+        <div class="sheet" id="calcSheet" tabindex="-1">
+            <div class="sheet-grab" id="calcGrab">
+                <span class="grabber" aria-hidden="true"></span>
+                <div class="sheet-head">
+                    <h2 id="calcTitle">🧮 Calculator</h2>
+                    <button type="button" class="sheet-close" id="calcClose" aria-label="Close calculator and go back to the list">✕ Close</button>
+                </div>
+            </div>
+            <div class="calc-display">
+                <div class="calc-expr" id="calcExpr"></div>
+                <div class="calc-result" id="calcResult" role="status" aria-live="polite">0</div>
+            </div>
+            <div class="calc-extras">
+                <button type="button" class="calc-use" id="calcUseTotal">🛒 Use total <span id="calcTotalVal">$0.00</span></button>
+                <div class="calc-history" id="calcHistory" aria-label="Recent results"></div>
+            </div>
+            <div class="calc-keys" id="calcKeys">
+                <button type="button" class="ck fn" data-key="C" aria-label="Clear">C</button>
+                <button type="button" class="ck fn" data-key="Backspace" aria-label="Backspace">⌫</button>
+                <button type="button" class="ck op" data-key="%" aria-label="Percent">%</button>
+                <button type="button" class="ck op" data-key="÷" aria-label="Divide">÷</button>
+                <button type="button" class="ck" data-key="7">7</button>
+                <button type="button" class="ck" data-key="8">8</button>
+                <button type="button" class="ck" data-key="9">9</button>
+                <button type="button" class="ck op" data-key="×" aria-label="Multiply">×</button>
+                <button type="button" class="ck" data-key="4">4</button>
+                <button type="button" class="ck" data-key="5">5</button>
+                <button type="button" class="ck" data-key="6">6</button>
+                <button type="button" class="ck op" data-key="−" aria-label="Minus">−</button>
+                <button type="button" class="ck" data-key="1">1</button>
+                <button type="button" class="ck" data-key="2">2</button>
+                <button type="button" class="ck" data-key="3">3</button>
+                <button type="button" class="ck op" data-key="+" aria-label="Plus">+</button>
+                <button type="button" class="ck zero" data-key="0">0</button>
+                <button type="button" class="ck" data-key="." aria-label="Decimal point">.</button>
+                <button type="button" class="ck eq" data-key="=" aria-label="Equals">=</button>
+            </div>
+        </div>
+    </dialog>
+    <script>
+    'use strict';
+    (function () {
+        const APP_VERSION = '2.0';
+        const STORE_KEY = 'groceryApp.v2';
+        const CALC_KEY = 'groceryApp.calc';
+        const LEGACY_BACKUP_KEY = 'groceryApp.legacyBackup';
+        const PRE_RESET_KEY = 'groceryApp.v2.preResetBackup';
+        const LEGACY_KEYS = ['groceryCheckboxStates', 'groceryEditedPrices', 'groceryQuantities',
+                             'groceryCustomItems', 'groceryPurchasedStates', 'groceryEditedNames'];
+        const LEGACY_ALIASES = { 'Ditalini Noodles': 'Ditilini Noodles' }; // v2 name -> v1 name (typo fix)
+        const BACKUP_APP_ID = 'retro-gaming-dad-grocery-list';
+        const MAX_QTY = 99;
+
+        // Built-in list: [{id, title, items: [[name, price], ...]}, ...]
+        const BUILTIN = [{"id":"fruits-vegetables","title":"Fruits and Vegetables","items":[["Bananas",3.5],["Spinach",2.5],["Potatoes",4.5],["Apples",6.0],["Carrots",2.0],["Shredded Carrots",2.0],["Whole Cabbage",3.0],["Shredded Cabbage",2.0],["Avocados",3.5],["Onions",2.5],["Red Onions",1.0],["Cucumber",0.8],["Melon",6.0],["Fresh Green Salsa",4.5],["Arugula",2.5],["Lettuce",2.0],["Celery",2.0],["Lemons",0.6],["Limes",0.6],["Grapefruit",5.0],["Bean Sprouts",3.0],["Ginger",4.0],["Cherry Tomatoes",3.0],["Basil",3.0],["Bagged Broccoli",5.5],["Cuties",4.0],["Sweet Potatoes",3.5],["Snap Peas",4.0],["Collards",6.0],["Parsley",1.5],["Butternut Squash",6.0],["Sundried Tomatoes",4.0],["Mini Peppers",4.0],["Garlic",1.0],["Bagged Salad",8.0],["Mushrooms",5.0]]},{"id":"snacks","title":"Snacks","items":[["Crackers",2.5],["Potato Chips",3.0],["Corn Chips",4.5],["Graham Crackers",2.5],["Cookies",3.5]]},{"id":"health-beauty","title":"Health and Beauty","items":[["Hair Mousse",4.5],["Toothpicks",3.5],["Cotton Balls",2.5],["Art's Body Wash",8.0]]},{"id":"canned-goods","title":"Canned Goods","items":[["LS Black Beans",0.9],["LS Red Beans",0.9],["LS Pinto Beans",0.9],["LS Chickpeas",0.9],["Corn",0.9],["Diced Tomatoes with Green Chillies",0.9],["Diced Tomatoes",0.9],["Refried Beans",1.5],["Sliced Olives",3.5],["Whole Olives",2.0],["Kalamata Olives",4.5],["Pickles",4.0],["Pickled Onions",5.0],["Hot Sauce",5.0],["BBQ Sauce",2.5],["Croutons",2.0],["Dry Ranch Dressing",0.5],["Dry Italian Dressing",0.5],["Dry Taco Seasoning",0.5],["Dry Gravy Mix",2.0],["Spaghetti Sauce",3.0],["Spaghetti Noodles",2.0],["Ditalini Noodles",2.0],["Bowtie Pasta",2.0],["Penne",2.0],["Rice Cakes",4.0],["Cereal",4.0],["SF Chai",3.5],["SF Torani Syrup",8.0],["Cream of Chicken Soup",2.0],["Soy Sauce",5.0],["Taco Shells",3.0],["Kung Pao Sauce",5.0],["Mac and Cheese",1.0],["Lrg Pkg Flour Tortillas",9.0],["Artichoke Hearts",3.5],["CarbSmart Tortillas",5.0],["Raisins",4.0],["Jarred Green Salsa",3.5],["Corn Tortillas",3.5],["Enchilada Sauce",4.0],["Sweet Potatoes",3.5],["Bacon Bits",3.5],["Instant Espresso",9.5],["Pesto",3.0],["Oyster Sauce",5.0],["Red Dragon Chai Tea",4.0],["Banana Peppers",3.5],["Brownie Mix",2.0],["Lasagna Noodles",3.0],["Stone Ground Mustard",4.5],["Rice Vinegar",3.0],["Brown Sugar",3.0],["French Cut Green Beans",0.9],["Balsamic Vinegar",4.0],["Flour",13.0],["Craisins",3.5],["Broccoli Beef Sauce",2.5]]},{"id":"bulk-food","title":"Bulk Food","items":[["Wild Rice",4.0],["Basmati White Rice",15.0],["Basmati Brown Rice",15.0],["Oats",0.7],["Granola",3.0],["Bird Seed",0.8],["Pecans",8.0],["Walnuts",8.0],["Candy",3.0],["Cajun Seasoning",2.0],["Sunflower Seeds",4.0]]},{"id":"meat-cheeses","title":"Meat and Cheeses","items":[["Carne Asada",12.0],["Pork Roast",10.0],["Ground Turkey",14.0],["Russian Sausage",10.0],["Large Ground Sausage",10.0],["Roast",15.0],["Lunch Meat",8.0],["Ham Roast",8.0],["Sliced Ham",5.5],["Sliced Cheddar",4.5],["Sliced Gouda",3.5],["Parmesan",2.0],["Fancy Cheese",5.0],["Feta",6.0],["Salami",7.5],["Pepperoni",5.0],["Pizza Dough",2.0],["Dog Bones",5.0],["Chicken Thighs",10.0],["Chicken Breast",13.0],["Bacon",10.0],["Shredded Cheese",7.0],["Pickles",7.0],["MexiCheese",5.0],["Ricotta Cheese",4.5],["Turkey Sausage",5.0]]},{"id":"dairy-frozen","title":"Dairy and Frozen Food","items":[["Art's Milk",3.5],["Regular Milk",3.5],["Creamer",4.5],["Sour Cream",3.5],["Flavored Yogurt",4.5],["Plain Greek Yogurt",1.0],["Sm. Half and Half",2.0],["Lrg Half and Half",3.5],["Fresh Salsa",4.5],["Eggs",10.0],["Peas",2.5],["Butter",4.0],["Collards",2.5],["Corn",2.0],["Whole Mixed Veg",3.0],["Pizza",5.0],["Diced Mixed Veg",3.5],["Whipped Cream Cheese",3.5],["Green Beans",2.5],["Ice Cream",11.0],["Cool Whip",3.0],["Shredded Hash Browns",3.5],["Broccoli",2.5],["Cottage Cheese",3.0]]},{"id":"household","title":"Household Items","items":[["Fabric Softener",8.0],["Wet Cat Food",0.8],["Wet Dog Food",2.5],["Tissue",1.5],["Lunch Baggies",4.0],["Carpet Freshener",3.0],["Febreze",6.0],["Sm. Garbage Bags",3.0]]},{"id":"drinks-bread","title":"Drinks and Bread","items":[["Coke Zero",8.0],["Coke",8.0],["Cactus Cooler",8.0],["Zero Rootbeer",8.0],["English Muffins",2.5],["Sourdough",5.0],["Wheat Bread",2.5],["Buttermilk Bread",2.5],["Buns",3.5],["Distilled Water",1.5],["Pitas",4.5]]}];
+
+        // ---------- helpers ----------
+        const $ = (id) => document.getElementById(id);
+        const money = (n) => '$' + (Number.isFinite(n) ? n : 0).toFixed(2);
+        const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+        function cleanName(s) { return typeof s === 'string' ? s.replace(/\s+/g, ' ').trim().slice(0, 60) : ''; }
+        function toPrice(v) {
+            if (v === null || v === undefined || v === '') return null;
+            const n = typeof v === 'number' ? v : parseFloat(String(v).replace(/[$,\s]/g, ''));
+            return Number.isFinite(n) && n >= 0 && n <= 99999 ? Math.round(n * 100) / 100 : null;
+        }
+        function clampQty(q) { const n = parseInt(q, 10); return Number.isFinite(n) ? Math.min(MAX_QTY, Math.max(1, n)) : 1; }
+        function newId() { return 'c:' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+        // Safe DOM builder: text always goes in via textContent, never parsed as HTML.
+        const PROPS = new Set(['checked', 'disabled', 'value']);
+        function el(tag, attrs, ...children) {
+            const e = document.createElement(tag);
+            for (const [k, v] of Object.entries(attrs || {})) {
+                if (v === null || v === undefined || v === false) continue;
+                if (k === 'class') e.className = v;
+                else if (k === 'text') e.textContent = v;
+                else if (PROPS.has(k)) e[k] = v;
+                else e.setAttribute(k, v === true ? '' : String(v));
+            }
+            for (const c of children) if (c !== null && c !== undefined && c !== false) e.append(c);
+            return e;
+        }
+
+        const storage = {
+            ok: true,
+            get(k) { try { return localStorage.getItem(k); } catch (e) { this.ok = false; return null; } },
+            set(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { this.ok = false; return false; } },
+        };
+
+        // ---------- built-in catalogue with stable IDs ----------
+        const CATS = BUILTIN.map(c => ({ id: c.id, title: c.title }));
+        const CAT_IDS = new Set(CATS.map(c => c.id));
+        const CAT_TITLE = Object.fromEntries(CATS.map(c => [c.id, c.title]));
+        const BUILTIN_ITEMS = [];
+        const BUILTIN_BY_ID = new Map();
+        BUILTIN.forEach(c => c.items.forEach(([name, price]) => {
+            let id = 'b:' + c.id + ':' + slug(name), n = 2;
+            while (BUILTIN_BY_ID.has(id)) id = 'b:' + c.id + ':' + slug(name) + '-' + (n++);
+            const it = { id, cat: c.id, name, price };
+            BUILTIN_ITEMS.push(it); BUILTIN_BY_ID.set(id, it);
+        }));
+
+        // ---------- state ----------
+        // overrides: only real edits to built-in items {id: {name?, price?}}
+        // custom: user-added items; deleted: built-in ids the user removed
+        // sel: per-item {checked, qty, purchased}, stored only when not default
+        function freshState() {
+            return { v: 2, overrides: {}, custom: [], deleted: [], sel: {}, settings: { hidePurchased: false } };
+        }
+
+        function normalizeState(raw) {
+            const s = freshState();
+            if (!raw || typeof raw !== 'object') return s;
+            if (raw.overrides && typeof raw.overrides === 'object') {
+                for (const [id, o] of Object.entries(raw.overrides)) {
+                    const b = BUILTIN_BY_ID.get(id);
+                    if (!b || !o || typeof o !== 'object') continue;
+                    const out = {};
+                    const nm = cleanName(o.name); if (nm && nm !== b.name) out.name = nm;
+                    const p = toPrice(o.price); if (p !== null && p !== b.price) out.price = p;
+                    if (Object.keys(out).length) s.overrides[id] = out;
+                }
+            }
+            if (Array.isArray(raw.custom)) {
+                const seen = new Set();
+                for (const c of raw.custom) {
+                    if (!c || typeof c.id !== 'string' || !c.id.startsWith('c:') || c.id.length > 40 || seen.has(c.id) || !CAT_IDS.has(c.cat)) continue;
+                    const nm = cleanName(c.name); if (!nm) continue;
+                    const p = toPrice(c.price);
+                    seen.add(c.id);
+                    s.custom.push({ id: c.id, cat: c.cat, name: nm, price: p === null ? 0 : p });
+                }
+            }
+            if (Array.isArray(raw.deleted)) s.deleted = [...new Set(raw.deleted.filter(id => BUILTIN_BY_ID.has(id)))];
+            const del = new Set(s.deleted);
+            const valid = new Set([...BUILTIN_BY_ID.keys(), ...s.custom.map(c => c.id)]);
+            if (raw.sel && typeof raw.sel === 'object') {
+                for (const [id, v] of Object.entries(raw.sel)) {
+                    if (!valid.has(id) || del.has(id) || !v || typeof v !== 'object') continue;
+                    const checked = v.checked === true, qty = clampQty(v.qty);
+                    const purchased = checked && v.purchased === true;
+                    if (checked || qty > 1) s.sel[id] = { checked, qty, purchased };
+                }
+            }
+            if (raw.settings && typeof raw.settings === 'object') s.settings.hidePurchased = raw.settings.hidePurchased === true;
+            if (typeof raw.migratedFromV1 === 'string') s.migratedFromV1 = raw.migratedFromV1.slice(0, 40);
+            return s;
+        }
+
+        // ---------- v1 -> v2 migration ----------
+        // v1 saved everything keyed by the *displayed name*; map those names onto stable IDs.
+        function migrateLegacy(rawByKey) {
+            const parse = (k) => {
+                const v = rawByKey[k];
+                if (v && typeof v === 'object') return v;
+                try { const o = JSON.parse(v || '{}'); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; }
+                catch (e) { return {}; }
+            };
+            const checks = parse('groceryCheckboxStates'), prices = parse('groceryEditedPrices'),
+                  qtys = parse('groceryQuantities'), customs = parse('groceryCustomItems'),
+                  purch = parse('groceryPurchasedStates'), names = parse('groceryEditedNames');
+            const s = freshState();
+            const look = (m, keys) => { for (const k of keys) if (k && has(m, k)) return m[k]; return undefined; };
+            const records = [];
+
+            for (const b of BUILTIN_ITEMS) {
+                const v1Name = LEGACY_ALIASES[b.name] || b.name;
+                const renamed = has(names, v1Name) ? cleanName(String(names[v1Name])) : '';
+                const cur = renamed || v1Name;
+                if (renamed && renamed !== v1Name && renamed !== b.name) s.overrides[b.id] = { name: renamed };
+                records.push({ id: b.id, keys: [cur, v1Name, b.name], def: b.price, custom: null });
+            }
+            let n = 0;
+            for (const [cat, arr] of Object.entries(customs)) {
+                if (!CAT_IDS.has(cat) || !Array.isArray(arr)) continue;
+                for (const c of arr) {
+                    if (!c || typeof c !== 'object') continue;
+                    const stored = cleanName(String(c.name ?? ''));
+                    if (!stored) continue;
+                    // v1 never showed a custom item whose name matched a built-in in the same section
+                    if (BUILTIN_ITEMS.some(b => b.cat === cat && (b.name === stored || LEGACY_ALIASES[b.name] === stored))) continue;
+                    if (s.custom.some(x => x.cat === cat && x._stored === stored)) continue;
+                    const renamed = has(names, stored) ? cleanName(String(names[stored])) : '';
+                    const p = toPrice(c.price);
+                    const item = { id: newId() + (n++), cat, name: renamed || stored, price: p === null ? 0 : p, _stored: stored };
+                    s.custom.push(item);
+                    records.push({ id: item.id, keys: [item.name, stored], def: item.price, custom: item });
+                }
+            }
+            const groups = new Map();
+            for (const r of records) groups.set(r.keys[0], (groups.get(r.keys[0]) || []).concat(r));
+            for (const r of records) {
+                const checked = look(checks, r.keys) === true;
+                const qty = clampQty(look(qtys, r.keys));
+                const purchased = checked && look(purch, r.keys) === true;
+                if (checked || qty > 1) s.sel[r.id] = { checked, qty, purchased };
+                const p = toPrice(look(prices, r.keys));
+                // v1 saved every price; keep it only if it's a real edit (differs from every item sharing that name)
+                if (p !== null && groups.get(r.keys[0]).every(g => Math.abs(g.def - p) > 0.004)) {
+                    if (r.custom) r.custom.price = p;
+                    else s.overrides[r.id] = Object.assign({}, s.overrides[r.id], { price: p });
+                }
+            }
+            s.custom.forEach(c => delete c._stored);
+            s.migratedFromV1 = new Date().toISOString();
+            return normalizeState(s);
+        }
+
+        function loadState() {
+            const raw = storage.get(STORE_KEY);
+            if (raw) {
+                try { return { state: normalizeState(JSON.parse(raw)), migrated: false }; }
+                catch (e) { storage.set(STORE_KEY + '.corrupt', raw); }
+            }
+            const legacy = {}; let any = false;
+            for (const k of LEGACY_KEYS) { const v = storage.get(k); if (v !== null) { legacy[k] = v; any = true; } }
+            if (any) {
+                if (!storage.get(LEGACY_BACKUP_KEY)) {
+                    storage.set(LEGACY_BACKUP_KEY, JSON.stringify({ savedAt: new Date().toISOString(), note: 'Raw copy of Grocery List v1 data, kept by the v2.0 upgrade', keys: legacy }));
+                }
+                return { state: migrateLegacy(legacy), migrated: true };
+            }
+            return { state: freshState(), migrated: false };
+        }
+
+        let state;
+        function save(msg) {
+            const ok = storage.set(STORE_KEY, JSON.stringify(state));
+            toast(ok ? (msg || '✓ Saved') : '⚠ Could not save — browser storage is blocked or full');
+        }
+
+        // ---------- derived data ----------
+        function allItems() {
+            const del = new Set(state.deleted), list = [];
+            for (const b of BUILTIN_ITEMS) {
+                if (del.has(b.id)) continue;
+                const o = state.overrides[b.id] || {};
+                list.push({ id: b.id, cat: b.cat, name: o.name ?? b.name, price: o.price ?? b.price, custom: false, orig: b });
+            }
+            for (const c of state.custom) list.push({ ...c, custom: true });
+            return list;
+        }
+        function itemById(id) { return allItems().find(i => i.id === id); }
+        function selOf(id) { return state.sel[id] || { checked: false, qty: 1, purchased: false }; }
+        function setSel(id, patch) {
+            const cur = Object.assign({}, selOf(id), patch);
+            cur.qty = clampQty(cur.qty);
+            if (!cur.checked) cur.purchased = false;          // un-ticking clears the crossed-off state
+            if (!cur.checked && cur.qty === 1) delete state.sel[id]; else state.sel[id] = cur;
+        }
+        const byName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+        function groupByCat(items) {
+            const m = new Map(CATS.map(c => [c.id, []]));
+            items.forEach(i => m.get(i.cat) && m.get(i.cat).push(i));
+            m.forEach(list => list.sort(byName));
+            return m;
+        }
+        function totals() {
+            const t = { total: 0, left: 0, count: 0, done: 0, cat: {} };
+            CATS.forEach(c => t.cat[c.id] = 0);
+            for (const it of allItems()) {
+                const s = selOf(it.id);
+                if (!s.checked) continue;
+                const line = it.price * s.qty;
+                t.total += line; t.cat[it.cat] += line; t.count++;
+                if (s.purchased) t.done++; else t.left += line;
+            }
+            return t;
+        }
+
+        // ---------- rendering ----------
+        const mainView = $('mainView'), shopView = $('shopView'), shopList = $('shopList');
+        let view = 'main', mainScrollY = 0, rowSeq = 0;
+
+        function renderRow(it) {
+            const s = selOf(it.id), cb = 'cb' + (++rowSeq);
+            return el('li', { class: 'item' + (s.checked ? ' checked' : ''), 'data-id': it.id },
+                el('input', { type: 'checkbox', class: 'check', id: cb, 'data-action': 'check', checked: s.checked }),
+                el('label', { for: cb, class: 'item-name', text: it.name }),
+                el('div', { class: 'qty', role: 'group', 'aria-label': 'Quantity of ' + it.name },
+                    el('button', { type: 'button', class: 'qty-btn', 'data-action': 'dec', 'aria-label': 'Decrease ' + it.name, disabled: s.qty <= 1, text: '−' }),
+                    el('span', { class: 'qty-display', text: String(s.qty) }),
+                    el('button', { type: 'button', class: 'qty-btn', 'data-action': 'inc', 'aria-label': 'Increase ' + it.name, disabled: s.qty >= MAX_QTY, text: '+' })),
+                el('button', { type: 'button', class: 'item-price', 'data-action': 'edit', title: 'Edit name or price',
+                               'aria-label': 'Edit ' + it.name + ', ' + money(it.price) + ' each' },
+                    el('span', { class: 'line-total', text: money(it.price * s.qty) }),
+                    s.qty > 1 ? el('span', { class: 'unit', text: s.qty + ' × ' + money(it.price) }) : null),
+                el('button', { type: 'button', class: 'delete-item-btn', 'data-action': 'delete', title: 'Delete item', 'aria-label': 'Delete ' + it.name, text: '✕' }));
+        }
+
+        function renderMain() {
+            const groups = groupByCat(allItems());
+            const t = totals();
+            const frag = document.createDocumentFragment();
+            for (const cat of CATS) {
+                const ul = el('ul', { class: 'item-list' });
+                const list = groups.get(cat.id);
+                list.forEach(it => ul.append(renderRow(it)));
+                if (!list.length) ul.append(el('li', { class: 'empty-note', text: 'No items yet — add one below.' }));
+                frag.append(el('section', { class: 'category', 'data-cat': cat.id, 'aria-labelledby': 'h-' + cat.id },
+                    el('div', { class: 'category-header' },
+                        el('h2', { class: 'category-title', id: 'h-' + cat.id, text: cat.title }),
+                        el('div', { class: 'category-total', 'data-cat-total': cat.id, text: money(t.cat[cat.id]) })),
+                    ul,
+                    el('button', { type: 'button', class: 'btn btn-green add-item-btn', 'data-action': 'add', 'data-cat': cat.id, text: '➕ Add Item to ' + cat.title })));
+            }
+            mainView.replaceChildren(frag);
+            updateTotals();
+        }
+
+        function findRow(container, id) { return [...container.querySelectorAll('li[data-id]')].find(li => li.dataset.id === id); }
+
+        function refreshRow(id) {
+            const old = findRow(mainView, id), it = itemById(id);
+            if (!old || !it) return renderMain();
+            const focusAction = old.contains(document.activeElement) ? document.activeElement.dataset.action : null;
+            const row = renderRow(it);
+            old.replaceWith(row);
+            if (focusAction) {
+                let f = row.querySelector('[data-action="' + focusAction + '"]');
+                if (f && f.disabled) f = row.querySelector('.qty-btn:not(:disabled)');
+                if (f) f.focus({ preventScroll: true });
+            }
+            updateTotals();
+        }
+
+        function updateTotals() {
+            const t = totals();
+            mainView.querySelectorAll('[data-cat-total]').forEach(e => e.textContent = money(t.cat[e.dataset.catTotal]));
+            $('runningTotal').textContent = money(t.total);
+            $('calcTotalVal').textContent = money(t.total);
+            const sub = $('bbSub');
+            sub.hidden = view !== 'shop';
+            sub.textContent = 'Left to buy: ' + money(t.left);
+            $('shopCount').textContent = t.done + ' of ' + t.count + ' crossed off';
+            $('shopProgress').max = Math.max(1, t.count);
+            $('shopProgress').value = t.done;
+            $('shopLeft').textContent = money(t.left);
+            $('shopTotal').textContent = money(t.total);
+            const delCount = state.deleted.length;
+            $('restoreDeletedBtn').hidden = delCount === 0;
+            $('restoreDeletedBtn').textContent = '↺ Restore Deleted Items (' + delCount + ')';
+        }
+
+        function renderShopping() {
+            const t = totals();
+            const items = allItems().filter(i => selOf(i.id).checked);
+            const hide = state.settings.hidePurchased;
+            $('hidePurchased').checked = hide;
+            const frag = document.createDocumentFragment();
+            if (!items.length) {
+                frag.append(el('p', { class: 'shop-empty', text: 'No items selected yet. Go back to the full list and tick the items you need.' }));
+            } else {
+                const groups = groupByCat(items);
+                let shown = 0;
+                for (const cat of CATS) {
+                    const list = groups.get(cat.id).filter(i => !(hide && selOf(i.id).purchased));
+                    if (!list.length) continue;
+                    const ul = el('ul', { class: 'item-list' });
+                    for (const it of list) {
+                        const s = selOf(it.id), cb = 'sc' + (++rowSeq);
+                        ul.append(el('li', { class: 'item shop-item' + (s.purchased ? ' purchased' : ''), 'data-id': it.id },
+                            el('input', { type: 'checkbox', class: 'check', id: cb, 'data-action': 'purchase', checked: s.purchased }),
+                            el('label', { for: cb, class: 'item-name', text: it.name }),
+                            el('span', { class: 'shop-qty', text: s.qty > 1 ? '×' + s.qty : '' }),
+                            el('span', { class: 'shop-price', text: money(it.price * s.qty) })));
+                        shown++;
+                    }
+                    frag.append(el('section', { class: 'category', 'aria-label': cat.title },
+                        el('div', { class: 'category-header' },
+                            el('h2', { class: 'category-title', text: cat.title }),
+                            el('div', { class: 'category-total', text: money(t.cat[cat.id]) })),
+                        ul));
+                }
+                if (!shown) frag.append(el('p', { class: 'shop-empty', text: 'All done — everything is crossed off! 🎉' }));
+            }
+            shopList.replaceChildren(frag);
+            updateTotals();
+        }
+
+        function render() { renderMain(); if (view === 'shop') renderShopping(); }
+
+        function setView(v) {
+            if (v === view) return;
+            if (view === 'main') mainScrollY = window.scrollY;
+            view = v;
+            mainView.hidden = v !== 'main';
+            $('toolbar').hidden = v !== 'main';
+            shopView.hidden = v !== 'shop';
+            const btn = $('viewToggleBtn');
+            btn.setAttribute('aria-pressed', String(v === 'shop'));
+            btn.querySelector('.ico').textContent = v === 'shop' ? '📋' : '🛒';
+            $('viewToggleTxt').textContent = v === 'shop' ? 'Full List' : 'Shopping List';
+            $('subtitle').textContent = v === 'shop' ? 'Tick items off as they go in the cart' : 'Tick items to add them to your shopping list';
+            if (v === 'shop') { renderShopping(); window.scrollTo(0, 0); }
+            else { updateTotals(); window.scrollTo(0, mainScrollY); }
+        }
+
+        // ---------- toast ----------
+        let toastTimer;
+        function toast(msg) {
+            const t = $('saveIndicator');
+            t.textContent = msg; t.classList.add('show');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => t.classList.remove('show'), msg.length > 20 ? 3500 : 1600);
+        }
+
+        // ---------- main list events ----------
+        mainView.addEventListener('change', (e) => {
+            const t = e.target;
+            if (t.dataset.action !== 'check') return;
+            const id = t.closest('li[data-id]').dataset.id;
+            setSel(id, { checked: t.checked });
+            save(); refreshRow(id);
+        });
+        mainView.addEventListener('click', (e) => {
+            const btn = e.target.closest('button[data-action]');
+            if (!btn) return;
+            const action = btn.dataset.action;
+            if (action === 'add') return openItemDialog('add', null, btn.dataset.cat);
+            const li = btn.closest('li[data-id]'); if (!li) return;
+            const id = li.dataset.id, s = selOf(id);
+            if (action === 'inc' || action === 'dec') {
+                setSel(id, { qty: s.qty + (action === 'inc' ? 1 : -1) });
+                save(); refreshRow(id);
+            } else if (action === 'edit') {
+                openItemDialog('edit', id);
+            } else if (action === 'delete') {
+                deleteItem(id);
+            }
+        });
+
+        function deleteItem(id) {
+            const it = itemById(id); if (!it) return;
+            if (!confirm('Delete "' + it.name + '" from ' + CAT_TITLE[it.cat] + '?')) return;
+            const row = findRow(mainView, id);
+            const near = row && (row.nextElementSibling || row.previousElementSibling);
+            const nearId = near && near.dataset.id;
+            if (it.custom) state.custom = state.custom.filter(c => c.id !== id);
+            else if (!state.deleted.includes(id)) state.deleted.push(id);
+            delete state.sel[id];
+            save('Deleted ' + it.name);
+            renderMain();
+            const focusRow = nearId ? findRow(mainView, nearId) : null;
+            if (focusRow) focusRow.querySelector('.delete-item-btn').focus({ preventScroll: true });
+        }
+
+        // ---------- shopping list events ----------
+        shopList.addEventListener('change', (e) => {
+            const t = e.target;
+            if (t.dataset.action !== 'purchase') return;
+            const id = t.closest('li[data-id]').dataset.id;
+            setSel(id, { purchased: t.checked });
+            save();
+            const y = window.scrollY;
+            renderShopping();
+            window.scrollTo(0, y);
+            const row = findRow(shopList, id);
+            if (row) row.querySelector('.check').focus({ preventScroll: true });
+        });
+        $('hidePurchased').addEventListener('change', (e) => {
+            state.settings.hidePurchased = e.target.checked; save(); renderShopping();
+        });
+        $('viewToggleBtn').addEventListener('click', () => setView(view === 'main' ? 'shop' : 'main'));
+
+        // ---------- toolbar ----------
+        $('addItemBtn').addEventListener('click', () => openItemDialog('add', null, CATS[0].id));
+        $('clearAllBtn').addEventListener('click', () => {
+            if (!Object.keys(state.sel).length) return toast('Nothing selected');
+            if (!confirm('Clear all selections? This unticks every item and resets quantities to 1.')) return;
+            state.sel = {}; save('Selections cleared'); render();
+        });
+
+        // ---------- add / edit dialog ----------
+        const itemDialog = $('itemDialog');
+        let dialogCtx = null;
+        $('fCat').replaceChildren(...CATS.map(c => el('option', { value: c.id, text: c.title })));
+
+        function openItemDialog(mode, id, cat) {
+            const it = id ? itemById(id) : null;
+            if (mode === 'edit' && !it) return;
+            dialogCtx = { mode, id };
+            $('itemDialogTitle').textContent = mode === 'add' ? 'Add Item' : 'Edit Item';
+            $('fSave').textContent = mode === 'add' ? 'Add' : 'Save';
+            $('fName').value = it ? it.name : '';
+            $('fPrice').value = it ? it.price.toFixed(2) : '';
+            $('fCat').value = it ? it.cat : (cat || CATS[0].id);
+            const builtin = !!(it && !it.custom);
+            $('fCat').disabled = builtin;
+            $('fCatHint').hidden = !builtin;
+            $('fRestore').hidden = !(builtin && state.overrides[id]);
+            $('fError').textContent = '';
+            itemDialog.showModal();
+            $('fName').focus();
+            if (mode === 'edit') $('fName').select();
+        }
+        function closeItemDialog() { itemDialog.close(); }
+        $('fCancel').addEventListener('click', closeItemDialog);
+        itemDialog.addEventListener('click', (e) => { if (e.target === itemDialog) closeItemDialog(); });
+        $('fRestore').addEventListener('click', () => {
+            if (!dialogCtx || !dialogCtx.id) return;
+            delete state.overrides[dialogCtx.id];
+            save('Restored original name and price'); closeItemDialog(); render();
+        });
+        $('itemForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const err = $('fError');
+            const name = cleanName($('fName').value);
+            const priceRaw = $('fPrice').value.trim().replace(/^\$\s*/, '');
+            const cat = $('fCat').value;
+            if (!name) { err.textContent = 'Please enter an item name.'; return $('fName').focus(); }
+            if (!/^(\d{1,5}(\.\d{0,2})?|\.\d{1,2})$/.test(priceRaw)) {
+                err.textContent = 'Please enter a price like 3.50 (numbers only, up to 2 decimals).';
+                return $('fPrice').focus();
+            }
+            const price = Math.round(parseFloat(priceRaw) * 100) / 100;
+            if (!CAT_IDS.has(cat)) { err.textContent = 'Please choose a section.'; return; }
+            const editing = dialogCtx && dialogCtx.mode === 'edit' ? itemById(dialogCtx.id) : null;
+            const targetCat = editing && !editing.custom ? editing.cat : cat;
+            const dup = allItems().find(i => i.cat === targetCat && (!editing || i.id !== editing.id) && i.name.toLowerCase() === name.toLowerCase());
+            if (dup) { err.textContent = '"' + dup.name + '" is already in ' + CAT_TITLE[targetCat] + '.'; return $('fName').focus(); }
+
+            let focusId;
+            if (!editing) {
+                const item = { id: newId(), cat, name, price };
+                state.custom.push(item); focusId = item.id;
+                save('Added ' + name);
+            } else {
+                if (editing.custom) {
+                    const c = state.custom.find(x => x.id === editing.id);
+                    c.name = name; c.price = price; c.cat = cat;
+                } else {
+                    const o = {};
+                    if (name !== editing.orig.name) o.name = name;
+                    if (price !== editing.orig.price) o.price = price;
+                    if (Object.keys(o).length) state.overrides[editing.id] = o; else delete state.overrides[editing.id];
+                }
+                focusId = editing.id;
+                save('Saved ' + name);
+            }
+            closeItemDialog();
+            render();
+            const row = findRow(mainView, focusId);
+            if (row && view === 'main') {
+                row.scrollIntoView({ block: 'center' });
+                row.classList.add('search-highlight');
+                row.querySelector('.item-price').focus({ preventScroll: true });
+            }
+        });
+
+        // ---------- search ----------
+        const searchInput = $('searchInput'), resultsEl = $('searchResults');
+        let searchResults = [];
+        function hideSearch() { resultsEl.hidden = true; }
+        function runSearch() {
+            const q = searchInput.value.trim().toLowerCase();
+            if (!q) { hideSearch(); return; }
+            searchResults = [];
+            CATS.forEach(c => { if (c.title.toLowerCase().includes(q)) searchResults.push({ type: 'Section', label: c.title, cat: c.id }); });
+            allItems().sort(byName).forEach(i => { if (i.name.toLowerCase().includes(q)) searchResults.push({ type: CAT_TITLE[i.cat], label: i.name, id: i.id }); });
+            if (!searchResults.length) {
+                resultsEl.replaceChildren(el('li', { class: 'search-empty', text: 'No results found' }));
+            } else {
+                resultsEl.replaceChildren(...searchResults.slice(0, 20).map((r, i) =>
+                    el('li', null, el('button', { type: 'button', class: 'search-result-item', 'data-idx': i },
+                        el('span', { text: r.label }), el('span', { class: 'search-result-type', text: r.type })))));
+            }
+            resultsEl.hidden = false;
+        }
+        function goToResult(r) {
+            searchInput.value = ''; hideSearch();
+            setView('main');
+            const target = r.cat ? [...mainView.querySelectorAll('section[data-cat]')].find(s => s.dataset.cat === r.cat) : findRow(mainView, r.id);
+            if (!target) return;
+            target.scrollIntoView({ behavior: 'smooth', block: r.cat ? 'start' : 'center' });
+            if (r.id) {
+                target.classList.remove('search-highlight'); void target.offsetWidth; target.classList.add('search-highlight');
+                target.querySelector('.check').focus({ preventScroll: true });
+            }
+        }
+        searchInput.addEventListener('input', runSearch);
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && searchResults.length && !resultsEl.hidden) { e.preventDefault(); goToResult(searchResults[0]); }
+            else if (e.key === 'Escape') { searchInput.value = ''; hideSearch(); }
+            else if (e.key === 'ArrowDown' && !resultsEl.hidden) { const f = resultsEl.querySelector('button'); if (f) { e.preventDefault(); f.focus(); } }
+        });
+        resultsEl.addEventListener('click', (e) => {
+            const b = e.target.closest('button[data-idx]'); if (b) goToResult(searchResults[+b.dataset.idx]);
+        });
+        document.addEventListener('click', (e) => { if (!$('searchContainer').contains(e.target)) hideSearch(); });
+
+        // ---------- backup / import / reset ----------
+        function localDate() { const d = new Date(), z = (n) => String(n).padStart(2, '0'); return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()); }
+        $('exportBtn').addEventListener('click', () => {
+            const data = { app: BACKUP_APP_ID, version: APP_VERSION, exportedAt: new Date().toISOString(), state };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const a = el('a', { href: URL.createObjectURL(blob), download: 'grocery-backup-' + localDate() + '.json' });
+            document.body.append(a); a.click(); a.remove();
+            setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+            toast('Backup downloaded');
+        });
+        $('importBtn').addEventListener('click', () => $('importFile').click());
+        $('importFile').addEventListener('change', async (e) => {
+            const file = e.target.files && e.target.files[0];
+            e.target.value = '';
+            if (!file) return;
+            if (file.size > 2 * 1024 * 1024) return alert('That file is too big to be a grocery backup.');
+            let data;
+            try { data = JSON.parse(await file.text()); } catch (err) { return alert('That file is not a valid backup (could not read it as JSON).'); }
+            let next = null;
+            if (data && data.app === BACKUP_APP_ID && data.state) next = normalizeState(data.state);
+            else if (data && typeof data === 'object') {
+                const src = data.keys && typeof data.keys === 'object' ? data.keys : data;
+                if (LEGACY_KEYS.some(k => has(src, k))) next = migrateLegacy(src);
+            }
+            if (!next) return alert("That file doesn't look like a Grocery List backup.");
+            if (!confirm('Replace your current list with the backup "' + file.name + '"?')) return;
+            storage.set(PRE_RESET_KEY, JSON.stringify({ savedAt: new Date().toISOString(), reason: 'before import', state }));
+            state = next; save('Backup imported'); render();
+        });
+        $('restoreDeletedBtn').addEventListener('click', () => {
+            const n = state.deleted.length;
+            if (!n || !confirm('Bring back ' + n + ' deleted built-in item' + (n > 1 ? 's' : '') + '?')) return;
+            state.deleted = []; save('Restored deleted items'); render();
+        });
+        $('resetBtn').addEventListener('click', () => {
+            if (!confirm('Reset the whole app?\n\nThis removes your added items, edits, deletions and ticks, and puts the original list back.\n\nTip: press Cancel and Export a backup first if you might want them later.')) return;
+            storage.set(PRE_RESET_KEY, JSON.stringify({ savedAt: new Date().toISOString(), reason: 'before reset', state }));
+            state = freshState(); save('App reset to the original list'); render();
+        });
+
+        // ---------- calculator ----------
+        const calcDialog = $('calcDialog'), calcSheet = $('calcSheet');
+        const OPS = ['+', '−', '×', '÷'];
+        let calc = { expr: '', fresh: false, history: [] };
+        try {
+            const c = JSON.parse(storage.get(CALC_KEY) || 'null');
+            if (c && typeof c === 'object') {
+                calc.expr = typeof c.expr === 'string' && /^[0-9.+−×÷%]*$/.test(c.expr) ? c.expr.slice(0, 60) : '';
+                calc.fresh = c.fresh === true;
+                calc.history = Array.isArray(c.history) ? c.history.filter(h => h && typeof h.expr === 'string' && typeof h.result === 'string' && /^-?[0-9.e+]+$/.test(h.result)).slice(0, 5) : [];
+            }
+        } catch (e) { /* ignore bad saved calculator */ }
+
+        function numTok(s) {
+            const pct = s.endsWith('%');
+            const v = parseFloat(pct ? s.slice(0, -1) : s);
+            if (!Number.isFinite(v)) throw new Error('bad');
+            return { v, pct };
+        }
+        function tokenize(expr) {
+            const toks = []; let i = 0;
+            const numRe = /^[0-9]*\.?[0-9]*%?/;
+            while (i < expr.length) {
+                const ch = expr[i];
+                if (OPS.includes(ch)) {
+                    const prev = toks[toks.length - 1];
+                    if ((ch === '−' || ch === '-') && (!prev || prev.op)) {   // unary minus
+                        const m = numRe.exec(expr.slice(i + 1))[0];
+                        if (!m || m === '.' || m === '%') throw new Error('bad');
+                        toks.push(numTok('-' + m)); i += 1 + m.length; continue;
+                    }
+                    toks.push({ op: ch }); i++; continue;
+                }
+                if (ch === '-' && !toks.length) {
+                    const m = numRe.exec(expr.slice(i + 1))[0];
+                    if (!m || m === '.' || m === '%') throw new Error('bad');
+                    toks.push(numTok('-' + m)); i += 1 + m.length; continue;
+                }
+                const m = numRe.exec(expr.slice(i))[0];
+                if (!m || m === '.' || m === '%') throw new Error('bad');
+                toks.push(numTok(m)); i += m.length;
+            }
+            return toks;
+        }
+        // + and − with a percent: 50 + 10% = 55.  × and ÷ with a percent: 50 × 10% = 5.
+        function evaluate(expr) {
+            while (expr && (OPS.includes(expr.slice(-1)) || expr.endsWith('.'))) expr = expr.slice(0, -1);
+            if (!expr || expr === '−') return null;
+            const toks = tokenize(expr); let p = 0;
+            const term = () => {
+                const t = toks[p++]; if (!t || t.op) throw new Error('bad');
+                let val = t.v, pct = t.pct, n = 0;
+                while (toks[p] && (toks[p].op === '×' || toks[p].op === '÷')) {
+                    const op = toks[p++].op, f = toks[p++];
+                    if (!f || f.op) throw new Error('bad');
+                    if (pct) { val = val / 100; pct = false; }
+                    const fv = f.pct ? f.v / 100 : f.v;
+                    if (op === '÷' && fv === 0) throw new Error('div0');
+                    val = op === '×' ? val * fv : val / fv; n++;
+                }
+                return { v: val, pct: pct && n === 0 };
+            };
+            const first = term();
+            let acc = first.pct ? first.v / 100 : first.v;
+            while (p < toks.length) {
+                const op = toks[p++].op; if (!op) throw new Error('bad');
+                const r = term();
+                const rv = r.pct ? acc * r.v / 100 : r.v;
+                acc = op === '+' ? acc + rv : op === '−' ? acc - rv : NaN;
+            }
+            if (!Number.isFinite(acc)) throw new Error('bad');
+            return Math.round(acc * 1e10) / 1e10;
+        }
+        const fmt = (n) => Math.abs(n) >= 1e15 ? n.toExponential(6) : String(n);
+        function lastNumber(expr) { const m = /-?[0-9.]*%?$/.exec(expr); return m ? m[0] : ''; }
+        function saveCalc() { storage.set(CALC_KEY, JSON.stringify(calc)); }
+
+        function calcPress(key) {
+            let e = calc.expr;
+            if (/^[0-9]$/.test(key)) {
+                if (calc.fresh) { e = ''; calc.fresh = false; }
+                if (e.endsWith('%')) e += '×';
+                const ln = lastNumber(e).replace('-', '');
+                if (ln === '0') e = e.slice(0, -1);
+                if (e.length < 40) e += key;
+            } else if (key === '.') {
+                if (calc.fresh) { e = ''; calc.fresh = false; }
+                if (e.endsWith('%')) e += '×';
+                const ln = lastNumber(e);
+                if (!ln.includes('.')) e += (ln === '' || ln === '-') ? '0.' : '.';
+            } else if (OPS.includes(key)) {
+                calc.fresh = false;
+                if (e === '' || e === '−') { if (key === '−') e = '−'; }
+                else {
+                    if (e.endsWith('.')) e = e.slice(0, -1);
+                    while (OPS.includes(e.slice(-1))) e = e.slice(0, -1);
+                    if (e) e += key;
+                }
+            } else if (key === '%') {
+                calc.fresh = false;
+                if (/[0-9]$/.test(e)) e += '%';
+            } else if (key === 'C') {
+                e = ''; calc.fresh = false;
+            } else if (key === 'Backspace') {
+                e = calc.fresh ? '' : e.slice(0, -1); calc.fresh = false;
+            } else if (key === '=') {
+                try {
+                    const v = evaluate(e);
+                    if (v !== null) {
+                        const r = fmt(v);
+                        if (r !== e) { calc.history.unshift({ expr: e, result: r }); calc.history = calc.history.slice(0, 5); }
+                        e = r; calc.fresh = true;
+                    }
+                } catch (err) {
+                    calc.expr = e; saveCalc();
+                    return renderCalc(err.message === 'div0' ? "Can't divide by 0" : 'Check the sum');
+                }
+            }
+            calc.expr = e;
+            saveCalc();
+            renderCalc();
+        }
+        function calcInsertValue(valStr) {
+            let v = String(valStr).replace(/^-/, '−');
+            let e = calc.expr;
+            if (calc.fresh || e === '') e = v;
+            else if (OPS.includes(e.slice(-1))) e += (v.startsWith('−') && e.slice(-1) !== '−') ? v : v.replace(/^−/, '');
+            else e = e.slice(0, e.length - lastNumber(e).length) + v;
+            calc.expr = e; calc.fresh = false;
+            saveCalc(); renderCalc();
+        }
+        function renderCalc(error) {
+            const exprEl = $('calcExpr'), resEl = $('calcResult');
+            resEl.classList.toggle('error', !!error);
+            if (error) { exprEl.textContent = calc.expr; resEl.textContent = error; }
+            else if (calc.fresh && calc.history[0]) { exprEl.textContent = calc.history[0].expr + ' ='; resEl.textContent = calc.expr; }
+            else {
+                exprEl.textContent = calc.expr;
+                let preview = '';
+                try { const v = evaluate(calc.expr); preview = v === null ? '' : fmt(v); } catch (e) { preview = ''; }
+                resEl.textContent = preview || (calc.expr ? '…' : '0');
+            }
+            $('calcHistory').replaceChildren(...calc.history.slice(0, 4).map((h, i) =>
+                el('button', { type: 'button', class: 'calc-chip', 'data-hist': i, title: h.expr + ' = ' + h.result, 'aria-label': 'Use earlier result ' + h.result, text: h.result })));
+            $('calcTotalVal').textContent = money(totals().total);
+        }
+        $('calcKeys').addEventListener('click', (e) => { const b = e.target.closest('[data-key]'); if (b) calcPress(b.dataset.key); });
+        $('calcHistory').addEventListener('click', (e) => {
+            const b = e.target.closest('[data-hist]'); if (b) calcInsertValue(calc.history[+b.dataset.hist].result);
+        });
+        $('calcUseTotal').addEventListener('click', () => calcInsertValue(String(Math.round(totals().total * 100) / 100)));
+
+        function openCalc() {
+            if (calcDialog.open) return closeCalc();
+            hideSearch();
+            calcSheet.style.transform = '';
+            renderCalc();
+            calcDialog.showModal();
+            calcSheet.focus({ preventScroll: true });
+        }
+        function closeCalc() { if (calcDialog.open) calcDialog.close(); }
+        $('calcBtn').addEventListener('click', openCalc);
+        $('calcClose').addEventListener('click', closeCalc);
+        calcDialog.addEventListener('click', (e) => { if (e.target === calcDialog) closeCalc(); });
+        calcDialog.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey || e.altKey) return;
+            if (e.key === 'Enter' && e.target.closest && e.target.closest('#calcClose, .calc-chip, .calc-use')) return;
+            const map = { '*': '×', 'x': '×', 'X': '×', '/': '÷', '-': '−', '+': '+', 'Enter': '=', '=': '=', ',': '.', '.': '.',
+                          '%': '%', 'Backspace': 'Backspace', 'Delete': 'C', 'c': 'C', 'C': 'C' };
+            const key = /^[0-9]$/.test(e.key) ? e.key : map[e.key];
+            if (!key) return;
+            e.preventDefault();
+            calcPress(key);
+            const b = [...$('calcKeys').querySelectorAll('[data-key]')].find(x => x.dataset.key === key);
+            if (b) { b.classList.add('pressed'); setTimeout(() => b.classList.remove('pressed'), 120); }
+        });
+        // Swipe the sheet down to close it
+        (function () {
+            const grab = $('calcGrab'); let drag = null;
+            grab.addEventListener('pointerdown', (e) => {
+                if (e.target.closest('button')) return;
+                drag = { y: e.clientY, dy: 0 }; grab.setPointerCapture(e.pointerId); calcSheet.style.transition = 'none';
+            });
+            grab.addEventListener('pointermove', (e) => {
+                if (!drag) return;
+                drag.dy = Math.max(0, e.clientY - drag.y);
+                calcSheet.style.transform = 'translateY(' + drag.dy + 'px)';
+            });
+            const end = () => {
+                if (!drag) return;
+                calcSheet.style.transition = '';
+                const far = drag.dy > 70; drag = null;
+                if (far) closeCalc(); else calcSheet.style.transform = '';
+            };
+            grab.addEventListener('pointerup', end);
+            grab.addEventListener('pointercancel', end);
+        })();
+
+        // ---------- start ----------
+        const loaded = loadState();
+        state = loaded.state;
+        if (loaded.migrated) {
+            storage.set(STORE_KEY, JSON.stringify(state));
+            setTimeout(() => toast('Your saved list was upgraded to v2.0 (old data kept as a backup)'), 300);
+        }
+        $('versionLabel').textContent = 'v' + APP_VERSION;
+        renderMain();
+        if (!storage.ok) toast('⚠ This browser is blocking storage — changes will not be saved');
+
+        // PWA bits only work over http(s); a double-clicked file:// copy skips them quietly.
+        if (location.protocol === 'http:' || location.protocol === 'https:') {
+            document.head.append(el('link', { rel: 'manifest', href: 'manifest.json' }));
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                    navigator.serviceWorker.register('service-worker.js').catch(() => { /* offline support unavailable */ });
+                });
+            }
+        }
+
+        // Read-only hook for testing / troubleshooting from the console
+        window.groceryApp = Object.freeze({ version: APP_VERSION, getState: () => JSON.parse(JSON.stringify(state)), evaluate });
+    })();
+    </script>
+</body>
+</html>

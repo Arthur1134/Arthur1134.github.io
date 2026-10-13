@@ -1,5 +1,11 @@
-Family Recipe Book v2.2 — Retro Gaming Dad
+Family Recipe Book v2.3 — Retro Gaming Dad
 ==========================================
+
+NEW IN v2.3
+  - 🔗 After "Share as editor/viewer" a big invite panel shows the link in a box you can
+    select, with buttons: Copy link, Share… (phone share sheet), Email it, Text it.
+  - More → "Invite links": get anyone's invite link again at any time (does not change
+    what they can do).
 
 NEW IN v2.2
   - 🏡 The "McConnell Family Recipe Book" is built in: it is there the first time anyone

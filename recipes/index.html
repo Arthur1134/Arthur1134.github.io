@@ -254,7 +254,7 @@ dialog::backdrop { background: rgba(60,40,25,.45); }
   <div class="gingham"></div>
   <div class="top-row">
     <h1>Family Recipe Book<small>from our kitchen to yours</small></h1>
-    <span class="ver" id="versionLabel">v2.2</span>
+    <span class="ver" id="versionLabel">v2.3</span>
   </div>
   <div class="bookbar"><button type="button" class="bookpill" id="bookPill" aria-haspopup="dialog"><span id="bookIcon">📖</span><b id="bookName">Recipe book</b><span class="rolebadge" id="bookRole"></span><span aria-hidden="true">▾</span></button></div>
   <div class="syncbar" id="syncBar" data-state="off">
@@ -311,6 +311,24 @@ dialog::backdrop { background: rgba(60,40,25,.45); }
 </dialog>
 
 
+<dialog id="inviteDialog" aria-labelledby="invTitle">
+  <form method="dialog" class="dlg">
+    <h3 id="invTitle">🔗 Invite link</h3>
+    <p style="font-size:.95em" id="invIntro"></p>
+    <textarea id="invLink" readonly rows="3" style="width:100%;font-size:.9em;padding:8px;border-radius:8px;word-break:break-all;user-select:all;-webkit-user-select:all" aria-label="Invite link"></textarea>
+    <div class="err" id="invStatus" style="color:var(--sage-dark,#3c6b3c)"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <button type="button" class="btn green" id="invCopy" style="font-size:1.05em;padding:14px">📋 Copy link</button>
+      <button type="button" class="btn" id="invShare" style="font-size:1.05em;padding:14px">📤 Share…</button>
+      <a class="btn light" id="invEmail" href="#" style="text-decoration:none;text-align:center;font-size:1.05em;padding:14px">✉️ Email it</a>
+      <a class="btn light" id="invSms" href="#" style="text-decoration:none;text-align:center;font-size:1.05em;padding:14px">💬 Text it</a>
+    </div>
+    <p style="font-size:.85em;line-height:1.4">They open it, tap “Sign in with Google”, then select all the files shown and press Select. Done once per phone.</p>
+    <p class="tip" style="font-size:.82em" id="invTest"></p>
+    <div class="row"><button class="btn light" id="invClose" value="close">Done</button></div>
+  </form>
+</dialog>
+
 <dialog id="booksDialog" aria-labelledby="bkTitle">
   <form method="dialog" class="dlg" id="booksForm">
     <h3 id="bkTitle">📚 Your recipe books</h3>
@@ -341,7 +359,7 @@ dialog::backdrop { background: rgba(60,40,25,.45); }
 <script>
 (function () {
 'use strict';
-const APP_VERSION = '2.2';
+const APP_VERSION = '2.3';
 const APP_ID = 'arthur-family-recipe-book';
 const DOC_KEY = 'recipeBook.v1', UI_KEY = 'recipeBook.ui', PRESYNC_KEY = 'recipeBook.preSyncBackup';
 const CATEGORIES = ['Breakfast', 'Mains', 'Sides', 'Soups & Stews', 'Salads', 'Breads & Baking', 'Desserts', 'Snacks & Apps', 'Drinks', 'Sauces', 'Other'];
@@ -2268,6 +2286,7 @@ function renderMore() {
   const info = Sync.info(), m = info.meta, signed = Sync.signedIn(), b = activeBook(), ed = canEdit();
   const owner = signed && !m.pinned && (m.ownedByMe || !m.fileId);
   const members = Object.entries(doc.members).filter(([, v]) => v.role[0] !== 'removed').sort();
+  const invitees = members.filter(([em]) => em !== Sync.me());
   setView(
     el('div', { class: 'panel' },
       el('h2', { text: '📚 Books' }),
@@ -2293,6 +2312,12 @@ function renderMore() {
       el('div', { class: 'row' },
         el('button', { class: 'btn green', type: 'button', onclick: () => openShare('editor') }, '✏️ Share as editor'),
         el('button', { class: 'btn', type: 'button', onclick: () => openShare('viewer') }, '👀 Share as viewer (kids)'))) : null,
+    WEB && owner && m.fileId && invitees.length ? el('div', { class: 'panel', id: 'inviteLinks' },
+      el('h2', { text: '🔗 Invite links' }),
+      el('p', { text: 'Lost the link? Get it again for anyone you shared with. This does not change what they can do.' }),
+      el('ul', { style: 'list-style:none;display:grid;gap:8px' }, invitees.map(([em, v]) => el('li', { class: 'row', style: 'justify-content:space-between;align-items:center' },
+        el('span', { text: em, style: 'word-break:break-all' }),
+        el('button', { class: 'btn light invite-get', type: 'button', 'data-email': em, onclick: () => inviteFor(em, v.role[0] === 'parent' ? 'editor' : 'viewer') }, '🔗 Get invite link'))))) : null,
     members.length ? el('div', { class: 'panel' },
       el('h2', { text: '🏡 People in this book' }),
       el('ul', { style: 'list-style:none;display:grid;gap:8px' }, members.map(([em, v]) => el('li', { class: 'row', style: 'justify-content:space-between' },
@@ -2334,14 +2359,38 @@ async function doShare(e) {
   try {
     const link = await Sync.share(email, role);
     $('shareDialog').close();
-    const msg = 'Shared with ' + email + ' (' + (role === 'editor' ? 'can edit' : 'view + comment + submit') + ').\n\nGoogle does not e-mail them. Send them this link:\n' + link +
-      '\n\nThey open it, tap “Sign in with Google”, then select all the files shown and press Select. Done once per phone.' +
-      '\n\nWhile the Google project is in Testing mode, ' + email + ' must also be added as a test user in Google Cloud.';
     window.__lastJoinLink = link;
-    try { await navigator.clipboard.writeText(link); } catch (err) { /* not allowed */ }
-    alert(msg + '\n\n(The link was copied.)');
+    showInvite(email, role, link, true);
   } catch (err) { $('shareError').textContent = 'Could not share: ' + err.message + (err.forbidden ? ' (only the owner can share)' : ''); }
   finally { $('shareGo').disabled = false; }
+}
+// v2.3: invite-link panel (selectable link + Copy / Share… / Email / Text)
+const INVITE_HOWTO = 'Open this link on your phone or computer, tap “Sign in with Google” (use this e-mail address), then select ALL the files shown and press “Select”. You only do this once per phone.';
+function showInvite(email, role, link, justShared) {
+  const d = $('inviteDialog');
+  $('invTitle').textContent = justShared ? '✅ Shared with ' + email : '🔗 Invite link for ' + email;
+  $('invIntro').textContent = (justShared ? 'They now ' + (role === 'editor' ? 'can edit' : 'can view, comment and send recipes') + '. ' : '') + 'Google does NOT e-mail them — send them this link:';
+  $('invLink').value = link;
+  $('invTest').textContent = 'While the Google project is in Testing mode, ' + email + ' must also be added as a test user in Google Cloud (OAuth consent screen → Test users).';
+  $('invStatus').textContent = '';
+  const body = 'Here is your invite to the Family Recipe Book:\n' + link + '\n\n' + INVITE_HOWTO;
+  $('invEmail').href = 'mailto:' + encodeURIComponent(email) + '?subject=' + encodeURIComponent('Family Recipe Book') + '&body=' + encodeURIComponent(body);
+  $('invSms').href = 'sms:?&body=' + encodeURIComponent('Family Recipe Book invite: ' + link);
+  $('invShare').hidden = !navigator.share;
+  $('invShare').onclick = async () => { try { await navigator.share({ title: 'Family Recipe Book', text: 'Here is your invite to the Family Recipe Book. ' + INVITE_HOWTO, url: link }); } catch (e) { /* cancelled */ } };
+  $('invCopy').onclick = () => copyInvite(link);
+  if (!d.open) d.showModal();
+  setTimeout(() => { try { $('invLink').focus(); $('invLink').select(); } catch (e) { /* ok */ } }, 50);
+}
+async function copyInvite(link) {
+  let ok = false;
+  try { await navigator.clipboard.writeText(link); ok = true; } catch (e) { /* fall back */ }
+  if (!ok) { try { const t = $('invLink'); t.focus(); t.select(); t.setSelectionRange(0, 9999); ok = document.execCommand('copy'); } catch (e) { /* ok */ } }
+  $('invStatus').textContent = ok ? '✅ Link copied — paste it into a message.' : 'Press and hold the link above, then “Copy”.';
+}
+function inviteFor(email, role) {
+  try { const link = Sync.joinLink(); window.__lastJoinLink = link; showInvite(email, role, link, false); }
+  catch (e) { toast('Could not make the link: ' + e.message); }
 }
 async function exportBackup(withPhotos) {
   const btn = $('exportBtn'); if (btn) btn.disabled = true;

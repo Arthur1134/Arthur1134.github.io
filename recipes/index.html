@@ -193,7 +193,33 @@ dialog::backdrop { background: rgba(60,40,25,.45); }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 .backlink { background: none; border: none; color: var(--tomato-dark); font-size: 1em; padding: 12px 0 0; display: inline-flex; gap: 6px; align-items: center; min-height: 44px; }
 .small-print { text-align: center; font-size: .8em; color: var(--muted); margin: 26px 0 6px; font-style: italic; }
-@media print { nav.bottom, header.top, .actions, .groc-bar, .backlink { display: none !important; } body { background: #fff; } }
+.gl-dup { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; background: #FFF4D6; border-radius: 8px; padding: 6px; }
+.gl-dup .st.on { background: #F2C14E; color: #4E3B2A; font-weight: 600; }
+.gl-dup select { flex: 1; min-width: 150px; }
+.p-opt { display: flex; gap: 10px; align-items: center; min-height: 40px; font-size: 1em; }
+.p-opt input { width: 22px; height: 22px; }
+.print-sheet { display: none; }
+@media print {
+  html, body { background: #fff !important; }
+  body > *:not(#printSheet) { display: none !important; }
+  .print-sheet { display: block !important; color: #000; font: 11.5pt/1.4 Georgia, "Times New Roman", serif; }
+  .print-sheet h1 { font-size: 22pt; margin: 0 0 4pt; }
+  .print-sheet h2 { font-size: 13pt; margin: 12pt 0 4pt; border-bottom: 1pt solid #999; padding-bottom: 2pt; text-transform: uppercase; letter-spacing: .05em; }
+  .p-from { font-style: italic; margin-bottom: 6pt; }
+  .p-photo { display: block; max-width: 100%; max-height: 3.2in; object-fit: cover; margin: 6pt 0; border-radius: 4pt; }
+  .p-meta { font-weight: bold; margin: 4pt 0; }
+  .p-cols { display: grid; grid-template-columns: 2fr 3fr; gap: 18pt; }
+  .p-cols ul { padding-left: 14pt; margin: 0; } .p-cols ol { padding-left: 18pt; margin: 0; }
+  .p-cols li { margin: 0 0 4pt; break-inside: avoid; }
+  .p-src { margin-top: 10pt; font-size: 9pt; word-break: break-all; color: #333; }
+  .p-foot { margin-top: 14pt; padding-top: 4pt; border-top: 1pt solid #999; text-align: center; font-size: 9pt; font-style: italic; color: #444; }
+  .print-sheet.card46 { font-size: 8.5pt; line-height: 1.25; }
+  .card46 h1 { font-size: 13pt; } .card46 h2 { font-size: 9pt; margin: 5pt 0 2pt; }
+  .card46 .p-cols { grid-template-columns: 1fr; gap: 0; }
+  .card46 .p-photo { max-height: 1.4in; width: 100%; }
+  .card46 .p-foot, .card46 .p-src { font-size: 7pt; margin-top: 5pt; }
+}
+@media print and (max-width: 5in) { .p-cols { grid-template-columns: 1fr; gap: 0; } }
 
 /* ---- v2: books, send, inbox, comments, import ---- */
 .bookbar { max-width: 960px; margin: 0 auto; padding: 0 14px 8px; display: flex; gap: 8px; align-items: center; }
@@ -228,7 +254,7 @@ dialog::backdrop { background: rgba(60,40,25,.45); }
   <div class="gingham"></div>
   <div class="top-row">
     <h1>Family Recipe Book<small>from our kitchen to yours</small></h1>
-    <span class="ver" id="versionLabel">v2.0</span>
+    <span class="ver" id="versionLabel">v2.2</span>
   </div>
   <div class="bookbar"><button type="button" class="bookpill" id="bookPill" aria-haspopup="dialog"><span id="bookIcon">📖</span><b id="bookName">Recipe book</b><span class="rolebadge" id="bookRole"></span><span aria-hidden="true">▾</span></button></div>
   <div class="syncbar" id="syncBar" data-state="off">
@@ -262,6 +288,14 @@ dialog::backdrop { background: rgba(60,40,25,.45); }
     <ul class="gl-list" id="glList"></ul>
     <div class="err" id="glErr"></div>
     <div class="row"><button type="button" class="btn light" id="glCancel">Cancel</button><button type="submit" class="btn green" id="glGo">Add to list</button></div>
+  </form>
+</dialog>
+
+<dialog id="printDialog" aria-labelledby="prTitle">
+  <form method="dialog" class="dlg">
+    <h3 id="prTitle">🖨 Print recipe</h3>
+    <div id="prOpts" style="display:grid;gap:10px;margin:8px 0 14px"></div>
+    <div class="row"><button type="button" class="btn light" id="prCancel" onclick="this.closest('dialog').close()">Cancel</button><button type="submit" class="btn green" id="prGo">🖨 Print</button></div>
   </form>
 </dialog>
 
@@ -307,7 +341,7 @@ dialog::backdrop { background: rgba(60,40,25,.45); }
 <script>
 (function () {
 'use strict';
-const APP_VERSION = '2.0';
+const APP_VERSION = '2.2';
 const APP_ID = 'arthur-family-recipe-book';
 const DOC_KEY = 'recipeBook.v1', UI_KEY = 'recipeBook.ui', PRESYNC_KEY = 'recipeBook.preSyncBackup';
 const CATEGORIES = ['Breakfast', 'Mains', 'Sides', 'Soups & Stews', 'Salads', 'Breads & Baking', 'Desserts', 'Snacks & Apps', 'Drinks', 'Sauces', 'Other'];
@@ -465,10 +499,11 @@ function migrateV1() {
   const ownerParent = v1doc.members[OWNER_EMAIL] && v1doc.members[OWNER_EMAIL].role[0] === 'parent';
   // Arthur's own v1 book (and anyone who had opened his shared v1 book) becomes the family book; anyone else's v1 data -> their personal book
   const toFamily = hasData && (!!v1meta.pinned || email === OWNER_EMAIL || (!email && ownerParent));
-  const books = [], personal = { id: newBid(), name: 'My Recipes', kind: 'personal' };
+  const books = [{ id: FAMILY_ID, name: FAMILY_NAME, kind: 'family' }], personal = { id: newBid(), name: 'My Recipes', kind: 'personal' };
   const m = Object.assign({}, v1meta); delete m.email; delete m.everSignedIn; delete m.consented;
-  if (toFamily) { books.push({ id: FAMILY_ID, name: FAMILY_NAME, kind: 'family' }); storage.set(docKeyFor(FAMILY_ID), JSON.stringify(v1doc)); storage.set(metaKeyFor(FAMILY_ID), JSON.stringify(m)); }
-  books.push(personal);
+  if (!toFamily) storage.set(metaKeyFor(FAMILY_ID), JSON.stringify({ seeded: true }));   // v2.2: present but not connected yet
+  if (toFamily) { storage.set(docKeyFor(FAMILY_ID), JSON.stringify(v1doc)); storage.set(metaKeyFor(FAMILY_ID), JSON.stringify(m)); }
+  if (hasData && !toFamily) books.push(personal);   // v2.2: fresh installs start with just the family book; personal books are optional
   if (hasData && !toFamily) { storage.set(docKeyFor(personal.id), JSON.stringify(v1doc)); storage.set(metaKeyFor(personal.id), JSON.stringify(m)); }
   storage.set(IDENT_KEY, JSON.stringify({ email, name: '', everSignedIn: !!v1meta.everSignedIn, consented: !!v1meta.consented }));
   storage.set(BOOKS_KEY, JSON.stringify(books)); storage.set(ACTIVE_KEY, books[0].id);
@@ -477,7 +512,13 @@ function migrateV1() {
 }
 const migration = migrateV1();
 let books = (readJson(BOOKS_KEY, []) || []).filter(b => b && BID.test(b.id));
-if (!books.length) books = [{ id: newBid(), name: 'My Recipes', kind: 'personal' }];
+// v2.2: the McConnell Family Recipe Book is always in the switcher (connected on sign-in / invite link)
+if (!books.some(b => b.id === FAMILY_ID)) {
+  books.unshift({ id: FAMILY_ID, name: FAMILY_NAME, kind: 'family' });
+  if (!storage.get(metaKeyFor(FAMILY_ID))) storage.set(metaKeyFor(FAMILY_ID), JSON.stringify({ seeded: true }));
+  storage.set(BOOKS_KEY, JSON.stringify(books));
+}
+const familyConnected = (m) => !!(m && (m.fileId || m.folderId || (m.pinned && m.pinned.book) || !m.seeded));
 let activeBid = storage.get(ACTIVE_KEY);
 if (!books.some(b => b.id === activeBid)) activeBid = books[0].id;
 const saveBooks = () => { storage.set(BOOKS_KEY, JSON.stringify(books)); storage.set(ACTIVE_KEY, activeBid); };
@@ -838,21 +879,33 @@ const Grocery = (() => {
       const name = shortName(line) || cleanName(line);
       const k = key(name), hit = byKey.get(k);
       const similar = items.filter(i => { const a = key(i.name).split(' '), b = k.split(' '); return i !== hit && (a.every(w => b.includes(w)) || b.every(w => a.includes(w))); }).slice(0, 4);
-      return { line, name, cat: hit ? hit.cat : guessCat(name), match: hit ? hit.id : '', similar, items: d, skip: STAPLE.test(name) };
+      return { line, name, cat: hit ? hit.cat : guessCat(name), match: hit ? hit.id : '', similar, items: d, skip: STAPLE.test(name), dup: 'skip' };
     });
   }
   function itemsLabel(d, id) { const e = eff(d, id); return e ? e.name : id; }
+  // v2.1: is this pick already an active (ticked, not yet bought) entry on the list? -> {id,name,qty} or null
+  function onList(d, match, name) {
+    d = d || empty();
+    let t = match ? eff(d, match) : null;
+    if (!t && !match) { const k = key(cleanName(name || '')); t = live(d).find(i => key(i.name) === k) || null; }
+    return t && !t.del && t.checked && !t.purchased ? { id: t.id, name: t.name, qty: t.qty } : null;
+  }
   // Apply to a grocery doc; returns counts
   function apply(d, picks) {
     observe(d);
-    const res = { added: 0, ticked: 0, skipped: 0 };
+    const res = { added: 0, ticked: 0, skipped: 0, more: 0 };
     const items = live(d), byKey = new Map(items.map(i => [key(i.name), i]));
     const set = (id, f, v) => { (d.items[id] = d.items[id] || {})[f] = [v, gtick()]; };
     for (const p of picks) {
       const name = cleanName(p.name); if (!name) continue;
       const target = p.match ? eff(d, p.match) : byKey.get(key(name));
       if (target && !target.del) {
-        if (target.checked && !target.purchased) { res.skipped++; continue; }       // already on the list: no duplicate
+        if (target.checked && !target.purchased) {                                   // already on the list
+          // v2.1: default skip; "Add another" bumps Grocery List's own qty field (1..99) instead of a duplicate row
+          if (p.dup === 'more' && target.qty < 99) { set(target.id, 'qty', target.qty + 1); target.qty++; res.more++; }
+          else res.skipped++;
+          continue;
+        }
         if (!target.checked) set(target.id, 'checked', true);
         if (target.purchased || ((d.items[target.id] || {}).purchased || [])[0] === true) set(target.id, 'purchased', false);
         res.ticked++;
@@ -861,7 +914,7 @@ const Grocery = (() => {
       } else {
         const id = 'c:' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
         set(id, 'name', name); set(id, 'price', 0); set(id, 'cat', CAT_IDS.has(p.cat) ? p.cat : 'canned-goods'); set(id, 'checked', true);
-        byKey.set(key(name), { id, name, checked: true, purchased: false }); res.added++;
+        byKey.set(key(name), { id, name, checked: true, purchased: false, qty: 1 }); res.added++;
       }
     }
     return res;
@@ -880,7 +933,7 @@ const Grocery = (() => {
     catch (e) { drive = 'error: ' + e.message; }
     return { localRes, state: loc.state, drive };
   }
-  return { CATS, plan, add, present, readLocal, shortName, guessCat, normalize, merge, canon, appId: G_APP, itemsLabel, metaKey: G_META };
+  return { CATS, plan, add, present, readLocal, shortName, guessCat, normalize, merge, canon, appId: G_APP, itemsLabel, onList, metaKey: G_META };
 })();
 
 // ================= Google Drive sync (same sign-in + merge approach as Grocery List v2.2) =================
@@ -1025,7 +1078,7 @@ const Sync = (() => {
     const b = bookById(bid || activeBid); if (!b) return false;
     m = m || (bid && bid !== activeBid ? loadMeta(bid) : meta);
     if (m.canEdit === false) return false;
-    if (b.kind === 'family') return me() ? FAMILY_EDITORS.includes(me()) : !m.pinned;
+    if (b.kind === 'family') return me() ? FAMILY_EDITORS.includes(me()) : !m.pinned && !m.seeded;   // v2.2: an unconnected family book is view-only until an editor signs in
     return true;
   }
   const isEditor = (bid) => writable(bid);
@@ -1175,29 +1228,43 @@ const Sync = (() => {
     const known = new Set();
     for (const b of books) { const m = b.id === activeBid ? meta : loadMeta(b.id); if (m.fileId) known.add(m.fileId); if (m.pinned && m.pinned.book) known.add(m.pinned.book); }
     let added = 0;
+    const famM = activeBid === FAMILY_ID ? meta : loadMeta(FAMILY_ID);
+    let famLinked = familyConnected(famM);
     for (const f of await d.list(q(SYNC.fileName))) {
-      if (!f.ownedByMe || known.has(f.id)) continue;
+      if (known.has(f.id)) continue;
+      if (!f.ownedByMe) {
+        // v2.2: the family book shared with me (wife / anyone who already opened it): header says family, or a v1 file owned by Arthur
+        if (famLinked) continue;
+        let px = null; try { px = parseFile(await d.read(f.id)); } catch (e) { if (e.auth) throw e; }
+        if (!px || !(px.book ? px.book.id === FAMILY_ID : !!(px.doc.members[OWNER_EMAIL]))) continue;
+        famM.fileId = f.id; famM.folderId = (f.parents || [])[0] || ''; famM.fileInfoFor = ''; delete famM.seeded;
+        if (activeBid === FAMILY_ID) meta = famM; else storage.set(metaKeyFor(FAMILY_ID), JSON.stringify(famM));
+        famLinked = true; added++; continue;
+      }
       const p = parseFile(await d.read(f.id)); if (!p) continue;
       const h = p.book || (me() === OWNER_EMAIL ? { id: FAMILY_ID, name: FAMILY_NAME, kind: 'family' } : { id: newBid(), name: 'My Recipes (online)', kind: 'personal' });
       if (!BID.test(h.id)) continue;
       let b = bookById(h.id);
       const m = b ? (b.id === activeBid ? meta : loadMeta(b.id)) : { shardVer: {}, pinned: null };
       if (b && (m.fileId || m.pinned)) continue;
+      if (b && b.id === FAMILY_ID && famLinked) continue;
       if (!b) { b = { id: h.id, name: str(h.name, 60) || 'Recipe book', kind: h.kind === 'family' ? 'family' : 'personal' }; books.push(b); }
-      m.fileId = f.id; m.folderId = (f.parents || [])[0] || ''; m.fileInfoFor = '';
+      m.fileId = f.id; m.folderId = (f.parents || [])[0] || ''; m.fileInfoFor = ''; delete m.seeded;
+      if (b.id === FAMILY_ID) famLinked = true;
       if (b.id === activeBid) meta = m; else storage.set(metaKeyFor(b.id), JSON.stringify(m));
       added++;
     }
-    if (added) { saveBooks(); toast('Found ' + added + ' of your recipe books in Google Drive'); }
+    if (added) { saveBooks(); toast('Found ' + added + ' of your recipe books in Google Drive'); if (familyConnected(famM) && activeBid === FAMILY_ID) render(); }
   }
 
+  let waiting = false;
   async function run(interactive, opts) {
     if (!WEB) return;
     if (busy) { again = true; return; }
     if (!navigator.onLine) { if (interactive) toast("You're offline — changes are saved here and will sync later"); paint(); return; }
     if (!tokenValid() && !interactive) { paint(); return; }
     busy = true; paint();
-    const seq0 = changeSeq;
+    const seq0 = changeSeq, signedInBefore = !!ident.everSignedIn && !!ident.email;
     try {
       await getToken(interactive);
       if (!tokenValid()) throw Object.assign(new Error('Sign-in needed'), { auth: true });
@@ -1205,9 +1272,16 @@ const Sync = (() => {
       await whoami(d);
       ident.everSignedIn = true; ident.consented = true; saveMeta();
       if (interactive || !ident.discovered) { await discover(d); ident.discovered = true; }
-      await syncBook(d);
-      await syncPhotos(d, opts);
-      await syncSharedFor(d, activeBid, meta).catch((e) => { if (e.auth) throw e; });
+      const famBefore = activeBid === FAMILY_ID && familyConnected(meta) && !meta.seeded, wasSignedIn = signedInBefore;
+      if (activeBid === FAMILY_ID && !familyConnected(meta) && me() !== OWNER_EMAIL) { waiting = true; }   // v2.2: wait for the invite link instead of making a 2nd family folder
+      else {
+        waiting = false;
+        if (activeBid === FAMILY_ID) delete meta.seeded;
+        await syncBook(d);
+        await syncPhotos(d, opts);
+        await syncSharedFor(d, activeBid, meta).catch((e) => { if (e.auth) throw e; });
+      }
+      if (activeBid === FAMILY_ID && route.name === 'home' && (!wasSignedIn || famBefore !== (familyConnected(meta) && !meta.seeded))) render();
       meta.lastSync = Date.now(); errMsg = ''; retryMs = 15000;
       if (changeSeq === seq0) meta.dirty = false;
       refreshVisiblePhotos();
@@ -1273,6 +1347,7 @@ const Sync = (() => {
     if (!navigator.onLine) return { k: 'offline', text: 'Sync: offline' + (meta.dirty ? ' · changes wait here' : last) };
     if (!tokenValid()) return { k: 'need', text: 'Sync: sign-in needed' + (meta.dirty ? ' · changes waiting' : last) };
     if (errMsg) return { k: 'error', text: 'Sync: problem — ' + errMsg };
+    if (activeBid === FAMILY_ID && !familyConnected(meta)) return { k: 'ok', text: 'Sync: signed in' + (ident.email ? ' (' + ident.email + ')' : '') + ' · family book not connected yet' };
     return { k: 'ok', text: 'Sync: on' + (ident.email ? ' (' + ident.email + ')' : '') + last + (meta.dirty ? ' · saving…' : '') };
   }
   function paint() {
@@ -1340,8 +1415,8 @@ const Sync = (() => {
       let b = bookById(h.id);
       if (!b) { b = { id: h.id, name: str(h.name, 60) || 'Shared recipe book', kind: h.kind === 'family' ? 'family' : 'personal', shared: true }; books.push(b); }
       const m = b.id === activeBid ? meta : loadMeta(b.id);
-      m.pinned = { book: bookFile.id, shards, shared: sharedF ? sharedF.id : '' }; m.fileInfoFor = ''; m.folderId = ''; m.shardVer = {};
-      if (b.id === activeBid) meta = m; else storage.set(metaKeyFor(b.id), JSON.stringify(m));
+      m.pinned = { book: bookFile.id, shards, shared: sharedF ? sharedF.id : '' }; delete m.seeded; m.fileInfoFor = ''; m.folderId = ''; m.shardVer = {};
+      if (b.id === activeBid) { meta = m; saveMeta(); } else storage.set(metaKeyFor(b.id), JSON.stringify(m));
       saveBooks();
       if (Object.keys(shards).length < SYNC.shards) toast('Opened — but only ' + Object.keys(shards).length + ' of ' + SYNC.shards + ' photo files were picked, some photos may not show');
       else toast('Opening “' + b.name + '”…');
@@ -1476,6 +1551,16 @@ function renderHome(favsOnly) {
       el('div', { class: 'big', text: favsOnly ? '⭐' : '🔍' }), el('p', { text: favsOnly && !qq ? 'No favorites yet — tap the ☆ on a recipe.' : 'Nothing matches that search.' })));
   }
   const banner = inboxBanner();
+  if (!all.length && activeBid === FAMILY_ID && !familyConnected(Sync.metaFor(FAMILY_ID))) {   // v2.2: family book present but not connected yet
+    const si = Sync.signedIn() && !!Sync.me();
+    setView(joinPanel(), el('div', { class: 'empty', id: 'familyConnect', style: 'margin-top:20px' },
+      el('div', { class: 'big', text: '🏡' }), el('h2', { style: 'font-family:var(--hand);font-weight:normal;color:var(--tomato-dark)', text: FAMILY_NAME }),
+      el('p', { text: si ? 'Almost there! Open the invite link Dad sent you (or More ☰ → “Open a book shared with me”) to see the family recipes.' : 'Sign in to see family recipes.' }),
+      !si && WEB ? el('div', { class: 'row', style: 'justify-content:center' }, el('button', { class: 'btn green', type: 'button', id: 'familySignIn', onclick: () => Sync.run(true) }, '🔑 Sign in with Google')) : null,
+      si && WEB ? el('div', { class: 'row', style: 'justify-content:center' }, el('button', { class: 'btn light', type: 'button', onclick: () => Sync.openShared(null, FAMILY_ID) }, '📂 Open a book shared with me')) : null,
+      el('p', { style: 'font-size:.86em;margin-top:14px', text: 'Want your own recipes too? Tap 📚 at the top to start a personal book.' })));
+    return;
+  }
   if (!all.length) {
     setView(joinPanel(), banner, el('div', { class: 'empty', style: 'margin-top:20px' },
       el('div', { class: 'big', text: '📖' }), el('h2', { style: 'font-family:var(--hand);font-weight:normal;color:var(--tomato-dark)', text: '“' + activeBook().name + '” is empty' }),
@@ -1592,10 +1677,50 @@ function renderRecipe(id) {
         r.scans.length ? el('h2', { class: 'sec' }, '🗒️ Original recipe card') : null,
         r.scans.length ? el('div', { class: 'thumbs' }, photoThumbs(r.scans, { label: 'scan' })) : null,
         el('div', { class: 'actions', style: 'margin-top:24px' },
-          el('button', { class: 'btn light small', type: 'button', onclick: () => window.print() }, '🖨 Print'),
+          el('button', { class: 'btn light small', type: 'button', id: 'printBtn', onclick: () => openPrint(r) }, '🖨 Print'),
           ed ? el('button', { class: 'btn danger small', type: 'button', onclick: () => { if (!confirm('Delete “' + r.title + '”?\n\nIt is removed on every synced device.')) return; setReg(id, 'del', true); commit('Recipe deleted'); go('#/'); } }, '🗑 Delete') : null),
         commentsSection(id))));
 }
+
+// ---------- v2.1 print ----------
+// Builds a separate print-only sheet (#printSheet) so the printout never depends on the screen layout.
+function buildPrintSheet(r, opts) {
+  const metas = [r.servings && 'Serves ' + r.servings, r.prep && 'Prep ' + r.prep, r.cook && 'Cook ' + r.cook].filter(Boolean);
+  const photoId = (r.photos[0] || (opts.scanIfNoPhoto ? r.scans[0] : null));
+  const img = opts.photo && photoId ? el('img', { class: 'p-photo', alt: '' }) : null;
+  const sheet = el('div', { id: 'printSheet', class: 'print-sheet' + (opts.card ? ' card46' : '') },
+    el('h1', { class: 'p-title', text: r.title }),
+    r.from ? el('div', { class: 'p-from', text: 'From the kitchen of ' + r.from }) : null,
+    img,
+    metas.length ? el('div', { class: 'p-meta', text: metas.join('  ·  ') }) : null,
+    el('div', { class: 'p-cols' },
+      el('section', { class: 'p-ingr' }, el('h2', { text: 'Ingredients' }), r.ingr.length ? el('ul', {}, r.ingr.map(l => el('li', { text: l }))) : el('p', { text: '—' })),
+      el('section', { class: 'p-steps' }, el('h2', { text: 'Steps' }), r.steps.length ? el('ol', {}, r.steps.map(s => el('li', { text: s }))) : el('p', { text: '—' }))),
+    opts.notes && r.notes ? el('section', { class: 'p-notes' }, el('h2', { text: 'Notes' }), el('p', { text: r.notes })) : null,
+    r.src ? el('div', { class: 'p-src', text: 'Source: ' + r.src }) : null,
+    el('div', { class: 'p-foot', text: 'McConnell Family Recipe Book' }));
+  const old = $('printSheet'); if (old) old.remove();
+  document.body.append(sheet);
+  let pg = $('printPageStyle'); if (!pg) { pg = el('style', { id: 'printPageStyle' }); document.head.append(pg); }
+  pg.textContent = opts.card ? '@page { size: 4in 6in; margin: 0.25in; }' : '@page { size: auto; margin: 0.6in; }';
+  return img ? setImg(img, photoId).then(ok => { if (!ok) img.remove(); }).catch(() => img.remove()) : Promise.resolve();
+}
+const printOpts = (() => { try { return Object.assign({ photo: true, notes: true, card: false }, JSON.parse(localStorage.getItem('recipeBook.printOpts') || '{}')); } catch (e) { return { photo: true, notes: true, card: false }; } })();
+function openPrint(r) {
+  const box = (k, label) => el('label', { class: 'p-opt' }, el('input', { type: 'checkbox', id: 'po_' + k, checked: !!printOpts[k], onchange: (e) => { printOpts[k] = e.target.checked; } }), el('span', { text: label }));
+  const dlg = $('printDialog');
+  $('prOpts').replaceChildren(box('photo', '📸 Include photo'), box('notes', '📝 Include notes'), box('card', '🗂 Recipe-card size (4×6 in)'));
+  $('prGo').onclick = async (e) => {
+    e.preventDefault();
+    try { localStorage.setItem('recipeBook.printOpts', JSON.stringify(printOpts)); } catch (x) { /* ignore */ }
+    dlg.close();
+    await buildPrintSheet(r, printOpts);
+    setTimeout(() => window.print(), 60);
+  };
+  dlg.showModal();
+}
+window.addEventListener('afterprint', () => { const s = $('printSheet'); if (s) s.remove(); });
+window.__buildPrintSheet = buildPrintSheet;
 
 // ---------- grocery dialog ----------
 let glPlan = [];
@@ -1608,16 +1733,28 @@ function openGrocery(r, lines) {
     const name = el('input', { type: 'text', value: p.name, maxlength: 60, 'aria-label': 'Grocery name', oninput: (e) => { p.name = e.target.value; } });
     const inc = el('input', { type: 'checkbox', checked: !p.skip, 'aria-label': 'Include', style: 'width:22px;height:22px', onchange: (e) => { p.skip = !e.target.checked; } });
     const cat = el('select', { 'aria-label': 'Grocery section', onchange: (e) => { p.cat = e.target.value; } }, catOpts(p.cat));
-    const matchSel = el('select', { 'aria-label': 'Match', onchange: (e) => { p.match = e.target.value; cat.disabled = !!p.match; } },
+    const dupBox = el('div', { class: 'gl-dup' });
+    const paintDup = () => {
+      const on = Grocery.onList(p.items, p.match, p.name);
+      if (!on) { dupBox.hidden = true; dupBox.replaceChildren(); return; }
+      dupBox.hidden = false;
+      const sel = el('select', { 'aria-label': 'Already on list: what to do', class: 'gl-dupsel', onchange: (e) => { p.dup = e.target.value; } },
+        el('option', { value: 'skip', text: 'Skip (keep ' + on.qty + ')', selected: p.dup !== 'more' }),
+        el('option', { value: 'more', text: 'Add another (→ ' + Math.min(99, on.qty + 1) + ')', selected: p.dup === 'more' }));
+      dupBox.replaceChildren(el('span', { class: 'st on', text: '🛒 Already on list' + (on.qty > 1 ? ' ×' + on.qty : '') }), sel);
+    };
+    name.addEventListener('change', paintDup);
+    const matchSel = el('select', { 'aria-label': 'Match', onchange: (e) => { p.match = e.target.value; cat.disabled = !!p.match; paintDup(); } },
       el('option', { value: '', text: '➕ New item' }),
       p.match ? el('option', { value: p.match, selected: true, text: '✓ ' + Grocery.itemsLabel(p.items, p.match) + ' (on your grocery catalogue)' }) : null,
       p.similar.map(s => el('option', { value: s.id, text: '≈ ' + s.name + (s.checked && !s.purchased ? ' (already on list)' : '') })));
     cat.disabled = !!p.match;
+    paintDup();
     void i;
-    return el('li', {}, el('div', { class: 'top' }, inc, name), el('div', { class: 'src', text: 'from: ' + p.line }), el('div', { class: 'row' }, matchSel, cat));
+    return el('li', {}, el('div', { class: 'top' }, inc, name), el('div', { class: 'src', text: 'from: ' + p.line }), el('div', { class: 'row' }, matchSel, cat), dupBox);
   }));
   $('glIntro').textContent = loc.state === 'needs-upgrade' ? 'Note: open Grocery List once on this device first so it can upgrade its data. ' + (Sync.signedIn() ? 'These will still go to your Google Drive list.' : '')
-    : 'Check the names — short names work best on the grocery list. Items already on the list are not added twice.';
+    : 'Check the names — short names work best on the grocery list. Items already on the list are skipped unless you pick “Add another”.';
   $('glErr').textContent = ''; $('glGo').disabled = false;
   $('groceryDialog').showModal();
 }
@@ -1630,7 +1767,7 @@ async function doGrocery(e) {
     const res = await Grocery.add(picks);
     $('groceryDialog').close();
     const lr = res.localRes;
-    let msg = lr ? '🛒 ' + (lr.added + lr.ticked) + ' added to Grocery List' + (lr.skipped ? ' · ' + lr.skipped + ' already on it' : '') : '🛒 Sent to your Google Drive grocery list';
+    let msg = lr ? '🛒 ' + (lr.added + lr.ticked) + ' added to Grocery List' + (lr.more ? ' · ' + lr.more + ' quantity +1' : '') + (lr.skipped ? ' · ' + lr.skipped + ' skipped (already on it)' : '') : '🛒 Sent to your Google Drive grocery list';
     if (res.drive === 'ok') msg += ' · synced';
     toast(msg);
     ingrPicked.clear(); render();
@@ -1772,6 +1909,7 @@ async function useText() {
 // ================= v2: book switcher =================
 function bookRoleText(b) {
   const m = Sync.metaFor(b.id), ed = Sync.writable(b.id);
+  if (b.kind === 'family' && !familyConnected(m)) return (Sync.signedIn() && Sync.me() ? '🔗 not connected yet — open the invite link' : '🔑 sign in to see family recipes');
   const where = m.pinned ? 'shared with you' + (m.fileOwner ? ' by ' + m.fileOwner : '') : (b.kind === 'family' ? 'in your Google Drive' : 'your own book');
   return (ed ? '✏️ can edit' : '👀 view only') + ' · ' + where;
 }
@@ -1782,7 +1920,7 @@ function openBooks() {
     el('span', { class: 'ic', text: b.kind === 'family' ? '🏡' : '📒' }),
     el('span', { class: 'nm' }, b.name, el('small', { text: bookRoleText(b) })),
     b.id === activeBid ? el('span', { class: 'rolebadge', text: 'open' }) : null))));
-  if (!bookById(FAMILY_ID)) $('bookList').append(el('li', { class: 'tip', style: 'font-size:.86em', text: '🏡 To connect the McConnell Family Recipe Book, open the invite link Dad sent you.' }));
+  if (!familyConnected(Sync.metaFor(FAMILY_ID)) && !FAMILY_EDITORS.includes(Sync.me())) $('bookList').append(el('li', { class: 'tip', style: 'font-size:.86em', text: '🏡 To connect the McConnell Family Recipe Book, open the invite link Dad sent you.' }));
   $('booksDialog').showModal();
 }
 async function switchBook(bid) {

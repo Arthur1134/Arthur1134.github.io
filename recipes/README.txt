@@ -1,5 +1,19 @@
-Family Recipe Book v2.0 — Retro Gaming Dad
+Family Recipe Book v2.2 — Retro Gaming Dad
 ==========================================
+
+NEW IN v2.2
+  - 🏡 The "McConnell Family Recipe Book" is built in: it is there the first time anyone
+    opens the app (no empty "create a book" screen). Arthur and Mom: sign in and it links
+    to the existing family Drive folder automatically and is editable. Everyone else sees
+    it view-only; until connected it says "Sign in to see family recipes" (then open the
+    invite link). Personal books are optional extras (📚 at the top).
+
+NEW IN v2.1
+  - 🖨 Print on any recipe: clean printer layout (title, optional photo, serves/times,
+    ingredients, numbered steps, optional notes, source link, family-book footer; no
+    buttons/menus/comments). Optional 4×6 recipe-card size. Works from phone or PC.
+  - 🛒 Add to grocery: items already on the list are marked "Already on list" with a
+    choice: Skip (default) or Add another (raises that item's quantity by 1).
 
 NEW IN v2.0
   - Several books. 🏡 "McConnell Family Recipe Book" (Arthur's Drive; Arthur + Mom edit,

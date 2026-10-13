@@ -1,6 +1,6 @@
-// Family Recipe Book v2.0 — offline support. Bump CACHE when app files change.
+// Family Recipe Book v2.2 — offline support. Bump CACHE when app files change.
 // The text reader (Tesseract, ~7 MB) is kept in its own cache so app updates do not re-download it.
-const CACHE = 'recipe-book-v2.0';
+const CACHE = 'recipe-book-v2.2';
 const OCR_CACHE = 'recipe-book-ocr-v7.0.0';
 const ASSETS = ['./', './index.html', './manifest.json', './icons/icon-192.png', './icons/icon-512.png',
   './icons/icon-maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon.ico'];

@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cosmic Crystal Drop</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Orbitron', 'Segoe UI', sans-serif;
+    background: radial-gradient(ellipse at center, #0a0015 0%, #000011 70%, #000008 100%);
+    color: #e0f7ff;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px;
+    position: relative;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-image: radial-gradient(2px 2px at 20px 30px, #fff, transparent), radial-gradient(2px 2px at 40px 70px, rgba(255,255,255,0.8), transparent);
+    background-size: 200px 100px;
+    opacity: 0.5;
+    pointer-events: none;
+    z-index: 0;
+  }
+  h1 { font-size: 2.4em; margin-bottom: 4px; background: linear-gradient(90deg, #00f0ff, #ff00ff, #39ff14); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 0 20px rgba(0,240,255,0.8); letter-spacing: 2px; z-index: 1; }
+  .subtitle { font-size: 0.8em; color: #00f0ff; letter-spacing: 3px; margin-bottom: 10px; text-shadow: 0 0 8px #00f0ff; z-index: 1; }
+  .info-bar { display: flex; gap: 18px; margin: 6px 0; font-size: 0.95em; background: rgba(0,20,40,0.75); padding: 8px 20px; border-radius: 8px; border: 1px solid #00f0ff; box-shadow: 0 0 12px rgba(0,240,255,0.4); z-index: 1; flex-wrap: wrap; justify-content: center; }
+  .objective { background: rgba(0,40,60,0.85); padding: 7px 14px; border-radius: 6px; border: 1px solid #39ff14; font-size: 0.85em; z-index: 1; margin: 6px 0; text-align: center; }
+  .board-container { background: rgba(0,10,30,0.85); padding: 16px; border-radius: 12px; border: 2px solid #00f0ff; box-shadow: 0 0 35px rgba(0,240,255,0.5); z-index: 1; position: relative; }
+  #board { display: grid; grid-template-columns: repeat(8, 54px); grid-template-rows: repeat(8, 54px); gap: 4px; background: rgba(0,0,20,0.6); padding: 8px; border-radius: 8px; position: relative; }
+  .jewel { width: 54px; height: 54px; border-radius: 5px; cursor: pointer; transition: transform 0.15s, opacity 0.3s; display: flex; align-items: center; justify-content: center; font-size: 18px; position: relative; user-select: none; clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); box-shadow: 0 0 10px currentColor, inset 0 0 6px rgba(255,255,255,0.4); }
+  .jewel:hover { transform: scale(1.07); filter: brightness(1.15); }
+  .jewel.selected { outline: 2px solid #fff; transform: scale(1.1); box-shadow: 0 0 18px #fff; }
+  .jewel.clearing { opacity: 0; transform: scale(0.3) rotate(90deg); }
+  .special-lineH::after { content: '↔'; position: absolute; font-size: 16px; color: #fff; text-shadow: 0 0 6px #fff; }
+  .special-lineV::after { content: '↕'; position: absolute; font-size: 16px; color: #fff; text-shadow: 0 0 6px #fff; }
+  .special-bomb::after { content: '💥'; position: absolute; font-size: 18px; }
+  .special-color::after { content: '★'; position: absolute; font-size: 18px; color: #fff; text-shadow: 0 0 8px gold; }
+  .particle { position: absolute; width: 5px; height: 5px; border-radius: 50%; pointer-events: none; z-index: 20; animation: particleBurst 0.55s ease-out forwards; }
+  @keyframes particleBurst { 0% { transform: translate(0,0) scale(1); opacity: 1; } 100% { transform: translate(var(--dx), var(--dy)) scale(0.15); opacity: 0; } }
+  .controls { margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; z-index: 1; }
+  button { padding: 8px 14px; font-size: 0.85em; border: 1px solid #00f0ff; border-radius: 6px; background: rgba(0,40,60,0.85); color: #00f0ff; font-weight: bold; cursor: pointer; transition: all 0.2s; }
+  button:hover { background: rgba(0,80,100,0.95); box-shadow: 0 0 15px #00f0ff; transform: translateY(-1px); color: #fff; }
+  .mode-select { margin: 6px 0; z-index: 1; }
+  #message { margin-top: 10px; min-height: 24px; font-size: 1em; color: #39ff14; text-align: center; text-shadow: 0 0 6px #39ff14; z-index: 1; }
+  .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); z-index: 100; justify-content: center; align-items: center; }
+  .modal-content { background: #0a1525; border: 2px solid #00f0ff; border-radius: 12px; padding: 20px; max-width: 420px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 0 30px rgba(0,240,255,0.5); }
+  .modal h3 { color: #00f0ff; margin-bottom: 12px; }
+  .shop-item, .ach-item { background: rgba(0,40,60,0.6); margin: 8px 0; padding: 10px; border-radius: 6px; border: 1px solid rgba(0,240,255,0.4); display: flex; justify-content: space-between; align-items: center; }
+  .c0 { background: radial-gradient(circle at 40% 30%, #ff66ff, #cc00cc); color: #ff66ff; }
+  .c1 { background: radial-gradient(circle at 40% 30%, #66ff99, #00cc66); color: #66ff99; }
+  .c2 { background: radial-gradient(circle at 40% 30%, #66ffff, #00cccc); color: #66ffff; }
+  .c3 { background: radial-gradient(circle at 40% 30%, #aa66ff, #6600cc); color: #aa66ff; }
+  .c4 { background: radial-gradient(circle at 40% 30%, #ffff66, #cccc00); color: #ffff66; }
+  .c5 { background: radial-gradient(circle at 40% 30%, #ff66aa, #cc0066); color: #ff66aa; }
+
+  /* Mobile: scale board to fit phone screens */
+  @media (max-width: 600px) {
+    .board-container { padding: 6px; }
+    #board { grid-template-columns: repeat(8, calc((100vw - 76px) / 8)); grid-template-rows: repeat(8, calc((100vw - 76px) / 8)); gap: 3px; padding: 4px; }
+    .jewel { width: calc((100vw - 76px) / 8); height: calc((100vw - 76px) / 8); font-size: 14px; }
+  }
+  #board { touch-action: none; }
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <h1>COSMIC CRYSTAL DROP</h1>
+  <div class="subtitle">MATCH • DROP • ASCEND</div>
+  <div class="info-bar">
+    <div>LEVEL: <span id="level">1</span></div>
+    <div>SCORE: <span id="score">0</span></div>
+    <div>HIGH: <span id="high">0</span></div>
+    <div>CRYSTALS: <span id="currency">0</span></div>
+    <div>MULT: <span id="combo">x1</span></div>
+    <div>STREAK: <span id="streak">0</span>d</div>
+  </div>
+  <div class="objective" id="objective">Objective: Reach 400 score</div>
+  <div class="mode-select">
+    <button onclick="startGame('levels')">LEVELS</button>
+    <button onclick="startGame('classic')">ENDLESS</button>
+    <button onclick="startGame('timed')">BLITZ</button>
+    <button onclick="showDaily()">DAILY</button>
+  </div>
+  <div class="board-container">
+    <div id="board"></div>
+  </div>
+  <div class="controls">
+    <button onclick="useHint()">HINT</button>
+    <button onclick="useShuffle()">SHUFFLE</button>
+    <button onclick="showShop()">SHOP</button>
+    <button onclick="showAchievements()">ACHIEVEMENTS</button>
+    <button onclick="toggleSound()" id="soundBtn">SOUND: ON</button>
+    <button onclick="startGame(currentMode)">RESTART</button>
+  </div>
+  <div id="message">Match 3+ to clear. 4+ creates powers!</div>
+
+  <!-- Shop Modal -->
+  <div id="shopModal" class="modal" onclick="if(event.target===this) this.style.display='none'">
+    <div class="modal-content">
+      <h3>CRYSTAL SHOP</h3>
+      <div class="shop-item"><span>Free Shuffle</span><button onclick="buy('shuffle')">50 💎</button></div>
+      <div class="shop-item"><span>Hammer (remove 1)</span><button onclick="buy('hammer')">80 💎</button></div>
+      <div class="shop-item"><span>+500 Score Boost</span><button onclick="buy('score')">60 💎</button></div>
+      <div class="shop-item"><span>Color Bomb</span><button onclick="buy('colorbomb')">120 💎</button></div>
+      <button onclick="document.getElementById('shopModal').style.display='none'" style="margin-top:12px;width:100%;">CLOSE</button>
+    </div>
+  </div>
+
+  <!-- Achievements Modal -->
+  <div id="achModal" class="modal" onclick="if(event.target===this) this.style.display='none'">
+    <div class="modal-content">
+      <h3>ACHIEVEMENTS</h3>
+      <div id="achList"></div>
+      <button onclick="document.getElementById('achModal').style.display='none'" style="margin-top:12px;width:100%;">CLOSE</button>
+    </div>
+  </div>
+
+<script>
+const ROWS = 8, COLS = 8, COLORS = 6;
+const COLOR_HEX = ['#ff66ff','#66ff99','#66ffff','#aa66ff','#ffff66','#ff66aa'];
+let board = []; // {color, special}
+let selected = null, score = 0, combo = 1, isProcessing = false;
+let currentMode = 'levels', currentLevel = 1, levelProgress = {};
+let currency = parseInt(localStorage.getItem('cosmicCrystals') || '0');
+let highScore = parseInt(localStorage.getItem('cosmicHigh') || '0');
+let streak = parseInt(localStorage.getItem('cosmicStreak') || '0');
+let lastLogin = localStorage.getItem('cosmicLastLogin') || '';
+let soundOn = true, audioCtx = null;
+let stats = JSON.parse(localStorage.getItem('cosmicStats') || '{"cleared":0,"maxCascade":1,"levelsCleared":0,"powersUsed":0}');
+let achievements = JSON.parse(localStorage.getItem('cosmicAchs') || '{}');
+let boosters = { hammer: 0, colorbomb: 0 };
+
+const levels = [
+  {type:'score',target:400,desc:'Reach 400 score'},{type:'color',color:2,target:12,desc:'Clear 12 Cyan'},
+  {type:'score',target:800,desc:'Reach 800 score'},{type:'cascade',target:3,desc:'Hit x3 cascade'},
+  {type:'color',color:0,target:15,desc:'Clear 15 Magenta'},{type:'score',target:1200,desc:'Reach 1200'},
+  {type:'color',color:1,target:16,desc:'Clear 16 Lime'},{type:'cascade',target:4,desc:'Hit x4 cascade'},
+  {type:'score',target:1800,desc:'Reach 1800'},{type:'color',color:4,target:18,desc:'Clear 18 Gold'},
+  {type:'score',target:2500,desc:'Reach 2500'},{type:'cascade',target:5,desc:'Hit x5 cascade'},
+  {type:'color',color:3,target:20,desc:'Clear 20 Violet'},{type:'score',target:3200,desc:'Reach 3200'},
+  {type:'color',color:5,target:18,desc:'Clear 18 Pink'},{type:'score',target:4000,desc:'Reach 4000'},
+  {type:'cascade',target:6,desc:'Hit x6 cascade'},{type:'score',target:5000,desc:'Reach 5000'},
+  {type:'color',color:2,target:25,desc:'Clear 25 Cyan'},{type:'score',target:6500,desc:'Reach 6500'}
+];
+
+const boardEl = document.getElementById('board');
+const scoreEl = document.getElementById('score'), highEl = document.getElementById('high');
+const currencyEl = document.getElementById('currency'), comboEl = document.getElementById('combo');
+const levelEl = document.getElementById('level'), objEl = document.getElementById('objective');
+const msgEl = document.getElementById('message'), streakEl = document.getElementById('streak');
+const soundBtn = document.getElementById('soundBtn');
+
+function saveAll() {
+  localStorage.setItem('cosmicCrystals', currency);
+  localStorage.setItem('cosmicHigh', highScore);
+  localStorage.setItem('cosmicStreak', streak);
+  localStorage.setItem('cosmicLastLogin', lastLogin);
+  localStorage.setItem('cosmicStats', JSON.stringify(stats));
+  localStorage.setItem('cosmicAchs', JSON.stringify(achievements));
+}
+function updateUI() {
+  scoreEl.textContent = score; highEl.textContent = highScore;
+  currencyEl.textContent = currency; comboEl.textContent = 'x'+combo;
+  levelEl.textContent = currentLevel; streakEl.textContent = streak;
+}
+function checkDaily() {
+  const today = new Date().toDateString();
+  if (lastLogin !== today) {
+    const yesterday = new Date(Date.now()-86400000).toDateString();
+    streak = (lastLogin === yesterday) ? streak+1 : 1;
+    lastLogin = today;
+    const reward = 20 + streak*5;
+    currency += reward;
+    msgEl.textContent = `Daily reward! +${reward} 💎 (Streak: ${streak} days)`;
+    saveAll();
+    updateUI();
+  }
+}
+function initAudio(){ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)(); }
+function playTone(f,d,t='sine',v=0.12){ if(!soundOn)return; initAudio(); const o=audioCtx.createOscillator(),g=audioCtx.createGain(); o.type=t; o.frequency.value=f; g.gain.value=v; g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+d); o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+d); }
+function playCascade(n){ playTone(580+n*70,0.14,'sine'); }
+function playLevelUp(){ playTone(523,0.12); setTimeout(()=>playTone(659,0.12),100); setTimeout(()=>playTone(784,0.2),200); }
+
+function spawnParticles(r,c,col){
+  const cell=boardEl.children[r*COLS+c]; if(!cell)return;
+  const rect=cell.getBoundingClientRect(), br=boardEl.getBoundingClientRect();
+  const cx=rect.left-br.left+rect.width/2, cy=rect.top-br.top+rect.height/2;
+  for(let i=0;i<7;i++){
+    const p=document.createElement('div'); p.className='particle'; p.style.background=COLOR_HEX[col];
+    p.style.left=cx+'px'; p.style.top=cy+'px';
+    const a=(Math.PI*2*i)/7+Math.random()*0.4, d=25+Math.random()*35;
+    p.style.setProperty('--dx',Math.cos(a)*d+'px'); p.style.setProperty('--dy',Math.sin(a)*d+'px');
+    boardEl.appendChild(p); setTimeout(()=>p.remove(),550);
+  }
+}
+
+function randomTile(){ return {color:Math.floor(Math.random()*COLORS), special:null}; }
+function initBoard(){
+  board=[];
+  for(let r=0;r<ROWS;r++){ board[r]=[]; for(let c=0;c<COLS;c++) board[r][c]=randomTile(); }
+  while(findMatches().length>0) for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) board[r][c]=randomTile();
+}
+function render(){
+  boardEl.innerHTML='';
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+    const t=board[r][c], cell=document.createElement('div');
+    cell.className=`jewel c${t.color}`+(t.special?` special-${t.special}`:'');
+    cell.dataset.r=r; cell.dataset.c=c;
+    cell.onclick=()=>handleClick(r,c);
+    boardEl.appendChild(cell);
+  }
+}
+function handleClick(r,c){
+  if(isProcessing)return;
+  if(!selected){ selected={r,c}; highlight(); playTone(340,0.07); return; }
+  const dr=Math.abs(selected.r-r), dc=Math.abs(selected.c-c);
+  if((dr===1&&dc===0)||(dr===0&&dc===1)){
+    const r1=selected.r, c1=selected.c;
+    // Check for special combo before normal swap logic
+    if(board[r1][c1].special && board[r][c].special){
+      swap(r1,c1,r,c);
+      if(handleSpecialCombo(r1,c1,r,c)){
+        selected=null; dropFill(); render(); processMatches(); return;
+      }
+      swap(r1,c1,r,c); // revert if not handled
+    }
+    swap(r1,c1,r,c);
+    if(hasMatch()){ selected=null; processMatches({r,c}); }
+    else { swap(r1,c1,r,c); msgEl.textContent='Invalid move'; playTone(180,0.15,'sawtooth',0.08); selected=null; render(); }
+  } else { selected={r,c}; highlight(); playTone(340,0.07); }
+}
+function highlight(){ render(); if(selected) boardEl.children[selected.r*COLS+selected.c].classList.add('selected'); }
+function swap(r1,c1,r2,c2){ const t=board[r1][c1]; board[r1][c1]=board[r2][c2]; board[r2][c2]=t; }
+function hasMatch(){ return findMatches().positions.length>0; }
+function findMatches(){
+  const horiz=[], vert=[];
+  for(let r=0;r<ROWS;r++){ let start=0,cnt=1; for(let c=1;c<=COLS;c++){ if(c<COLS && board[r][c]&&board[r][c].color===board[r][c-1].color) cnt++; else{ if(cnt>=3) horiz.push({r,c:start,len:cnt,dir:'h'}); start=c; cnt=1; } } }
+  for(let c=0;c<COLS;c++){ let start=0,cnt=1; for(let r=1;r<=ROWS;r++){ if(r<ROWS && board[r][c]&&board[r][c].color===board[r-1][c].color) cnt++; else{ if(cnt>=3) vert.push({r:start,c,len:cnt,dir:'v'}); start=r; cnt=1; } } }
+  const pos=new Set(); const groups=[];
+  [...horiz,...vert].forEach(g=>{ const cells=[]; if(g.dir==='h') for(let i=0;i<g.len;i++) cells.push({r:g.r,c:g.c+i}); else for(let i=0;i<g.len;i++) cells.push({r:g.r+i,c:g.c}); cells.forEach(p=>pos.add(`${p.r},${p.c}`)); groups.push({cells,dir:g.dir,len:g.len}); });
+  const intersections=[];
+  groups.forEach(g=>{ if(g.dir==='h') g.cells.forEach(p=>{ if(vert.some(v=>v.c===p.c && p.r>=v.r && p.r<v.r+v.len)) intersections.push(p); }); });
+  return { positions:[...pos].map(s=>{const [r,c]=s.split(',').map(Number); return {r,c};}), groups, intersections, isLT:intersections.length>0 };
+}
+function createSpecial(info){
+  if(info.isLT || info.intersections.length) return 'bomb';
+  if(!info.groups.length) return null;
+  const longest=info.groups.reduce((a,b)=>a.len>b.len?a:b);
+  if(longest.len>=6) return 'color';
+  if(longest.len>=5) return 'bomb';
+  if(longest.len>=4) return longest.dir==='h'?'lineH':'lineV';
+  return null;
+}
+async function processMatches(swapPos){
+  isProcessing=true; combo=1; let maxC=1; const cleared={};
+  while(true){
+    const info=findMatches(); if(!info.positions.length) break;
+    const pts=info.positions.length*12*combo; score+=pts; updateScore();
+    msgEl.textContent=`CASCADE! +${pts} (x${combo})`; playCascade(combo);
+    const specialType=createSpecial(info);
+    info.positions.forEach(m=>{
+      const col=board[m.r][m.c].color; cleared[col]=(cleared[col]||0)+1; stats.cleared++;
+      const idx=m.r*COLS+m.c; if(boardEl.children[idx]) boardEl.children[idx].classList.add('clearing');
+      spawnParticles(m.r,m.c,col);
+      if(board[m.r][m.c].special) triggerSpecial(m.r,m.c);
+    });
+    if(specialType){
+      const place=swapPos||info.positions[Math.floor(info.positions.length/2)];
+      if(board[place.r]&&board[place.r][place.c]) board[place.r][place.c]={color:board[place.r][place.c].color, special:specialType};
+    }
+    if(combo>maxC) maxC=combo;
+    await sleep(280);
+    for(const m of info.positions) if(board[m.r][m.c] && !board[m.r][m.c].special) board[m.r][m.c]=null;
+    dropFill(); render(); combo++; comboEl.textContent='x'+combo; await sleep(340);
+    swapPos=null;
+  }
+  if(maxC>stats.maxCascade) stats.maxCascade=maxC;
+  if(currentMode==='levels') updateLevelProgress(cleared, maxC);
+  combo=1; comboEl.textContent='x1'; isProcessing=false; checkAchievements(); checkGameOver(); saveAll();
+}
+function triggerSpecial(r,c){
+  const s=board[r][c].special; if(!s) return;
+  stats.powersUsed++;
+  if(s==='lineH'){ for(let i=0;i<COLS;i++) if(board[r][i]) board[r][i].special=null; }
+  else if(s==='lineV'){ for(let i=0;i<ROWS;i++) if(board[i][c]) board[i][c].special=null; }
+  else if(s==='bomb'){ for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++){ const nr=r+dr,nc=c+dc; if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&board[nr][nc]) board[nr][nc].special=null; } }
+  else if(s==='color'){ const col=board[r][c].color; for(let rr=0;rr<ROWS;rr++) for(let cc=0;cc<COLS;cc++) if(board[rr][cc]&&board[rr][cc].color===col) board[rr][cc].special=null; }
+  board[r][c].special=null;
+}
+function handleSpecialCombo(r1,c1,r2,c2){
+  const s1=board[r1][c1].special, s2=board[r2][c2].special;
+  if(!s1 || !s2) return false;
+  msgEl.textContent='SPECIAL COMBO!'; playTone(820,0.22,'sine',0.18);
+  const clear=new Set();
+  const area=(r,c,rad)=>{ for(let dr=-rad;dr<=rad;dr++) for(let dc=-rad;dc<=rad;dc++){ const nr=r+dr,nc=c+dc; if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS) clear.add(nr+','+nc); } };
+  if((s1.startsWith('line')&&s2==='bomb')||(s2.startsWith('line')&&s1==='bomb')){ for(let i=0;i<COLS;i++) clear.add(r2+','+i); for(let i=0;i<ROWS;i++) clear.add(i+','+c2); area(r2,c2,1); }
+  else if(s1==='color'||s2==='color'){ const col=board[r1][c1].color; for(let rr=0;rr<ROWS;rr++) for(let cc=0;cc<COLS;cc++) if(board[rr][cc]&&board[rr][cc].color===col) clear.add(rr+','+cc); }
+  else if(s1.startsWith('line')&&s2.startsWith('line')){ for(let i=0;i<COLS;i++) clear.add(r2+','+i); for(let i=0;i<ROWS;i++) clear.add(i+','+c2); }
+  else if(s1==='bomb'&&s2==='bomb') area(r2,c2,2);
+  clear.forEach(s=>{ const [rr,cc]=s.split(',').map(Number); if(board[rr][cc]) board[rr][cc]=null; });
+  stats.powersUsed+=2; return true;
+}
+function dropFill(){
+  for(let c=0;c<COLS;c++){ let w=ROWS-1; for(let r=ROWS-1;r>=0;r--) if(board[r][c]){ board[w][c]=board[r][c]; if(w!==r) board[r][c]=null; w--; } }
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(!board[r][c]) board[r][c]=randomTile();
+}
+function updateLevelProgress(cl, mc){
+  const l=levels[currentLevel-1]; if(!l) return;
+  if(l.type==='color'){ levelProgress.c=(levelProgress.c||0)+(cl[l.color]||0); objEl.textContent=`${l.desc} (${levelProgress.c}/${l.target})`; if(levelProgress.c>=l.target) completeLevel(); }
+  else if(l.type==='cascade' && mc>=l.target) completeLevel();
+  else if(l.type==='score'){ objEl.textContent=`${l.desc} (${score}/${l.target})`; if(score>=l.target) completeLevel(); }
+}
+function completeLevel(){
+  playLevelUp(); currency+=30+currentLevel*2; stats.levelsCleared++; currentLevel++;
+  if(currentLevel>levels.length){ msgEl.textContent=`ALL LEVELS CLEARED! Score: ${score}`; objEl.textContent='Infinite Mode'; isProcessing=true; return; }
+  levelProgress={}; const n=levels[currentLevel-1]; objEl.textContent=`Objective: ${n.desc}`;
+  msgEl.textContent=`LEVEL UP! +${30+currentLevel*2} 💎`; updateUI();
+  setTimeout(()=>{ initBoard(); render(); msgEl.textContent=`Level ${currentLevel} — ${n.desc}`; },1100);
+}
+function updateScore(){ scoreEl.textContent=score; if(score>highScore){ highScore=score; highEl.textContent=highScore; } if(currentMode==='levels'&&levels[currentLevel-1]?.type==='score') objEl.textContent=`${levels[currentLevel-1].desc} (${score}/${levels[currentLevel-1].target})`; }
+function checkGameOver(){ if((currentMode==='classic'||currentMode==='levels') && !hasAnyMoves()){ msgEl.textContent=`No moves left. Score: ${score}`; playTone(220,0.35,'sawtooth',0.1); isProcessing=true; } }
+function hasAnyMoves(){
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+    if(c+1<COLS){ swap(r,c,r,c+1); if(hasMatch()){ swap(r,c,r,c+1); return true; } swap(r,c,r,c+1); }
+    if(r+1<ROWS){ swap(r,c,r+1,c); if(hasMatch()){ swap(r,c,r+1,c); return true; } swap(r,c,r+1,c); }
+  } return false;
+}
+function useHint(){ if(isProcessing)return; for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){ if(c+1<COLS){ swap(r,c,r,c+1); if(hasMatch()){ swap(r,c,r,c+1); msgEl.textContent=`Hint: try (${r},${c}) right`; render(); boardEl.children[r*COLS+c].classList.add('selected'); boardEl.children[r*COLS+c+1].classList.add('selected'); return; } swap(r,c,r,c+1); } if(r+1<ROWS){ swap(r,c,r+1,c); if(hasMatch()){ swap(r,c,r+1,c); msgEl.textContent=`Hint: try (${r},${c}) down`; render(); boardEl.children[r*COLS+c].classList.add('selected'); boardEl.children[(r+1)*COLS+c].classList.add('selected'); return; } swap(r,c,r+1,c); } } msgEl.textContent='No moves found'; }
+function useShuffle(){ if(isProcessing||currency<30){ msgEl.textContent='Need 30 💎'; return; } currency-=30; updateUI(); initBoard(); render(); msgEl.textContent='Shuffled'; }
+function buy(item){
+  const costs={shuffle:50,hammer:80,score:60,colorbomb:120};
+  if(currency<costs[item]){ msgEl.textContent='Not enough crystals'; return; }
+  currency-=costs[item]; updateUI(); saveAll();
+  if(item==='shuffle'){ initBoard(); render(); }
+  else if(item==='score'){ score+=500; updateScore(); }
+  else if(item==='hammer') boosters.hammer++;
+  else if(item==='colorbomb') boosters.colorbomb++;
+  msgEl.textContent=`Bought ${item}`;
+}
+function showShop(){ document.getElementById('shopModal').style.display='flex'; }
+function showAchievements(){
+  const list=document.getElementById('achList'); list.innerHTML='';
+  const achs=[
+    {id:'clear100', name:'Crystal Collector', desc:'Clear 100 crystals', done:stats.cleared>=100},
+    {id:'cascade5', name:'Cascade Master', desc:'Hit x5 cascade', done:stats.maxCascade>=5},
+    {id:'levels10', name:'Ascender', desc:'Clear 10 levels', done:stats.levelsCleared>=10},
+    {id:'power10', name:'Power User', desc:'Use 10 powers', done:stats.powersUsed>=10},
+    {id:'score10k', name:'High Scorer', desc:'Score 10,000', done:highScore>=10000}
+  ];
+  achs.forEach(a=>{
+    const d=document.createElement('div'); d.className='ach-item';
+    d.innerHTML=`<span>${a.name}<br><small>${a.desc}</small></span><span>${a.done?'✓':'○'}</span>`;
+    list.appendChild(d);
+  });
+  document.getElementById('achModal').style.display='flex';
+}
+function checkAchievements(){ /* unlocks already reflected in show */ }
+function showDaily(){
+  const day=new Date().getDate();
+  const challenges=['Clear 20 Cyan','Score 1500','Hit x4 cascade','Clear 15 Magenta'];
+  const ch=challenges[day%challenges.length];
+  msgEl.textContent=`Daily Challenge: ${ch} — Complete for bonus 💎`;
+}
+function toggleSound(){ soundOn=!soundOn; soundBtn.textContent=soundOn?'SOUND: ON':'SOUND: OFF'; if(soundOn) playTone(340,0.08); }
+function startGame(mode){
+  currentMode=mode; score=0; combo=1; currentLevel=1; levelProgress={}; isProcessing=false; selected=null;
+  initBoard(); render(); updateUI();
+  if(mode==='levels'){ const l=levels[0]; objEl.textContent=`Objective: ${l.desc}`; msgEl.textContent='Levels mode — complete objectives'; }
+  else if(mode==='timed'){ msgEl.textContent='Blitz mode'; objEl.textContent='Highest score'; }
+  else { objEl.textContent='Endless'; msgEl.textContent='Play until no moves'; }
+}
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+checkDaily(); updateUI(); startGame('levels');
+
+// Touch: swipe a crystal to swap it with its neighbour (tap-to-select still works)
+(function(){
+  let t0=null;
+  boardEl.addEventListener('touchstart', e => {
+    const el = e.target.closest('.jewel'); if (!el || el.dataset.r===undefined) return;
+    const t = e.touches[0]; t0 = {x:t.clientX, y:t.clientY, r:+el.dataset.r, c:+el.dataset.c};
+  }, {passive:true});
+  boardEl.addEventListener('touchend', e => {
+    if (!t0) return; const t = e.changedTouches[0];
+    const dx = t.clientX - t0.x, dy = t.clientY - t0.y, s = t0; t0 = null;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 20) return;
+    e.preventDefault();
+    let r = s.r, c = s.c;
+    if (Math.abs(dx) > Math.abs(dy)) c += dx > 0 ? 1 : -1; else r += dy > 0 ? 1 : -1;
+    if (r < 0 || c < 0 || r >= ROWS || c >= COLS || isProcessing) return;
+    selected = null; handleClick(s.r, s.c); handleClick(r, c);
+  });
+})();
+</script>
+</body>
+</html>

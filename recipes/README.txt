@@ -1,5 +1,12 @@
-Family Recipe Book v2.3 — Retro Gaming Dad
+Family Recipe Book v2.4 — Retro Gaming Dad
 ==========================================
+
+NEW IN v2.4
+  - 🔎 Checking a scanned recipe: the Ingredients and Steps boxes grow to fit all the text,
+    and "⤢ Expand" opens a full-screen editor (tap Done to put the text back).
+  - 📷 "Scan more ingredients" / "Scan more instructions": photograph another page (camera
+    or a saved photo) and its text is ADDED to the end of that box. The photo is kept with
+    the recipe's original scans.
 
 NEW IN v2.3
   - 🔗 After "Share as editor/viewer" a big invite panel shows the link in a box you can

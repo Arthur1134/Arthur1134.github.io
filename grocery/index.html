@@ -9,7 +9,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Grocery List">
-    <title>Grocery List v2.2 · Retro Gaming Dad</title>
+    <title>Grocery List v2.3 · Retro Gaming Dad</title>
     <link rel="icon" href="icons/favicon.ico" sizes="any">
     <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -219,6 +219,28 @@
         .sheet-head { display: flex; justify-content: space-between; align-items: center; }
         .sheet-head h2 { font-weight: normal; font-size: 1.25em; }
         .sheet-close { min-height: 44px; padding: 6px 14px; border-radius: 8px; border: 2px solid var(--tan); background: #fff; font-weight: bold; color: var(--ink); }
+        /* ---------- recipes viewer ---------- */
+        .rcp-sheet { max-height: 88vh; display: flex; flex-direction: column; }
+        .rcp-body { overflow-y: auto; -webkit-overflow-scrolling: touch; flex: 1; min-height: 0; padding-bottom: 6px; }
+        .rcp-search { width: 100%; min-height: 46px; padding: 8px 12px; font-size: 1.05em; border: 2px solid var(--tan); border-radius: 8px; background: #fff; color: var(--ink); margin: 8px 0; }
+        .rcp-search:focus { outline: none; border-color: var(--sage-dark); box-shadow: 0 0 0 3px rgba(143,167,142,.35); }
+        .rcp-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+        .rcp-item { width: 100%; min-height: 56px; display: flex; align-items: center; gap: 10px; text-align: left; padding: 8px 10px; border-radius: 10px; border: 2px solid #D4C4A8; background: #fff; color: var(--ink); font: inherit; cursor: pointer; }
+        .rcp-item:hover, .rcp-item:focus-visible { border-color: var(--sage-dark); }
+        .rcp-thumb { width: 44px; height: 44px; flex: 0 0 44px; border-radius: 8px; background: #FBF6EC; border: 1px solid var(--tan); display: flex; align-items: center; justify-content: center; font-size: 1.5em; overflow: hidden; }
+        .rcp-thumb img { width: 100%; height: 100%; object-fit: cover; }
+        .rcp-name { font-weight: bold; }
+        .rcp-meta { font-size: .85em; color: var(--ink-muted); }
+        .rcp-empty { text-align: center; color: var(--ink-soft); padding: 22px 8px; }
+        .rcp-empty a, .rcp-open { color: var(--sage-dark); font-weight: bold; }
+        .rcp-foot { text-align: center; padding-top: 8px; font-size: .95em; }
+        .rcp-back { min-height: 44px; padding: 6px 14px; border-radius: 8px; border: 2px solid var(--tan); background: #fff; font-weight: bold; color: var(--ink); margin: 8px 0; }
+        .rcp-hero { width: 100%; max-height: 220px; object-fit: cover; border-radius: 10px; border: 2px solid #D4C4A8; margin-bottom: 8px; display: block; }
+        .rcp-detail h3 { font-size: 1.3em; font-weight: normal; margin-bottom: 4px; }
+        .rcp-detail h4 { margin: 12px 0 4px; font-size: 1.05em; }
+        .rcp-detail ul, .rcp-detail ol { padding-left: 22px; }
+        .rcp-detail li { margin-bottom: 4px; line-height: 1.4; }
+        .rcp-notes { white-space: pre-wrap; background: #FBF6EC; border: 1px solid var(--tan); border-radius: 8px; padding: 8px 10px; }
         .calc-display { background: #fff; border: 2px solid #D4C4A8; border-radius: 10px; padding: 8px 12px; margin: 8px 0; text-align: right; min-height: 84px; }
         .calc-expr { color: var(--ink-muted); font-size: 1.05em; min-height: 1.4em; overflow-wrap: anywhere; }
         .calc-result { font-size: 2.1em; font-weight: bold; color: var(--ink); overflow-wrap: anywhere; line-height: 1.2; }
@@ -277,6 +299,7 @@
             .bb-btn .txt { font-size: .9em; }
         }
         @media (max-width: 360px) { .bb-btn .txt { display: none; } }
+        @media (max-width: 480px) { #calcBtn .txt, #recipesBtn .txt { display: none; } #calcBtn, #recipesBtn { padding: 6px 8px; } }
         @media print {
             body { background: white; padding: 0; }
             .grocery-container { box-shadow: none; border: none; }
@@ -361,7 +384,7 @@
 
         <footer>
             <p class="footer-note">🌻 Check items to add to your shopping list 🌻</p>
-            <p class="credit">Grocery List <span id="versionLabel">v2.2</span> · Made by Retro Gaming Dad 🎮</p>
+            <p class="credit">Grocery List <span id="versionLabel">v2.3</span> · Made by Retro Gaming Dad 🎮</p>
         </footer>
     </div>
 
@@ -372,7 +395,8 @@
                 <div class="bb-amount" id="runningTotal" aria-live="polite">$0.00</div>
                 <div class="bb-sub" id="bbSub" hidden></div>
             </div>
-            <button type="button" class="bb-btn" id="calcBtn" aria-haspopup="dialog" aria-controls="calcDialog"><span class="ico" aria-hidden="true">🧮</span><span class="txt">Calc</span></button>
+            <button type="button" class="bb-btn" id="calcBtn" aria-label="Calculator" aria-haspopup="dialog" aria-controls="calcDialog"><span class="ico" aria-hidden="true">🧮</span><span class="txt">Calc</span></button>
+            <button type="button" class="bb-btn" id="recipesBtn" aria-label="Recipes" aria-haspopup="dialog" aria-controls="recipesDialog"><span class="ico" aria-hidden="true">📖</span><span class="txt">Recipes</span></button>
             <button type="button" class="bb-btn" id="viewToggleBtn" aria-pressed="false"><span class="ico" aria-hidden="true">🛒</span><span class="txt" id="viewToggleTxt">Shopping List</span></button>
         </div>
     </nav>
@@ -422,6 +446,19 @@
         </form>
     </dialog>
 
+    <dialog id="recipesDialog" class="sheet-dialog" aria-labelledby="recipesTitle">
+        <div class="sheet rcp-sheet" id="recipesSheet" tabindex="-1">
+            <div class="sheet-grab">
+                <span class="grabber" aria-hidden="true"></span>
+                <div class="sheet-head">
+                    <h2 id="recipesTitle">📖 Recipes</h2>
+                    <button type="button" class="sheet-close" id="recipesClose" aria-label="Close recipes and go back to the list">✕ Close</button>
+                </div>
+            </div>
+            <div class="rcp-body" id="recipesBody"></div>
+        </div>
+    </dialog>
+
     <dialog id="calcDialog" class="sheet-dialog" aria-labelledby="calcTitle">
         <div class="sheet" id="calcSheet" tabindex="-1">
             <div class="sheet-grab" id="calcGrab">
@@ -465,7 +502,7 @@
     <script>
     'use strict';
     (function () {
-        const APP_VERSION = '2.2';
+        const APP_VERSION = '2.3';
         const STORE_KEY = 'groceryApp.v2';
         const CALC_KEY = 'groceryApp.calc';
         const LEGACY_BACKUP_KEY = 'groceryApp.legacyBackup';
@@ -1780,6 +1817,126 @@
                 });
             }
         }
+
+        // ---------- recipes viewer (read-only, from the Family Recipe Book on the same site) ----------
+        // Recipe Book stores its doc in localStorage 'recipeBook.v1' as { recipes: { id: { field: [value, time] } } }
+        // and photos in IndexedDB 'recipeBook' (store 'photos', { id, blob }). We only read; nothing is written.
+        const RecipeView = (() => {
+            const RB_KEY = 'recipeBook.v1', RB_URL = '../recipes/';
+            const CAT_EMOJI = { 'Breakfast': '🍳', 'Mains': '🍲', 'Sides': '🥔', 'Soups & Stews': '🥣', 'Salads': '🥗', 'Breads & Baking': '🍞', 'Desserts': '🥧', 'Snacks & Apps': '🧀', 'Drinks': '☕', 'Sauces': '🫙', 'Other': '🍴' };
+            const dlg = $('recipesDialog'), body = $('recipesBody');
+            const urls = [];
+            let list = [], query = '';
+            const mk = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+            const arr = (v) => Array.isArray(v) ? v.filter(x => typeof x === 'string' && x.trim()) : [];
+            const s = (v) => typeof v === 'string' ? v : '';
+            function load() {
+                let d = null;
+                try { d = JSON.parse(localStorage.getItem(RB_KEY) || 'null'); } catch (e) { d = null; }
+                if (!d || typeof d.recipes !== 'object' || !d.recipes) return [];
+                const out = [];
+                for (const [id, r] of Object.entries(d.recipes)) {
+                    if (!r || typeof r !== 'object') continue;
+                    const g = (f, dv) => Array.isArray(r[f]) && r[f].length === 2 ? r[f][0] : dv;
+                    let del = g('del', false) === true;
+                    if (del) { const dt = r.del[1]; if (Object.keys(r).some(f => f !== 'del' && Array.isArray(r[f]) && r[f][1] > dt)) del = false; }
+                    if (del) continue;
+                    out.push({ id, title: s(g('title', '')).trim() || 'Untitled recipe', cat: s(g('cat', 'Other')) || 'Other', tags: arr(g('tags', [])),
+                        servings: s(g('servings', '')), prep: s(g('prep', '')), cook: s(g('cook', '')), ingr: arr(g('ingr', [])), steps: arr(g('steps', [])),
+                        notes: s(g('notes', '')), from: s(g('from', '')), fav: g('fav', false) === true, photos: arr(g('photos', [])).concat(arr(g('scans', []))) });
+                }
+                return out.sort((a, b) => (b.fav - a.fav) || a.title.localeCompare(b.title));
+            }
+            let dbP = null;
+            function openDb() {
+                if (dbP) return dbP;
+                dbP = new Promise((res) => {
+                    try {
+                        if (!window.indexedDB) return res(null);
+                        const r = indexedDB.open('recipeBook', 1);
+                        // Same schema the Recipe Book creates, so opening it first never breaks that app.
+                        r.onupgradeneeded = () => r.result.createObjectStore('photos', { keyPath: 'id' });
+                        r.onsuccess = () => res(r.result); r.onerror = () => res(null); r.onblocked = () => res(null);
+                    } catch (e) { res(null); }
+                });
+                return dbP;
+            }
+            async function photo(pid) {
+                const db = await openDb(); if (!db) return null;
+                return new Promise((res) => {
+                    try {
+                        const q = db.transaction('photos', 'readonly').objectStore('photos').get(pid);
+                        q.onsuccess = () => { const b = q.result && q.result.blob; if (!b) return res(null); const u = URL.createObjectURL(b); urls.push(u); res(u); };
+                        q.onerror = () => res(null);
+                    } catch (e) { res(null); }
+                });
+            }
+            async function firstPhoto(r) { for (const p of r.photos) { const u = await photo(p); if (u) return u; } return null; }
+            function link(text) { const a = mk('a', 'rcp-open', text); a.href = RB_URL; a.target = '_blank'; a.rel = 'noopener'; return a; }
+            function renderList() {
+                body.textContent = '';
+                if (!list.length) {
+                    const e = mk('div', 'rcp-empty');
+                    e.append(mk('p', null, '🍽️ No recipes found yet.'), mk('p', null, 'Add your family recipes in the Recipe Book and they’ll show up here.'));
+                    const p = mk('p'); p.style.marginTop = '10px'; p.append(link('📖 Open the Family Recipe Book'));
+                    e.append(p); body.append(e); return;
+                }
+                const inp = mk('input', 'rcp-search'); inp.type = 'search'; inp.id = 'recipesSearch'; inp.placeholder = '🔍 Search recipes or ingredients…';
+                inp.setAttribute('aria-label', 'Search recipes'); inp.autocomplete = 'off'; inp.value = query;
+                const ul = mk('ul', 'rcp-list'); ul.id = 'recipesList';
+                const draw = () => {
+                    ul.textContent = '';
+                    const q = query.trim().toLowerCase();
+                    const hits = list.filter(r => !q || [r.title, r.cat, r.from, ...r.tags, ...r.ingr].join('\n').toLowerCase().includes(q));
+                    if (!hits.length) { ul.append(mk('li', 'rcp-empty', 'No recipes match “' + query.trim() + '”.')); return; }
+                    for (const r of hits) {
+                        const b = mk('button', 'rcp-item'); b.type = 'button';
+                        const th = mk('span', 'rcp-thumb', CAT_EMOJI[r.cat] || '🍴'); th.setAttribute('aria-hidden', 'true');
+                        const tx = mk('span');
+                        tx.append(mk('div', 'rcp-name', (r.fav ? '★ ' : '') + r.title), mk('div', 'rcp-meta', [r.cat, r.ingr.length + ' ingredient' + (r.ingr.length === 1 ? '' : 's'), r.from && 'from ' + r.from].filter(Boolean).join(' · ')));
+                        b.append(th, tx); b.addEventListener('click', () => renderDetail(r));
+                        const li = mk('li'); li.append(b); ul.append(li);
+                        if (r.photos.length) firstPhoto(r).then(u => { if (u) { const im = mk('img'); im.alt = ''; im.src = u; th.textContent = ''; th.append(im); } });
+                    }
+                };
+                inp.addEventListener('input', () => { query = inp.value; draw(); });
+                draw();
+                const f = mk('p', 'rcp-foot'); f.append(link('Open in Recipe Book ↗'));
+                body.append(inp, ul, f);
+            }
+            function renderDetail(r) {
+                body.textContent = '';
+                const back = mk('button', 'rcp-back', '← All recipes'); back.type = 'button'; back.id = 'recipesBack';
+                back.addEventListener('click', () => { renderList(); const i = $('recipesSearch'); if (i) i.focus(); });
+                const d = mk('div', 'rcp-detail');
+                const hero = mk('div');
+                d.append(hero, mk('h3', null, (r.fav ? '★ ' : '') + r.title));
+                const meta = [CAT_EMOJI[r.cat] ? CAT_EMOJI[r.cat] + ' ' + r.cat : r.cat, r.servings && 'Serves ' + r.servings, r.prep && 'Prep ' + r.prep, r.cook && 'Cook ' + r.cook, r.from && 'From ' + r.from].filter(Boolean).join(' · ');
+                d.append(mk('div', 'rcp-meta', meta));
+                if (r.tags.length) d.append(mk('div', 'rcp-meta', '🏷️ ' + r.tags.join(', ')));
+                d.append(mk('h4', null, '🥕 Ingredients'));
+                if (r.ingr.length) { const ul = mk('ul'); r.ingr.forEach(x => ul.append(mk('li', null, x))); d.append(ul); } else d.append(mk('p', 'rcp-meta', 'No ingredients listed.'));
+                d.append(mk('h4', null, '👩‍🍳 Steps'));
+                if (r.steps.length) { const ol = mk('ol'); r.steps.forEach(x => ol.append(mk('li', null, x))); d.append(ol); } else d.append(mk('p', 'rcp-meta', 'No steps listed.'));
+                if (r.notes.trim()) d.append(mk('h4', null, '📝 Notes'), mk('div', 'rcp-notes', r.notes));
+                const f = mk('p', 'rcp-foot'); f.append(link('Open in Recipe Book ↗'));
+                body.append(back, d, f); body.scrollTop = 0; back.focus();
+                if (r.photos.length) firstPhoto(r).then(u => { if (u && hero.isConnected) { const im = mk('img', 'rcp-hero'); im.alt = 'Photo of ' + r.title; im.src = u; hero.append(im); } });
+            }
+            function open() {
+                if (dlg.open) return close();
+                list = load(); query = '';
+                renderList();
+                dlg.showModal();
+                const i = $('recipesSearch'); (i || $('recipesClose')).focus();
+            }
+            function close() { if (dlg.open) dlg.close(); }
+            dlg.addEventListener('close', () => { while (urls.length) URL.revokeObjectURL(urls.pop()); body.textContent = ''; });
+            dlg.addEventListener('click', (e) => { if (e.target === dlg) close(); });
+            $('recipesBtn').addEventListener('click', open);
+            $('recipesClose').addEventListener('click', close);
+            return { open, close, load };
+        })();
 
         // Read-only hooks for testing / troubleshooting from the console
         window.groceryApp = Object.freeze({

@@ -1,0 +1,2292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#B5523B">
+<meta name="description" content="Family Recipe Book: scan, keep and share family recipes. By Retro Gaming Dad.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Recipes">
+<title>Family Recipe Book v1.0 · Retro Gaming Dad</title>
+<link rel="icon" href="icons/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+[hidden] { display: none !important; }
+:root {
+  --ink: #4E3B2A; --ink-soft: #6B5442; --muted: #8A7260;
+  --tomato: #B5523B; --tomato-dark: #8E3D2B; --butter: #F3D79B; --cream: #FFF9EF; --paper: #FFFDF8;
+  --tan: #C9A27A; --tan-dark: #9C7A55; --sage: #8FA78E; --sage-dark: #6B8B68; --line: #E9D9C3;
+  --nav-h: 66px; --hand: 'Segoe Print', 'Bradley Hand', 'Comic Neue', 'Chalkboard SE', 'Marker Felt', cursive;
+}
+html { -webkit-text-size-adjust: 100%; }
+html:has(dialog[open]) { overflow: hidden; }
+body {
+  font-family: Georgia, 'Garamond', 'Times New Roman', serif; color: var(--ink); min-height: 100vh;
+  background: #EAD7BE radial-gradient(circle at 20% 0%, #F8EBDA 0, #EFDcC3 45%, #E2C9A8 100%) fixed;
+  padding: 0 0 calc(var(--nav-h) + 24px + env(safe-area-inset-bottom));
+}
+button, input, select, textarea { font-family: inherit; font-size: inherit; color: inherit; }
+button, label { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+:focus-visible { outline: 3px solid #4F7A4C; outline-offset: 2px; }
+.wrap { max-width: 960px; margin: 0 auto; padding: 0 14px; }
+
+/* header + gingham */
+.gingham { height: 14px; background:
+  repeating-linear-gradient(90deg, rgba(181,82,59,.55) 0 14px, transparent 14px 28px),
+  repeating-linear-gradient(0deg, rgba(181,82,59,.55) 0 7px, transparent 7px 14px), #FFF4E6; }
+header.top { background: var(--cream); box-shadow: 0 3px 10px rgba(78,59,42,.18); position: sticky; top: 0; z-index: 30; }
+.top-row { display: flex; align-items: center; gap: 10px; padding: 8px 14px 6px; max-width: 960px; margin: 0 auto; }
+.top-row h1 { font-family: var(--hand); font-weight: normal; font-size: 1.45em; letter-spacing: .5px; color: var(--tomato-dark); flex: 1; line-height: 1.1; }
+.top-row h1 small { display: block; font-family: Georgia, serif; font-style: italic; font-size: .5em; color: var(--muted); letter-spacing: 0; }
+.ver { font-size: .72em; color: var(--muted); border: 1px solid var(--line); border-radius: 9px; padding: 1px 7px; background: #fff; }
+.syncbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: .82em; color: var(--ink-soft); padding: 0 14px 8px; max-width: 960px; margin: 0 auto; }
+.syncbar .dot { width: 9px; height: 9px; border-radius: 50%; background: #bbb; flex: none; }
+.syncbar[data-state=ok] .dot { background: var(--sage-dark); }
+.syncbar[data-state=busy] .dot { background: #D8A93B; }
+.syncbar[data-state=error] .dot, .syncbar[data-state=need] .dot { background: var(--tomato); }
+.syncbar .grow { flex: 1; min-width: 120px; }
+.mini { min-height: 32px; padding: 4px 12px; border-radius: 16px; border: 1.5px solid var(--tan); background: #fff; font-size: .95em; }
+
+/* buttons */
+.btn { min-height: 46px; padding: 10px 18px; border-radius: 12px; border: 2px solid var(--tomato-dark);
+  background: linear-gradient(#C66A51, var(--tomato)); color: #fff; text-shadow: 0 1px 1px rgba(0,0,0,.25);
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px; box-shadow: 0 2px 5px rgba(0,0,0,.15); font-size: 1em; }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: .55; cursor: default; }
+.btn.green { background: linear-gradient(var(--sage), #7A9B76); border-color: var(--sage-dark); }
+.btn.light { background: var(--paper); color: var(--ink); border-color: var(--tan); text-shadow: none; }
+.btn.danger { background: linear-gradient(#C0583F, #A8432F); border-color: #7E2F20; }
+.btn.block { width: 100%; }
+.btn.small { min-height: 38px; padding: 6px 12px; font-size: .92em; border-radius: 10px; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.row > .btn { flex: 1 1 auto; }
+
+/* home */
+.search { position: relative; margin: 14px 0 10px; }
+.search input { width: 100%; min-height: 48px; border-radius: 24px; border: 2px solid var(--tan); background: var(--paper); padding: 10px 44px 10px 44px; outline: none; font-size: 1.02em; }
+.search input:focus { border-color: var(--tomato); box-shadow: 0 0 0 3px rgba(181,82,59,.18); }
+.search .ico { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+.search .clear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 38px; height: 38px; border: none; background: none; font-size: 1.1em; color: var(--muted); }
+.chips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 10px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.chips::-webkit-scrollbar { display: none; }
+.chip { flex: none; min-height: 38px; padding: 6px 14px; border-radius: 19px; border: 1.5px solid var(--tan); background: var(--paper); color: var(--ink-soft); white-space: nowrap; font-size: .95em; }
+.chip[aria-pressed=true] { background: var(--tomato); color: #fff; border-color: var(--tomato-dark); }
+.filters2 { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; font-size: .92em; color: var(--ink-soft); flex-wrap: wrap; }
+.filters2 select { min-height: 38px; border-radius: 10px; border: 1.5px solid var(--tan); background: var(--paper); padding: 4px 8px; }
+.count { margin-left: auto; font-style: italic; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; }
+@media (min-width: 700px) { .grid { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 18px; } }
+.card { background: var(--paper); border-radius: 12px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 4px 12px rgba(78,59,42,.16);
+  display: flex; flex-direction: column; text-align: left; padding: 0; position: relative; transition: transform .15s; }
+.card:hover { transform: translateY(-2px); }
+.card .ph { aspect-ratio: 4/3; background: #F1E1CB center/cover no-repeat; display: grid; place-items: center; font-size: 2.6em; border-bottom: 3px solid var(--butter); }
+.card .body { padding: 9px 11px 11px; background: repeating-linear-gradient(var(--paper) 0 23px, #EADFD0 23px 24px); flex: 1; }
+.card .t { font-size: 1.05em; line-height: 1.2; font-weight: bold; color: var(--ink); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card .s { font-size: .82em; color: var(--muted); margin-top: 4px; font-style: italic; }
+.card .fav { position: absolute; top: 7px; right: 7px; background: rgba(255,249,239,.92); border-radius: 50%; width: 32px; height: 32px; display: grid; place-items: center; font-size: 1.05em; box-shadow: 0 1px 4px rgba(0,0,0,.2); }
+.empty { text-align: center; padding: 40px 18px; background: var(--paper); border-radius: 14px; border: 2px dashed var(--tan); color: var(--ink-soft); }
+.empty .big { font-size: 3em; }
+.empty p { margin: 10px 0 16px; }
+
+/* recipe card view */
+.sheet { background: var(--paper); border-radius: 16px; box-shadow: 0 8px 24px rgba(78,59,42,.22); margin: 14px 0; overflow: hidden; border: 1px solid var(--line); }
+.hero { position: relative; background: #F1E1CB; }
+.hero .strip { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; }
+.hero .strip::-webkit-scrollbar { display: none; }
+.hero img { flex: none; width: 100%; aspect-ratio: 4/3; object-fit: cover; scroll-snap-align: center; display: block; max-height: 420px; }
+.hero .noimg { aspect-ratio: 5/2; display: grid; place-items: center; font-size: 3.4em; }
+.hero .badge { position: absolute; bottom: 8px; right: 10px; background: rgba(0,0,0,.5); color: #fff; font-size: .8em; padding: 2px 9px; border-radius: 10px; }
+.card-pad { padding: 16px 18px 20px; }
+.rtitle { font-family: var(--hand); font-weight: normal; font-size: 1.75em; line-height: 1.15; color: var(--tomato-dark); }
+.from { font-style: italic; color: var(--muted); margin-top: 4px; }
+.metas { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 4px; }
+.meta { background: #FBF0DE; border: 1px solid #EEDAB8; border-radius: 10px; padding: 6px 10px; font-size: .9em; }
+.tagrow { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.tag { font-size: .8em; background: #EEF3EC; border: 1px solid #CFDCCD; color: #4F6B4D; padding: 2px 9px; border-radius: 10px; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+.actions .btn { flex: 1 1 120px; }
+h2.sec { font-family: var(--hand); font-weight: normal; color: var(--tomato-dark); font-size: 1.3em; margin: 22px 0 8px; padding-bottom: 4px; border-bottom: 2px dashed var(--tan); display: flex; align-items: center; gap: 8px; }
+h2.sec .r { margin-left: auto; font-family: Georgia, serif; font-size: .62em; }
+.ingr { list-style: none; }
+.ingr li { display: flex; align-items: flex-start; gap: 6px; border-bottom: 1px solid #F0E4D2; }
+.ingr label { display: flex; gap: 10px; align-items: flex-start; padding: 9px 2px; flex: 1; line-height: 1.35; }
+.ingr input[type=checkbox] { width: 22px; height: 22px; flex: none; margin-top: 1px; accent-color: var(--sage-dark); }
+.ingr .onlist { font-size: .75em; color: var(--sage-dark); white-space: nowrap; padding-top: 11px; }
+.groc-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.groc-bar .btn { flex: 1 1 150px; }
+.steps { list-style: none; counter-reset: s; }
+.steps li { counter-increment: s; position: relative; padding: 10px 6px 12px 46px; border-bottom: 1px solid #F0E4D2; line-height: 1.5; cursor: pointer; }
+.steps li::before { content: counter(s); position: absolute; left: 4px; top: 9px; width: 30px; height: 30px; border-radius: 50%; background: var(--butter); color: var(--tomato-dark); display: grid; place-items: center; font-weight: bold; }
+.steps li.done { color: #A89582; text-decoration: line-through; }
+.steps li.done::before { content: '✓'; background: #DDE8DB; color: var(--sage-dark); }
+.notes { white-space: pre-wrap; background: #FFF6D9; border-left: 4px solid var(--butter); padding: 10px 12px; border-radius: 6px; line-height: 1.5; }
+.thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
+.thumb { position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden; background: #F1E1CB; border: 1px solid var(--line); }
+.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.thumb button.x { position: absolute; top: 4px; right: 4px; width: 30px; height: 30px; border-radius: 50%; border: none; background: rgba(0,0,0,.55); color: #fff; font-size: .95em; }
+.thumb .lbl { position: absolute; left: 4px; bottom: 4px; font-size: .7em; background: rgba(0,0,0,.5); color: #fff; padding: 1px 6px; border-radius: 8px; }
+.thumb.add { display: grid; place-items: center; text-align: center; font-size: .85em; color: var(--ink-soft); border: 2px dashed var(--tan); background: var(--paper); }
+.thumb.add span { font-size: 1.8em; display: block; }
+.thumb.missing { display: grid; place-items: center; font-size: .75em; color: var(--muted); text-align: center; padding: 4px; }
+
+/* forms */
+.form { display: grid; gap: 14px; }
+.field label, .field .lab { display: block; font-size: .92em; color: var(--ink-soft); margin-bottom: 5px; font-weight: bold; }
+.field input, .field select, .field textarea { width: 100%; min-height: 46px; padding: 10px 12px; border: 2px solid var(--tan); border-radius: 10px; background: #fff; outline: none; font-size: 1em; }
+.field textarea { min-height: 130px; line-height: 1.45; resize: vertical; }
+.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--tomato); }
+.field .hint { font-size: .8em; color: var(--muted); font-style: italic; margin-top: 4px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 380px) { .grid3 { grid-template-columns: 1fr 1fr; } }
+.check-line { display: flex; align-items: center; gap: 10px; font-weight: bold; }
+.check-line input { width: 24px; height: 24px; accent-color: var(--tomato); }
+.sticky-save { position: sticky; bottom: calc(var(--nav-h) + 8px + env(safe-area-inset-bottom)); display: flex; gap: 10px; background: rgba(255,253,248,.95); padding: 10px; border-radius: 14px; box-shadow: 0 -2px 12px rgba(0,0,0,.12); z-index: 5; }
+.sticky-save .btn { flex: 1; }
+
+/* scan */
+.steps-guide { display: grid; gap: 8px; margin: 8px 0 14px; font-size: .95em; color: var(--ink-soft); }
+.steps-guide div { display: flex; gap: 10px; align-items: flex-start; }
+.steps-guide b { flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--butter); color: var(--tomato-dark); display: grid; place-items: center; }
+.progress { height: 14px; border-radius: 7px; background: #F0E2CE; overflow: hidden; border: 1px solid var(--line); }
+.progress div { height: 100%; width: 0; background: linear-gradient(90deg, var(--sage), var(--sage-dark)); transition: width .25s; }
+.ocr-status { font-size: .9em; color: var(--ink-soft); margin: 6px 0 2px; min-height: 1.3em; }
+.rawtext { width: 100%; min-height: 180px; font-family: ui-monospace, Consolas, monospace; font-size: .85em; border: 2px solid var(--tan); border-radius: 10px; padding: 10px; background: #fff; }
+.tip { background: #FBF0DE; border: 1px solid #EEDAB8; border-radius: 10px; padding: 10px 12px; font-size: .88em; line-height: 1.45; color: var(--ink-soft); }
+
+/* more */
+.panel { background: var(--paper); border-radius: 14px; border: 1px solid var(--line); box-shadow: 0 4px 12px rgba(78,59,42,.14); padding: 16px; margin: 14px 0; }
+.panel h2 { font-family: var(--hand); font-weight: normal; color: var(--tomato-dark); font-size: 1.25em; margin-bottom: 8px; }
+.panel p { line-height: 1.5; margin-bottom: 10px; color: var(--ink-soft); font-size: .95em; }
+.panel .row { margin-top: 6px; }
+
+/* bottom nav */
+nav.bottom { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: var(--cream); border-top: 2px solid var(--tan);
+  display: flex; justify-content: center; padding-bottom: env(safe-area-inset-bottom); box-shadow: 0 -3px 12px rgba(78,59,42,.15); }
+nav.bottom .in { display: flex; width: 100%; max-width: 600px; }
+nav.bottom button { flex: 1; height: var(--nav-h); border: none; background: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: .78em; color: var(--ink-soft); }
+nav.bottom button .i { font-size: 1.55em; line-height: 1; }
+nav.bottom button[aria-current=page] { color: var(--tomato-dark); font-weight: bold; }
+nav.bottom button.fab .i { background: var(--tomato); color: #fff; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; margin-top: -18px; box-shadow: 0 3px 8px rgba(0,0,0,.25); border: 3px solid var(--cream); }
+
+/* dialogs */
+dialog { border: none; border-radius: 16px; padding: 0; max-width: min(560px, calc(100vw - 20px)); width: 100%; background: var(--paper); color: var(--ink); box-shadow: 0 12px 40px rgba(0,0,0,.35); margin: auto; max-height: calc(100vh - 30px); }
+dialog::backdrop { background: rgba(60,40,25,.45); }
+.dlg { padding: 18px; display: grid; gap: 12px; }
+.dlg h3 { font-family: var(--hand); font-weight: normal; color: var(--tomato-dark); font-size: 1.3em; }
+.dlg .err { color: #A8432F; font-size: .9em; min-height: 1em; }
+.gl-list { list-style: none; display: grid; gap: 8px; max-height: 50vh; overflow-y: auto; }
+.gl-list li { border: 1px solid var(--line); border-radius: 10px; padding: 8px; background: #fff; display: grid; gap: 6px; }
+.gl-list .top { display: flex; gap: 8px; align-items: center; }
+.gl-list input[type=text] { flex: 1; min-height: 40px; border: 1.5px solid var(--tan); border-radius: 8px; padding: 6px 8px; min-width: 0; }
+.gl-list select { min-height: 38px; border: 1.5px solid var(--tan); border-radius: 8px; background: #fff; max-width: 100%; }
+.gl-list .src { font-size: .78em; color: var(--muted); font-style: italic; }
+.gl-list .st { font-size: .78em; padding: 2px 7px; border-radius: 8px; white-space: nowrap; }
+.st.new { background: #FBF0DE; } .st.match { background: #EEF3EC; color: #4F6B4D; } .st.have { background: #EEE; color: #777; }
+.viewer img { width: 100%; height: auto; display: block; max-height: 80vh; object-fit: contain; background: #222; }
+
+.toast { position: fixed; left: 50%; bottom: calc(var(--nav-h) + 18px + env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(20px); opacity: 0;
+  background: #4E3B2A; color: #FFF6E8; padding: 11px 18px; border-radius: 22px; z-index: 100; transition: all .25s; pointer-events: none; max-width: calc(100vw - 30px); text-align: center; font-size: .95em; box-shadow: 0 4px 14px rgba(0,0,0,.3); }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.backlink { background: none; border: none; color: var(--tomato-dark); font-size: 1em; padding: 12px 0 0; display: inline-flex; gap: 6px; align-items: center; min-height: 44px; }
+.small-print { text-align: center; font-size: .8em; color: var(--muted); margin: 26px 0 6px; font-style: italic; }
+@media print { nav.bottom, header.top, .actions, .groc-bar, .backlink { display: none !important; } body { background: #fff; } }
+
+/* ---- v2: books, send, inbox, comments, import ---- */
+.bookbar { max-width: 960px; margin: 0 auto; padding: 0 14px 8px; display: flex; gap: 8px; align-items: center; }
+.bookpill { flex: 1; display: flex; align-items: center; gap: 8px; min-height: 42px; padding: 6px 12px; border-radius: 22px; border: 2px dashed var(--tan); background: var(--paper); color: var(--ink); font: inherit; font-size: .95em; text-align: left; cursor: pointer; }
+.bookpill[data-kind=family] { border-color: var(--tomato); background: #FCEFE6; }
+.bookpill[data-kind=personal] { border-color: var(--sage); background: #EEF4EC; }
+.bookpill b { flex: 1; font-family: var(--hand); font-weight: normal; font-size: 1.08em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rolebadge { font-size: .74em; padding: 2px 8px; border-radius: 10px; background: var(--butter); color: var(--ink); white-space: nowrap; }
+.rolebadge.view { background: #E3E7F3; }
+.booklist { list-style: none; display: grid; gap: 8px; margin: 10px 0; padding: 0; }
+.booklist button.bk { width: 100%; display: flex; gap: 10px; align-items: center; text-align: left; padding: 10px 12px; border-radius: 12px; border: 2px solid var(--line); background: var(--paper); font: inherit; color: var(--ink); cursor: pointer; }
+.booklist button.bk[aria-current=true] { border-color: var(--tomato); background: #FCEFE6; }
+.booklist .bk .ic { font-size: 1.6em; } .booklist .bk .nm { flex: 1; } .booklist .bk small { display: block; color: var(--muted); font-size: .82em; }
+.inbox-banner { display: flex; align-items: center; gap: 10px; background: #FFF3D6; border: 2px solid var(--butter); border-radius: 14px; padding: 10px 14px; margin: 12px 0 0; }
+.sub-card { border: 1px solid var(--line); border-radius: 14px; background: var(--paper); padding: 12px; margin: 12px 0; box-shadow: 0 3px 8px rgba(78,59,42,.1); }
+.sub-card .who { color: var(--muted); font-size: .88em; } .sub-card ul { margin: 6px 0 6px 20px; font-size: .92em; }
+.sub-card .st { font-weight: bold; } .sub-card .st.approved { color: var(--sage-dark); } .sub-card .st.declined { color: var(--tomato-dark); }
+.sub-photos { display: flex; gap: 6px; flex-wrap: wrap; } .sub-photos img { width: 84px; height: 84px; object-fit: cover; border-radius: 8px; }
+.comments { list-style: none; padding: 0; display: grid; gap: 10px; margin: 8px 0; }
+.comments li { background: #FFF6E5; border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; position: relative; }
+.comments .ch { font-size: .82em; color: var(--muted); display: flex; gap: 8px; align-items: center; } .comments .ch b { color: var(--ink); }
+.comments .ct { white-space: pre-wrap; margin-top: 3px; } .comments .cdel { margin-left: auto; background: none; border: 0; color: var(--tomato-dark); cursor: pointer; font-size: .9em; min-height: 30px; }
+.comment-box textarea { width: 100%; min-height: 70px; border-radius: 10px; border: 1.5px solid var(--tan); padding: 8px; font: inherit; background: #fff; }
+.srclink { display: inline-block; margin-top: 4px; font-size: .9em; color: var(--sage-dark); word-break: break-all; }
+.dest-list label { display: flex; gap: 10px; align-items: flex-start; padding: 10px; border: 2px solid var(--line); border-radius: 12px; margin: 8px 0; cursor: pointer; background: var(--paper); }
+.dest-list input { width: 22px; height: 22px; margin-top: 2px; } .dest-list small { display: block; color: var(--muted); }
+.viewonly-note { background: #E3E7F3; border-radius: 12px; padding: 8px 12px; font-size: .9em; margin: 10px 0; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="gingham"></div>
+  <div class="top-row">
+    <h1>Family Recipe Book<small>from our kitchen to yours</small></h1>
+    <span class="ver" id="versionLabel">v2.0</span>
+  </div>
+  <div class="bookbar"><button type="button" class="bookpill" id="bookPill" aria-haspopup="dialog"><span id="bookIcon">📖</span><b id="bookName">Recipe book</b><span class="rolebadge" id="bookRole"></span><span aria-hidden="true">▾</span></button></div>
+  <div class="syncbar" id="syncBar" data-state="off">
+    <span class="dot"></span><span class="grow" id="syncText">Sync: off</span>
+    <button class="mini" id="syncSignIn" type="button" hidden>🔑 <span id="syncSignInTxt">Sign in with Google</span></button>
+    <button class="mini" id="syncNow" type="button" hidden>↻ Sync now</button>
+    <a class="mini" id="syncOpenOnline" href="https://arthur1134.github.io/recipes/" target="_blank" rel="noopener" hidden style="text-decoration:none;display:inline-flex;align-items:center">🌐 Open online version</a>
+  </div>
+</header>
+
+<main class="wrap" id="view" aria-live="polite"></main>
+
+<nav class="bottom" aria-label="Main">
+  <div class="in">
+    <button type="button" data-nav="home"><span class="i">📖</span>Recipes</button>
+    <button type="button" data-nav="scan"><span class="i">📷</span>Scan</button>
+    <button type="button" data-nav="new" class="fab"><span class="i">＋</span>Add</button>
+    <button type="button" data-nav="favs"><span class="i">⭐</span>Favorites</button>
+    <button type="button" data-nav="more"><span class="i">☰</span>More</button>
+  </div>
+</nav>
+
+<input type="file" id="fileCamera" accept="image/*" capture="environment" hidden>
+<input type="file" id="fileGallery" accept="image/*" multiple hidden>
+<input type="file" id="fileImport" accept="application/json,.json" hidden>
+
+<dialog id="groceryDialog" aria-labelledby="glTitle">
+  <form method="dialog" class="dlg" id="glForm">
+    <h3 id="glTitle">🛒 Add to Grocery List</h3>
+    <p style="font-size:.9em;color:var(--ink-soft)" id="glIntro">Check the names — short names work best on the grocery list.</p>
+    <ul class="gl-list" id="glList"></ul>
+    <div class="err" id="glErr"></div>
+    <div class="row"><button type="button" class="btn light" id="glCancel">Cancel</button><button type="submit" class="btn green" id="glGo">Add to list</button></div>
+  </form>
+</dialog>
+
+<dialog id="shareDialog" aria-labelledby="shTitle">
+  <form class="dlg" id="shareForm">
+    <h3 id="shTitle">👪 Share the recipe book</h3>
+    <p style="font-size:.92em;line-height:1.45" id="shIntro">Give someone (e.g. your wife) <b>can edit</b> access to your RecipeBook folder in Google Drive. Google does not e-mail them — tell them yourself.</p>
+    <div class="field"><label for="shareEmail">Their Google e-mail</label><input id="shareEmail" type="email" autocomplete="email" placeholder="name@gmail.com"></div>
+    <div style="font-size:.88em;color:var(--ink-soft)">Has access now:<ul id="sharePeople" style="margin:4px 0 0 18px"></ul></div>
+    <div class="err" id="shareError"></div>
+    <div class="row"><button type="button" class="btn light" id="shareCancel">Cancel</button><button type="submit" class="btn green" id="shareGo">Share (can edit)</button></div>
+  </form>
+</dialog>
+
+
+<dialog id="booksDialog" aria-labelledby="bkTitle">
+  <form method="dialog" class="dlg" id="booksForm">
+    <h3 id="bkTitle">📚 Your recipe books</h3>
+    <ul class="booklist" id="bookList"></ul>
+    <div class="field"><label for="newBookName">Start a new personal book (saved in your own Google Drive)</label><input id="newBookName" maxlength="60" placeholder="e.g. Emma’s Baking Book"></div>
+    <div class="err" id="bkErr"></div>
+    <div class="row"><button type="button" class="btn light" id="bkClose">Close</button><button type="button" class="btn green" id="bkCreate">＋ Create book</button></div>
+  </form>
+</dialog>
+
+<dialog id="sendDialog" aria-labelledby="sdTitle">
+  <form class="dlg" id="sendForm">
+    <h3 id="sdTitle">📤 Send this recipe</h3>
+    <p style="font-size:.9em;color:var(--ink-soft)" id="sdIntro"></p>
+    <div class="dest-list" id="sdList"></div>
+    <div class="field"><label for="sdFrom">Credit (“from …”)</label><input id="sdFrom" maxlength="60"></div>
+    <label class="check-line"><input type="checkbox" id="sdPhotos" checked> Include photos</label>
+    <div class="err" id="sdErr"></div>
+    <div class="row"><button type="button" class="btn light" id="sdCancel">Cancel</button><button type="submit" class="btn green" id="sdGo">📤 Send</button></div>
+  </form>
+</dialog>
+
+<dialog id="viewerDialog" class="viewer" aria-label="Photo">
+  <div style="position:relative"><img id="viewerImg" alt="Photo"><button type="button" class="btn small light" id="viewerClose" style="position:absolute;top:8px;right:8px">✕ Close</button></div>
+</dialog>
+
+<div class="toast" id="toast" role="status"></div>
+<script>
+(function () {
+'use strict';
+const APP_VERSION = '2.0';
+const APP_ID = 'arthur-family-recipe-book';
+const DOC_KEY = 'recipeBook.v1', UI_KEY = 'recipeBook.ui', PRESYNC_KEY = 'recipeBook.preSyncBackup';
+const CATEGORIES = ['Breakfast', 'Mains', 'Sides', 'Soups & Stews', 'Salads', 'Breads & Baking', 'Desserts', 'Snacks & Apps', 'Drinks', 'Sauces', 'Other'];
+const CAT_EMOJI = { 'Breakfast': '🍳', 'Mains': '🍲', 'Sides': '🥔', 'Soups & Stews': '🥣', 'Salads': '🥗', 'Breads & Baking': '🍞', 'Desserts': '🥧', 'Snacks & Apps': '🧀', 'Drinks': '☕', 'Sauces': '🫙', 'Other': '🍴' };
+const FIELDS = ['title', 'cat', 'tags', 'servings', 'prep', 'cook', 'ingr', 'steps', 'notes', 'from', 'src', 'fav', 'photos', 'scans', 'created', 'del'];
+const CONTENT = FIELDS.filter(f => f !== 'del');
+const RID = /^r[a-z0-9]{6,30}$/, PID = /^p[a-z0-9]{6,30}$/;
+const MAX_SKEW = 400 * 24 * 3600e3;
+const EMAIL_RE = /^[^\s@"<>]+@[^\s@"<>]+\.[a-z]{2,}$/i;
+
+// ---------- helpers ----------
+const $ = (id) => document.getElementById(id);
+const rnd = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const newRid = () => 'r' + rnd(), newPid = () => 'p' + rnd();
+const str = (v, n) => typeof v === 'string' ? v.replace(/\r/g, '').trim().slice(0, n) : '';
+const strArr = (v, n, each) => Array.isArray(v) ? v.map(x => str(x, each)).filter(Boolean).slice(0, n) : [];
+const PROPS = new Set(['checked', 'disabled', 'value', 'selected']);
+function el(tag, attrs, ...children) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v === null || v === undefined || v === false) continue;
+    if (k === 'class') e.className = v;
+    else if (k === 'text') e.textContent = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (PROPS.has(k)) e[k] = v;
+    else e.setAttribute(k, v === true ? '' : String(v));
+  }
+  for (const c of children.flat()) if (c !== null && c !== undefined && c !== false) e.append(c);
+  return e;
+}
+const storage = {
+  ok: true,
+  get(k) { try { return localStorage.getItem(k); } catch (e) { this.ok = false; return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { this.ok = false; return false; } },
+};
+let toastTimer;
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2600); }
+function loadScript(src) {
+  return new Promise((res, rej) => {
+    const s = document.createElement('script'); s.src = src; s.async = true;
+    s.onload = () => res(); s.onerror = () => { s.remove(); rej(new Error('Could not load ' + src.split('/').pop() + ' (offline?)')); };
+    document.head.append(s);
+  });
+}
+const WEB = location.protocol === 'https:' || location.protocol === 'http:';
+
+// ================= recipe document (per-field registers, like Grocery List v2.2) =================
+let lastT = 0;
+function tick() { lastT = Math.max(Date.now(), lastT + 1); return lastT; }
+function observeT(d) {
+  for (const r of Object.values(d.recipes)) for (const f of FIELDS) if (r[f] && r[f][1] > lastT) lastT = r[f][1];
+  for (const m of Object.values(d.members)) if (m.role && m.role[1] > lastT) lastT = m.role[1];
+}
+function emptyDoc() { return { v: 1, recipes: {}, members: {} }; }
+function cleanVal(f, v) {
+  switch (f) {
+    case 'title': return str(v, 120);
+    case 'cat': return CATEGORIES.includes(v) ? v : 'Other';
+    case 'tags': return strArr(v, 12, 30);
+    case 'servings': return str(v, 20);
+    case 'prep': case 'cook': return str(v, 30);
+    case 'ingr': return strArr(v, 150, 200);
+    case 'steps': return strArr(v, 80, 2000);
+    case 'notes': return str(v, 5000);
+    case 'from': return str(v, 60);
+    case 'src': { const u = str(v, 600); return u === '' || /^https?:\/\//i.test(u) ? u : ''; }
+    case 'photos': case 'scans': return Array.isArray(v) ? [...new Set(v.filter(x => typeof x === 'string' && PID.test(x)))].slice(0, 20) : [];
+    case 'created': return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
+    default: return typeof v === 'boolean' ? v : undefined;   // fav, del
+  }
+}
+function cleanReg(f, reg) {
+  if (!Array.isArray(reg) || reg.length !== 2) return null;
+  const t = reg[1];
+  if (typeof t !== 'number' || !Number.isFinite(t) || t < 0 || t > Date.now() + MAX_SKEW) return null;
+  const v = cleanVal(f, reg[0]);
+  return v === undefined ? null : [v, t];
+}
+function normalizeDoc(raw) {
+  const d = emptyDoc();
+  if (!raw || typeof raw !== 'object') return d;
+  if (raw.recipes && typeof raw.recipes === 'object') for (const [id, r] of Object.entries(raw.recipes)) {
+    if (!RID.test(id) || !r || typeof r !== 'object') continue;
+    const out = {};
+    for (const f of FIELDS) { const c = cleanReg(f, r[f]); if (c) out[f] = c; }
+    if (Object.keys(out).length) d.recipes[id] = out;
+  }
+  if (raw.members && typeof raw.members === 'object') for (const [em, m] of Object.entries(raw.members)) {
+    const e = String(em).toLowerCase();
+    if (!EMAIL_RE.test(e) || !m || !Array.isArray(m.role)) continue;
+    const t = m.role[1];
+    if (['parent', 'family', 'removed'].includes(m.role[0]) && typeof t === 'number' && t >= 0 && t <= Date.now() + MAX_SKEW) d.members[e] = { role: [m.role[0], t] };
+  }
+  return d;
+}
+function newer(a, b) {
+  if (!a) return b; if (!b) return a;
+  if (a[1] !== b[1]) return a[1] > b[1] ? a : b;
+  return JSON.stringify(a[0]) >= JSON.stringify(b[0]) ? a : b;
+}
+// Pure merge: commutative, associative, idempotent.
+function mergeDocs(a, b) {
+  const out = emptyDoc();
+  for (const id of new Set([...Object.keys(a.recipes), ...Object.keys(b.recipes)])) {
+    const ra = a.recipes[id] || {}, rb = b.recipes[id] || {}, r = {};
+    for (const f of FIELDS) { const w = newer(ra[f], rb[f]); if (w) r[f] = [w[0], w[1]]; }
+    out.recipes[id] = r;
+  }
+  for (const e of new Set([...Object.keys(a.members), ...Object.keys(b.members)])) {
+    const w = newer((a.members[e] || {}).role, (b.members[e] || {}).role); if (w) out.members[e] = { role: [w[0], w[1]] };
+  }
+  return out;
+}
+function canonical(d) {
+  return JSON.stringify([Object.keys(d.recipes).sort().map(id => [id, FIELDS.map(f => d.recipes[id][f] || 0)]),
+    Object.keys(d.members).sort().map(e => [e, d.members[e].role])]);
+}
+function effRecipe(d, id) {
+  const r = d.recipes[id]; if (!r) return null;
+  const g = (f, dflt) => r[f] ? r[f][0] : dflt;
+  let del = g('del', false) === true;
+  if (del && CONTENT.some(f => r[f] && r[f][1] > r.del[1])) del = false;
+  const created = g('created', 0) || Math.min(...Object.values(r).map(x => x[1]));
+  const updated = Math.max(...Object.values(r).map(x => x[1]));
+  return { id, title: g('title', '') || 'Untitled recipe', cat: g('cat', 'Other'), tags: g('tags', []), servings: g('servings', ''),
+    prep: g('prep', ''), cook: g('cook', ''), ingr: g('ingr', []), steps: g('steps', []), notes: g('notes', ''), from: g('from', ''), src: g('src', ''),
+    fav: g('fav', false) === true, photos: g('photos', []), scans: g('scans', []), created, updated, del };
+}
+function allRecipes() { return Object.keys(doc.recipes).map(id => effRecipe(doc, id)).filter(r => r && !r.del); }
+function effSignature(d) { return canonical(d); }
+function referencedPhotos(d) {
+  const s = new Set();
+  for (const r of Object.values(d.recipes)) for (const f of ['photos', 'scans']) if (r[f]) r[f][0].forEach(p => s.add(p));
+  return s;
+}
+
+// ================= v2: several recipe books =================
+// Each book = its own Drive folder (recipe-book.json + 8 photo files + book-shared.json for comments & submissions)
+// and its own local copy: recipeBook.doc.<bookId> / recipeBook.sync.<bookId>. The v1 keys are never deleted.
+const OWNER_EMAIL = 'arthurmcconnell30@gmail.com';
+const FAMILY_EDITORS = [OWNER_EMAIL, 'm.craftygirl@gmail.com'];   // the only people who can edit the family book
+const GROCERY_EMAILS = FAMILY_EDITORS;                            // the only people who see grocery buttons
+const FAMILY_ID = 'family', FAMILY_NAME = 'McConnell Family Recipe Book';
+const BOOKS_KEY = 'recipeBook.books', ACTIVE_KEY = 'recipeBook.activeBook', IDENT_KEY = 'recipeBook.identity';
+const docKeyFor = (bid) => 'recipeBook.doc.' + bid, metaKeyFor = (bid) => 'recipeBook.sync.' + bid, sharedKeyFor = (bid) => 'recipeBook.shared.' + bid;
+const BID = /^(family|b[a-z0-9]{6,30})$/;
+const newBid = () => 'b' + rnd();
+function readJson(k, dflt) { try { const v = JSON.parse(storage.get(k) || 'null'); return v === null ? dflt : v; } catch (e) { return dflt; } }
+function migrateV1() {
+  if (storage.get(BOOKS_KEY)) return null;
+  const v1raw = storage.get(DOC_KEY), v1meta = readJson('recipeBook.sync', {}) || {};
+  let v1doc = emptyDoc(); try { if (v1raw) v1doc = normalizeDoc(JSON.parse(v1raw)); } catch (e) { /* keep empty, raw stays in v1 key */ }
+  const email = String(v1meta.email || '').toLowerCase();
+  const hasData = Object.keys(v1doc.recipes).length > 0 || !!v1meta.fileId || !!v1meta.pinned;
+  const ownerParent = v1doc.members[OWNER_EMAIL] && v1doc.members[OWNER_EMAIL].role[0] === 'parent';
+  // Arthur's own v1 book (and anyone who had opened his shared v1 book) becomes the family book; anyone else's v1 data -> their personal book
+  const toFamily = hasData && (!!v1meta.pinned || email === OWNER_EMAIL || (!email && ownerParent));
+  const books = [], personal = { id: newBid(), name: 'My Recipes', kind: 'personal' };
+  const m = Object.assign({}, v1meta); delete m.email; delete m.everSignedIn; delete m.consented;
+  if (toFamily) { books.push({ id: FAMILY_ID, name: FAMILY_NAME, kind: 'family' }); storage.set(docKeyFor(FAMILY_ID), JSON.stringify(v1doc)); storage.set(metaKeyFor(FAMILY_ID), JSON.stringify(m)); }
+  books.push(personal);
+  if (hasData && !toFamily) { storage.set(docKeyFor(personal.id), JSON.stringify(v1doc)); storage.set(metaKeyFor(personal.id), JSON.stringify(m)); }
+  storage.set(IDENT_KEY, JSON.stringify({ email, name: '', everSignedIn: !!v1meta.everSignedIn, consented: !!v1meta.consented }));
+  storage.set(BOOKS_KEY, JSON.stringify(books)); storage.set(ACTIVE_KEY, books[0].id);
+  if (hasData) storage.set('recipeBook.v1.migrated', JSON.stringify({ at: new Date().toISOString(), to: toFamily ? FAMILY_ID : personal.id, recipes: Object.keys(v1doc.recipes).length }));
+  return { to: toFamily ? 'family' : 'personal', n: Object.keys(v1doc.recipes).length };
+}
+const migration = migrateV1();
+let books = (readJson(BOOKS_KEY, []) || []).filter(b => b && BID.test(b.id));
+if (!books.length) books = [{ id: newBid(), name: 'My Recipes', kind: 'personal' }];
+let activeBid = storage.get(ACTIVE_KEY);
+if (!books.some(b => b.id === activeBid)) activeBid = books[0].id;
+const saveBooks = () => { storage.set(BOOKS_KEY, JSON.stringify(books)); storage.set(ACTIVE_KEY, activeBid); };
+const bookById = (bid) => books.find(b => b.id === bid) || null;
+const activeBook = () => bookById(activeBid) || books[0];
+const curDocKey = () => docKeyFor(activeBid);
+
+let doc = emptyDoc(), changeSeq = 0;
+function loadDoc(bid) {
+  const k = docKeyFor(bid || activeBid), raw = storage.get(k);
+  if (raw) { try { return normalizeDoc(JSON.parse(raw)); } catch (e) { storage.set(k + '.corrupt', raw); } }
+  return emptyDoc();
+}
+function persist() { return storage.set(curDocKey(), JSON.stringify(doc)); }
+function setReg(id, f, v) { (doc.recipes[id] = doc.recipes[id] || {})[f] = [cleanVal(f, v), tick()]; }
+function commit(msg) {
+  const ok = persist(); changeSeq++; Sync.markDirty();
+  if (msg !== false) toast(ok ? (msg || '✓ Saved') : '⚠ Could not save — browser storage is full or blocked');
+  return ok;
+}
+// Write only the fields that really changed (keeps other people's edits on other fields).
+function saveRecipe(id, data) {
+  const cur = doc.recipes[id] ? effRecipe(doc, id) : null;
+  if (!cur) setReg(id, 'created', Date.now());
+  for (const f of CONTENT) {
+    if (f === 'created' || !(f in data)) continue;
+    const v = cleanVal(f, data[f]);
+    if (!cur || JSON.stringify(v) !== JSON.stringify(cur[f]) || !doc.recipes[id][f]) setReg(id, f, v);
+  }
+  if (cur && cur.del) setReg(id, 'del', false);
+}
+
+// ================= photos (IndexedDB, compressed on the device) =================
+const DB = (() => {
+  let p = null;
+  function open() {
+    return p || (p = new Promise((res, rej) => {
+      const r = indexedDB.open('recipeBook', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('photos', { keyPath: 'id' });
+      r.onsuccess = () => res(r.result); r.onerror = () => { p = null; rej(r.error); };
+    }));
+  }
+  async function tx(mode, fn) {
+    const db = await open();
+    return new Promise((res, rej) => {
+      const t = db.transaction('photos', mode), r = fn(t.objectStore('photos')); let out;
+      if (r) r.onsuccess = () => { out = r.result; };
+      t.oncomplete = () => res(out); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error);
+    });
+  }
+  return { get: (id) => tx('readonly', s => s.get(id)), put: (rec) => tx('readwrite', s => s.put(rec)),
+    del: (id) => tx('readwrite', s => s.delete(id)), all: () => tx('readonly', s => s.getAll()), keys: () => tx('readonly', s => s.getAllKeys()) };
+})();
+const urlCache = new Map();
+async function photoUrl(id) {
+  if (urlCache.has(id)) return urlCache.get(id);
+  const rec = await DB.get(id).catch(() => null);
+  if (!rec || !rec.blob) return null;
+  const u = URL.createObjectURL(rec.blob); urlCache.set(id, u); return u;
+}
+function loadImage(file) {
+  return new Promise((res, rej) => {
+    const u = URL.createObjectURL(file), img = new Image();
+    img.onload = () => res({ img, done: () => URL.revokeObjectURL(u) });
+    img.onerror = () => { URL.revokeObjectURL(u); rej(new Error('That file is not a picture this browser can open')); };
+    img.src = u;
+  });
+}
+function drawScaled(img, max) {
+  const w0 = img.naturalWidth, h0 = img.naturalHeight, k = Math.min(1, max / Math.max(w0, h0));
+  const c = document.createElement('canvas'); c.width = Math.round(w0 * k); c.height = Math.round(h0 * k);
+  const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+  return c;
+}
+const toBlob = (c, q) => new Promise((res) => c.toBlob(res, 'image/jpeg', q));
+// kind: 'photo' (1280px, ~100-200 KB) or 'scan' (1600px, ~150-300 KB)
+async function storePhoto(file, kind) {
+  const { img, done } = await loadImage(file);
+  try {
+    const c = drawScaled(img, kind === 'scan' ? 1600 : 1280);
+    const blob = await toBlob(c, kind === 'scan' ? 0.7 : 0.72);
+    const id = newPid();
+    await DB.put({ id, blob, up: false, t: Date.now(), kind });
+    return id;
+  } finally { done(); }
+}
+const blobToDataUrl = (b) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(b); });
+async function dataUrlToBlob(u) { return (await fetch(u)).blob(); }
+// copy photos under new ids (each book uploads its own copy into its own photo files)
+async function clonePhotos(ids) {
+  const out = [];
+  for (const pid of ids) { const rec = await DB.get(pid).catch(() => null); if (!rec || !rec.blob) continue; const id = newPid(); await DB.put({ id, blob: rec.blob, up: false, t: Date.now(), kind: rec.kind }); out.push(id); }
+  return out;
+}
+// Write a recipe into any book (the open one, or another one on this device)
+function addRecipeToBook(bid, data) {
+  const rid = newRid();
+  if (bid === activeBid) { saveRecipe(rid, data); commit(false); return rid; }
+  const saved = doc;
+  try { doc = loadDoc(bid); observeT(doc); saveRecipe(rid, data); storage.set(docKeyFor(bid), JSON.stringify(doc)); }
+  finally { doc = saved; }
+  const m = readJson(metaKeyFor(bid), {}) || {}; m.dirty = true; storage.set(metaKeyFor(bid), JSON.stringify(m));
+  return rid;
+}
+
+// ================= on-device OCR (Tesseract.js, bundled; cached for offline by the service worker) =================
+const OCR = (() => {
+  let worker = null, starting = null, onProg = null;
+  const abs = (p) => new URL(p, location.href).href;
+  async function get() {
+    if (worker) return worker;
+    if (!starting) starting = (async () => {
+      if (!WEB) throw new Error('Scanning needs the online version (a double-clicked file cannot start the text reader).');
+      if (!window.Tesseract) await loadScript('vendor/tesseract/tesseract.min.js');
+      worker = await Tesseract.createWorker('eng', 1, {
+        workerPath: abs('vendor/tesseract/worker.min.js'), corePath: abs('vendor/tesseract/core'),
+        langPath: abs('vendor/tesseract/lang'), gzip: true,
+        logger: (m) => { if (onProg) onProg(m); }
+      });
+      await worker.setParameters({ preserve_interword_spaces: '1' });
+      return worker;
+    })().catch((e) => { starting = null; worker = null; throw e; });
+    return starting;
+  }
+  // Grayscale + contrast stretch at ~2000px: much better results on phone photos.
+  async function prep(file) {
+    const { img, done } = await loadImage(file);
+    try {
+      const c = drawScaled(img, 2200), g = c.getContext('2d');
+      const d = g.getImageData(0, 0, c.width, c.height), p = d.data;
+      const hist = new Uint32Array(256);
+      for (let i = 0; i < p.length; i += 4) { const y = (p[i] * 299 + p[i + 1] * 587 + p[i + 2] * 114) / 1000 | 0; p[i] = y; hist[y]++; }
+      const n = p.length / 4; let lo = 0, hi = 255, acc = 0;
+      while (lo < 255 && (acc += hist[lo]) < n * 0.01) lo++;
+      acc = 0; while (hi > 0 && (acc += hist[hi]) < n * 0.01) hi--;
+      const span = Math.max(30, hi - lo);
+      for (let i = 0; i < p.length; i += 4) { const v = Math.max(0, Math.min(255, (p[i] - lo) * 255 / span)); p[i] = p[i + 1] = p[i + 2] = v; }
+      g.putImageData(d, 0, 0);
+      return c;
+    } finally { done(); }
+  }
+  async function read(file, progress) {
+    onProg = progress;
+    const w = await get();
+    const canvas = await prep(file);
+    const r = await w.recognize(canvas);
+    onProg = null;
+    return { text: r.data.text || '', conf: Math.round(r.data.confidence || 0) };
+  }
+  return { read, warm: () => get().catch(() => null), ready: () => !!worker };
+})();
+
+// ================= smart parse: OCR text -> title / ingredients / steps =================
+const FRAC = '½⅓⅔¼¾⅛⅜⅝⅞';
+const UNIT = '(?:cups?|c\\.|tbsps?\\.?|tbs\\.?|tbl\\.?|tablespoons?|tsps?\\.?|teaspoons?|t\\.|oz\\.?|ounces?|lbs?\\.?|pounds?|g|grams?|kg|ml|l|liters?|litres?|quarts?|qts?|pints?|pts?|gallons?|cans?|pkgs?\\.?|packages?|sticks?|cloves?|pinch(?:es)?|dash(?:es)?|slices?|bunch(?:es)?|handfuls?|jars?|bottles?|envelopes?|heads?|stalks?|sprigs?|boxes?|bags?|containers?)';
+const QTY_START = new RegExp('^(?:\\d|[' + FRAC + ']|(?:a|an|one|two|three|four|five|six|half|dozen|some|few)\\s+' + UNIT + '\\b|' + UNIT + '\\s)', 'i');
+const NUM_STEP = /^(?:step\s*)?(\d{1,2})\s*[.):\-]\s+/i;
+const JUNK = '\\s*:?\\s*(?:\\S{1,3})?\\s*$';
+const HEAD = [
+  ['ingr', new RegExp("^(ingredients?|you(?:'|’)?ll need|you will need|what you need|for the [a-z ]+?)" + JUNK, 'i')],
+  ['steps', new RegExp('^(directions?|instructions?|method|steps|preparation|how to make(?: it)?|to make)' + JUNK, 'i')],
+  ['notes', new RegExp("^(notes?|tips?|cook'?s notes?|variations?)" + JUNK, 'i')]
+];
+const HEAD_INLINE = [['ingr', /^ingredients?\s*:\s*(.+)$/i], ['steps', /^(?:directions?|instructions?|method)\s*:\s*(.+)$/i], ['notes', /^notes?\s*:\s*(.+)$/i]];
+function cleanOcrLine(s) {
+  // Shadows/edges produce junk after a big gap ("2 lbs chicken      TTT"): keep later chunks only if they read like words.
+  const parts = s.replace(/\t/g, '    ').split(/\s{3,}/);
+  if (parts.length > 1) s = [parts[0]].concat(parts.slice(1).filter(x => (x.match(/[A-Za-z]{3,}/g) || []).length >= 2)).join(' ');
+  // ...and a pure-symbol token ("~~", "¥") usually starts junk too
+  const tk = s.trim().split(/\s+/), cut = tk.findIndex((w, i) => i >= 2 && /^[^\w\s&/+%°½⅓⅔¼¾⅛-]+$/.test(w) && !/^[,.;:)]$/.test(w));
+  if (cut > 0) s = tk.slice(0, cut).join(' ');
+  return s.replace(/^[Il|]\.\s/, '1. ').replace(/[|]/g, 'l').replace(/\t/g, ' ')
+    .replace(/(^|\s)[lI](?=\/\d)/g, '$11')                    // l/2 -> 1/2
+    .replace(/(\d)\s*\/\s*(\d)/g, '$1/$2')                     // 1 / 2 -> 1/2
+    .replace(/(\d\s*)[1I|]bs?\b/g, '$1lbs')                    // 2 1bs -> 2 lbs
+    .replace(/\b0z\b/g, 'oz')
+    .replace(/^[\s•·*‣◦●○■□▪❖✓✔>~]+/, '').replace(/^[-–—]\s+/, '')
+    .replace(/\s{2,}/g, ' ').trim();
+}
+function titleCase(s) {
+  if (s !== s.toUpperCase() || !/[A-Z]/.test(s)) return s;
+  return s.toLowerCase().replace(/\b([a-z])/g, (m) => m.toUpperCase()).replace(/\b(And|Or|Of|The|With|In|A)\b/g, (m, w, i) => i ? m.toLowerCase() : m);
+}
+function isIngredientLike(s) { return s.length <= 90 && QTY_START.test(s) && !/[.!?]\s+[A-Z]/.test(s); }
+function parseRecipe(text) {
+  const out = { title: '', servings: '', prep: '', cook: '', ingr: [], steps: [], notes: '', from: '' };
+  const lines = String(text || '').split(/\r?\n/).map(cleanOcrLine);
+  const b = { head: [], ingr: [], steps: [], notes: [] };
+  let cur = 'head', sawHead = false;
+  for (const ln of lines) {
+    if (!ln) { b[cur].push(''); continue; }
+    if (!/[a-z]{3,}/i.test(ln)) continue;     // OCR specks / junk lines
+    const h = HEAD.find(([, re]) => re.test(ln));
+    if (h && ln.length < 40) { cur = h[0]; sawHead = true; continue; }
+    const hi = HEAD_INLINE.find(([, re]) => re.test(ln));
+    if (hi) { cur = hi[0]; sawHead = true; b[cur].push(ln.match(hi[1])[1]); continue; }
+    let m;
+    if (ln.length < 70 && cur !== 'steps' && cur !== 'ingr') {
+      let used = false;
+      if ((m = ln.match(/\b(?:serves|servings?|yields?|makes)\s*:?\s*(\d+(?:\s*(?:-|–|to)\s*\d+)?(?:\s+(?:servings?|people|portions|dozen|cookies|loaves|loaf|cups|pieces))?)/i))) { out.servings = m[1].trim().slice(0, 20); used = true; }
+      if ((m = ln.match(/\bprep(?:aration)?(?:\s*time)?\s*:?\s*([0-9][^,;|]*?(?:min(?:ute)?s?|hours?|hrs?)\b)/i))) { out.prep = m[1].trim(); used = true; }
+      if ((m = ln.match(/\b(?:cook|bake|baking|cooking)(?:\s*time)?\s*:?\s*([0-9][^,;|]*?(?:min(?:ute)?s?|hours?|hrs?)\b)/i))) { out.cook = m[1].trim(); used = true; }
+      if (used) continue;
+      if (cur === 'head' && (m = ln.match(/^(?:from(?: the kitchen of)?|by|recipe from|courtesy of)\s*:?\s+(.{2,50})$/i))) { out.from = m[1].trim(); continue; }
+    }
+    b[cur].push(ln);
+  }
+  // Title: first real line before the ingredients
+  const head = b.head.filter(Boolean);
+  const ti = head.findIndex(l => l.length >= 3 && l.length <= 80 && /[a-z]{2}/i.test(l) && !isIngredientLike(l));
+  if (ti >= 0) { out.title = titleCase(head[ti].replace(/[.:]+$/, '')); head.splice(ti, 1); }
+  let rest = head;
+  if (!sawHead) {     // no headings: sort lines by their shape
+    for (const l of rest) (isIngredientLike(l) && !NUM_STEP.test(l) ? b.ingr : b.steps).push(l);
+    rest = [];
+  } else if (!b.ingr.length) {
+    rest = rest.filter(l => { if (isIngredientLike(l)) { b.ingr.push(l); return false; } return true; });
+  }
+  // Ingredients: join wrapped lines
+  for (const l of b.ingr) {
+    if (!l) continue;
+    const prev = out.ingr.length ? out.ingr[out.ingr.length - 1] : null;
+    if (prev !== null && !isIngredientLike(l) && (/^[a-z(]/.test(l) || /[,(\-]$/.test(prev) || /^(or|and|plus|to taste|divided)\b/i.test(l))) out.ingr[out.ingr.length - 1] = prev + ' ' + l;
+    else out.ingr.push(l);
+  }
+  // Steps: numbered -> split at numbers; otherwise paragraphs / sentence ends
+  const sl = b.steps, numbered = sl.filter(l => NUM_STEP.test(l)).length >= 2;
+  let curStep = '';
+  const flush = () => { const s = curStep.trim(); if (s) out.steps.push(s); curStep = ''; };
+  for (const l of sl) {
+    if (!l) { if (!numbered) flush(); continue; }
+    if (numbered && NUM_STEP.test(l)) { flush(); curStep = l.replace(NUM_STEP, ''); continue; }
+    if (!numbered && curStep && /[.!?)]$/.test(curStep) && /^[A-Z]/.test(l) && l.length > 25) flush();
+    if (/[a-z]-$/i.test(curStep)) curStep = curStep.slice(0, -1) + l; else curStep += (curStep ? ' ' : '') + l;
+  }
+  flush();
+  const notes = [...rest, ...b.notes].filter(Boolean).join('\n');
+  out.notes = notes;
+  out.ingr = out.ingr.map(s => s.replace(/\s+([,.;:])/g, '$1').trim()).filter(s => s.length > 1);
+  return out;
+}
+
+// ================= Grocery List bridge =================
+// Writes straight into Grocery List v2.2's own data, using its exact format:
+//  - same-origin browser storage key 'groceryApp.v3' ({v:3, items:{id:{field:[value, timestamp]}}}); Grocery picks it up
+//    when it opens (or live, if open in another tab) and its own sync pushes it to Drive;
+//  - and, when signed in, the Drive file GroceryList/grocery-list.json directly (same merge rules), so it reaches
+//    the other phone even if Grocery is not opened here.
+const Grocery = (() => {
+  const G_DOC = 'groceryApp.v3', G_V2 = 'groceryApp.v2', G_META = 'groceryApp.sync', G_APP = 'retro-gaming-dad-grocery-list';
+  const G_LEGACY = ['groceryCheckboxStates', 'groceryEditedPrices', 'groceryQuantities', 'groceryCustomItems', 'groceryPurchasedStates', 'groceryEditedNames'];
+  const BUILTIN = [{"id":"fruits-vegetables","title":"Fruits and Vegetables","items":[["Bananas",3.5],["Spinach",2.5],["Potatoes",4.5],["Apples",6.0],["Carrots",2.0],["Shredded Carrots",2.0],["Whole Cabbage",3.0],["Shredded Cabbage",2.0],["Avocados",3.5],["Onions",2.5],["Red Onions",1.0],["Cucumber",0.8],["Melon",6.0],["Fresh Green Salsa",4.5],["Arugula",2.5],["Lettuce",2.0],["Celery",2.0],["Lemons",0.6],["Limes",0.6],["Grapefruit",5.0],["Bean Sprouts",3.0],["Ginger",4.0],["Cherry Tomatoes",3.0],["Basil",3.0],["Bagged Broccoli",5.5],["Cuties",4.0],["Sweet Potatoes",3.5],["Snap Peas",4.0],["Collards",6.0],["Parsley",1.5],["Butternut Squash",6.0],["Sundried Tomatoes",4.0],["Mini Peppers",4.0],["Garlic",1.0],["Bagged Salad",8.0],["Mushrooms",5.0]]},{"id":"snacks","title":"Snacks","items":[["Crackers",2.5],["Potato Chips",3.0],["Corn Chips",4.5],["Graham Crackers",2.5],["Cookies",3.5]]},{"id":"health-beauty","title":"Health and Beauty","items":[["Hair Mousse",4.5],["Toothpicks",3.5],["Cotton Balls",2.5],["Art's Body Wash",8.0]]},{"id":"canned-goods","title":"Canned Goods","items":[["LS Black Beans",0.9],["LS Red Beans",0.9],["LS Pinto Beans",0.9],["LS Chickpeas",0.9],["Corn",0.9],["Diced Tomatoes with Green Chillies",0.9],["Diced Tomatoes",0.9],["Refried Beans",1.5],["Sliced Olives",3.5],["Whole Olives",2.0],["Kalamata Olives",4.5],["Pickles",4.0],["Pickled Onions",5.0],["Hot Sauce",5.0],["BBQ Sauce",2.5],["Croutons",2.0],["Dry Ranch Dressing",0.5],["Dry Italian Dressing",0.5],["Dry Taco Seasoning",0.5],["Dry Gravy Mix",2.0],["Spaghetti Sauce",3.0],["Spaghetti Noodles",2.0],["Ditalini Noodles",2.0],["Bowtie Pasta",2.0],["Penne",2.0],["Rice Cakes",4.0],["Cereal",4.0],["SF Chai",3.5],["SF Torani Syrup",8.0],["Cream of Chicken Soup",2.0],["Soy Sauce",5.0],["Taco Shells",3.0],["Kung Pao Sauce",5.0],["Mac and Cheese",1.0],["Lrg Pkg Flour Tortillas",9.0],["Artichoke Hearts",3.5],["CarbSmart Tortillas",5.0],["Raisins",4.0],["Jarred Green Salsa",3.5],["Corn Tortillas",3.5],["Enchilada Sauce",4.0],["Sweet Potatoes",3.5],["Bacon Bits",3.5],["Instant Espresso",9.5],["Pesto",3.0],["Oyster Sauce",5.0],["Red Dragon Chai Tea",4.0],["Banana Peppers",3.5],["Brownie Mix",2.0],["Lasagna Noodles",3.0],["Stone Ground Mustard",4.5],["Rice Vinegar",3.0],["Brown Sugar",3.0],["French Cut Green Beans",0.9],["Balsamic Vinegar",4.0],["Flour",13.0],["Craisins",3.5],["Broccoli Beef Sauce",2.5]]},{"id":"bulk-food","title":"Bulk Food","items":[["Wild Rice",4.0],["Basmati White Rice",15.0],["Basmati Brown Rice",15.0],["Oats",0.7],["Granola",3.0],["Bird Seed",0.8],["Pecans",8.0],["Walnuts",8.0],["Candy",3.0],["Cajun Seasoning",2.0],["Sunflower Seeds",4.0]]},{"id":"meat-cheeses","title":"Meat and Cheeses","items":[["Carne Asada",12.0],["Pork Roast",10.0],["Ground Turkey",14.0],["Russian Sausage",10.0],["Large Ground Sausage",10.0],["Roast",15.0],["Lunch Meat",8.0],["Ham Roast",8.0],["Sliced Ham",5.5],["Sliced Cheddar",4.5],["Sliced Gouda",3.5],["Parmesan",2.0],["Fancy Cheese",5.0],["Feta",6.0],["Salami",7.5],["Pepperoni",5.0],["Pizza Dough",2.0],["Dog Bones",5.0],["Chicken Thighs",10.0],["Chicken Breast",13.0],["Bacon",10.0],["Shredded Cheese",7.0],["Pickles",7.0],["MexiCheese",5.0],["Ricotta Cheese",4.5],["Turkey Sausage",5.0]]},{"id":"dairy-frozen","title":"Dairy and Frozen Food","items":[["Art's Milk",3.5],["Regular Milk",3.5],["Creamer",4.5],["Sour Cream",3.5],["Flavored Yogurt",4.5],["Plain Greek Yogurt",1.0],["Sm. Half and Half",2.0],["Lrg Half and Half",3.5],["Fresh Salsa",4.5],["Eggs",10.0],["Peas",2.5],["Butter",4.0],["Collards",2.5],["Corn",2.0],["Whole Mixed Veg",3.0],["Pizza",5.0],["Diced Mixed Veg",3.5],["Whipped Cream Cheese",3.5],["Green Beans",2.5],["Ice Cream",11.0],["Cool Whip",3.0],["Shredded Hash Browns",3.5],["Broccoli",2.5],["Cottage Cheese",3.0]]},{"id":"household","title":"Household Items","items":[["Fabric Softener",8.0],["Wet Cat Food",0.8],["Wet Dog Food",2.5],["Tissue",1.5],["Lunch Baggies",4.0],["Carpet Freshener",3.0],["Febreze",6.0],["Sm. Garbage Bags",3.0]]},{"id":"drinks-bread","title":"Drinks and Bread","items":[["Coke Zero",8.0],["Coke",8.0],["Cactus Cooler",8.0],["Zero Rootbeer",8.0],["English Muffins",2.5],["Sourdough",5.0],["Wheat Bread",2.5],["Buttermilk Bread",2.5],["Buns",3.5],["Distilled Water",1.5],["Pitas",4.5]]}];
+  const FIELDS = ['name', 'price', 'cat', 'checked', 'qty', 'purchased', 'del'];
+  const CONTENT_FIELDS = ['name', 'price', 'cat', 'checked', 'qty', 'purchased'];
+  const CUSTOM_ID = /^c:[a-z0-9]{4,38}$/;
+  const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const cleanName = (s) => typeof s === 'string' ? s.replace(/\s+/g, ' ').trim().slice(0, 60) : '';
+  const toPrice = (v) => { if (v === null || v === undefined || v === '') return null; const n = typeof v === 'number' ? v : parseFloat(String(v).replace(/[$,\s]/g, '')); return Number.isFinite(n) && n >= 0 && n <= 99999 ? Math.round(n * 100) / 100 : null; };
+  const clampQty = (q) => { const n = parseInt(q, 10); return Number.isFinite(n) ? Math.min(99, Math.max(1, n)) : 1; };
+  const CATS = BUILTIN.map(c => ({ id: c.id, title: c.title })), CAT_IDS = new Set(CATS.map(c => c.id));
+  const BY_ID = new Map(), ITEMS = [];
+  BUILTIN.forEach(c => c.items.forEach(([name, price]) => {
+    let id = 'b:' + c.id + ':' + slug(name), n = 2;
+    while (BY_ID.has(id)) id = 'b:' + c.id + ':' + slug(name) + '-' + (n++);
+    const it = { id, cat: c.id, name, price }; ITEMS.push(it); BY_ID.set(id, it);
+  }));
+  let gT = 0;
+  const gtick = () => { gT = Math.max(Date.now(), gT + 1); return gT; };
+  const observe = (d) => { for (const r of Object.values(d.items)) for (const f of FIELDS) if (r[f] && r[f][1] > gT) gT = r[f][1]; };
+  const empty = () => ({ v: 3, items: {} });
+  function cleanReg(f, reg, isCustom) {
+    if (!Array.isArray(reg) || reg.length !== 2) return null;
+    let v = reg[0]; const t = reg[1];
+    if (typeof t !== 'number' || !Number.isFinite(t) || t < 0 || t > Date.now() + MAX_SKEW) return null;
+    switch (f) {
+      case 'name': if (v === null && !isCustom) break; v = cleanName(v); if (!v) return null; break;
+      case 'price': if (v === null && !isCustom) break; v = toPrice(v); if (v === null) return null; break;
+      case 'cat': if (!isCustom || !CAT_IDS.has(v)) return null; break;
+      case 'qty': v = clampQty(v); break;
+      default: if (typeof v !== 'boolean') return null;
+    }
+    return [v, t];
+  }
+  function normalize(raw) {
+    const d = empty();
+    if (!raw || typeof raw !== 'object' || !raw.items || typeof raw.items !== 'object') return d;
+    for (const [id, r] of Object.entries(raw.items)) {
+      if (!(BY_ID.has(id) || CUSTOM_ID.test(id)) || !r || typeof r !== 'object') continue;
+      const isCustom = !BY_ID.has(id), out = {};
+      for (const f of FIELDS) { const c = cleanReg(f, r[f], isCustom); if (c) out[f] = c; }
+      if (Object.keys(out).length) d.items[id] = out;
+    }
+    return d;
+  }
+  function merge(a, b) {
+    const out = empty();
+    for (const id of new Set([...Object.keys(a.items), ...Object.keys(b.items)])) {
+      const ra = a.items[id] || {}, rb = b.items[id] || {}, r = {};
+      for (const f of FIELDS) { const w = newer(ra[f], rb[f]); if (w) r[f] = [w[0], w[1]]; }
+      out.items[id] = r;
+    }
+    return out;
+  }
+  const canon = (d) => JSON.stringify(Object.keys(d.items).sort().map(id => [id, FIELDS.map(f => d.items[id][f] || 0)]));
+  function eff(d, id) {
+    const r = d.items[id] || {}, b = BY_ID.get(id), g = (f, df) => r[f] ? r[f][0] : df;
+    let name, price, cat;
+    if (b) { name = g('name', null) ?? b.name; price = g('price', null) ?? b.price; cat = b.cat; }
+    else { name = g('name', null); price = g('price', null); cat = g('cat', null); if (!name || typeof price !== 'number' || !CAT_IDS.has(cat)) return null; }
+    const checked = g('checked', false) === true, purchased = checked && g('purchased', false) === true;
+    let del = g('del', false) === true;
+    if (del && CONTENT_FIELDS.some(f => r[f] && r[f][1] > r.del[1])) del = false;
+    return { id, cat, name, price, checked, qty: clampQty(g('qty', 1)), purchased, del };
+  }
+  function live(d) {
+    const out = [];
+    for (const b of ITEMS) { const e = eff(d, b.id); if (e && !e.del) out.push(e); }
+    for (const id of Object.keys(d.items)) if (!BY_ID.has(id)) { const e = eff(d, id); if (e && !e.del) out.push(e); }
+    return out;
+  }
+  // ---- name helpers ----
+  const key = (s) => s.toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').split(/\s+/).filter(Boolean)
+    .map(w => w.length > 3 && /ies$/.test(w) ? w.slice(0, -3) + 'y' : w.length > 3 && /(oes|ches|shes)$/.test(w) ? w.slice(0, -2) : w.length > 2 && /s$/.test(w) && !/ss$/.test(w) ? w.slice(0, -1) : w).join(' ');
+  const DESCR = /\b(fresh(?:ly)?|chopped|diced|minced|sliced|shredded|grated|melted|softened|cubed|peeled|crushed|large|medium|small|finely|roughly|thinly|packed|heaping|level|room temperature|cold|warm|hot|divided|optional|to taste|beaten|lightly|plus more|about|approximately|organic)\b/gi;
+  function shortName(line) {
+    let s = String(line).replace(/\([^)]*\)/g, ' ');
+    s = s.split(/,|;| - | – | for (?:the |serving|garnish)/i)[0];
+    s = s.replace(new RegExp('^[\\s\\d' + FRAC + './\\-–]+(?:to\\s+[\\d' + FRAC + './]+)?', 'i'), '');
+    for (let i = 0; i < 2; i++) s = s.replace(new RegExp('^\\s*' + UNIT + '\\.?\\s+(?:of\\s+)?', 'i'), '');
+    s = s.replace(/^(a|an|one|two|three|some|few|handful of|pinch of|dash of)\s+/i, '').replace(DESCR, ' ').replace(/^of\s+/i, '');
+    s = cleanName(s.replace(/\s+/g, ' ').replace(/^[\s,.-]+|[\s,.-]+$/g, ''));
+    return s ? s.replace(/\b([a-z])/g, (m, c, i) => (i === 0 ? c.toUpperCase() : m)).replace(/^./, c => c.toUpperCase()) : '';
+  }
+  const RULES = [
+    ['canned-goods', /\b(powder|dried|ground|seasoning|extract|sauce|paste|broth|stock|canned|can of|vinegar|oil|flour|sugar|salt|baking|yeast|cocoa|chips|pasta|noodle|noodles|spaghetti|macaroni|beans?|tortilla|syrup|honey|ketchup|mustard|mayo|cornstarch|soup|olives?|pickle)\b/],
+    ['dairy-frozen', /\b(cream cheese|sour cream|milk|butter|cream|egg|yogurt|half and half|frozen|ice cream|cottage cheese|whipped|buttermilk)\b/],
+    ['meat-cheeses', /\b(chicken|beef|pork|turkey|sausage|bacon|ham|steak|ground|roast|fish|salmon|shrimp|tuna|cheese|cheddar|parmesan|mozzarella|feta|ricotta|swiss|provolone|salami|pepperoni|dough)\b/],
+    ['fruits-vegetables', /\b(onion|garlic|potato|tomato|lettuce|carrot|celery|bell pepper|jalapeno|jalapeño|pepper(s)? \(fresh\)|lemon|lime|orange|apple|banana|berr(y|ies)|spinach|kale|mushroom|ginger|avocado|cucumber|zucchini|squash|cabbage|broccoli|cauliflower|basil|parsley|cilantro|mint|thyme|rosemary|scallion|green onion|shallot|corn on|peach|pear|grape|melon|herbs?)\b/],
+    ['bulk-food', /\b(rice|oat|oats|nut|nuts|pecan|walnut|almond|peanut|seed|seeds|granola|quinoa|lentil|raisin)\b/],
+    ['drinks-bread', /\b(bread|bun|buns|roll|rolls|bagel|muffin|pita|baguette|water|juice|soda|coffee|tea|wine|beer)\b/],
+    ['snacks', /\b(cracker|crackers|chip|cookie|cookies|pretzel)\b/],
+    ['household', /\b(foil|plastic wrap|parchment|paper towel|bags?|napkin)\b/]
+  ];
+  function guessCat(name) { const s = name.toLowerCase().replace(/(\w{3,}?)(?:es|s)\b/g, '$1'); const o = name.toLowerCase(); for (const [c, re] of RULES) if (re.test(o) || re.test(s)) return c; return 'canned-goods'; }
+  const STAPLE = /^(salt|pepper|salt and pepper|salt & pepper|black pepper|water|ice|ice water|hot water|cold water|cooking spray)$/i;
+  function readLocal() {
+    const raw = storage.get(G_DOC);
+    if (raw) { try { return { doc: normalize(JSON.parse(raw)), state: 'v3' }; } catch (e) { return { doc: null, state: 'corrupt' }; } }
+    if (storage.get(G_V2) || G_LEGACY.some(k => storage.get(k) !== null)) return { doc: null, state: 'needs-upgrade' };
+    return { doc: empty(), state: 'none' };
+  }
+  function present() { const s = readLocal().state; return s === 'v3' || s === 'needs-upgrade'; }
+  // Plan what each picked ingredient becomes on the list
+  function plan(lines) {
+    const loc = readLocal(), d = loc.doc || empty(); observe(d);
+    const items = live(d), byKey = new Map(items.map(i => [key(i.name), i]));
+    return lines.map((line) => {
+      const name = shortName(line) || cleanName(line);
+      const k = key(name), hit = byKey.get(k);
+      const similar = items.filter(i => { const a = key(i.name).split(' '), b = k.split(' '); return i !== hit && (a.every(w => b.includes(w)) || b.every(w => a.includes(w))); }).slice(0, 4);
+      return { line, name, cat: hit ? hit.cat : guessCat(name), match: hit ? hit.id : '', similar, items: d, skip: STAPLE.test(name) };
+    });
+  }
+  function itemsLabel(d, id) { const e = eff(d, id); return e ? e.name : id; }
+  // Apply to a grocery doc; returns counts
+  function apply(d, picks) {
+    observe(d);
+    const res = { added: 0, ticked: 0, skipped: 0 };
+    const items = live(d), byKey = new Map(items.map(i => [key(i.name), i]));
+    const set = (id, f, v) => { (d.items[id] = d.items[id] || {})[f] = [v, gtick()]; };
+    for (const p of picks) {
+      const name = cleanName(p.name); if (!name) continue;
+      const target = p.match ? eff(d, p.match) : byKey.get(key(name));
+      if (target && !target.del) {
+        if (target.checked && !target.purchased) { res.skipped++; continue; }       // already on the list: no duplicate
+        if (!target.checked) set(target.id, 'checked', true);
+        if (target.purchased || ((d.items[target.id] || {}).purchased || [])[0] === true) set(target.id, 'purchased', false);
+        res.ticked++;
+      } else if (target && target.del) {
+        set(target.id, 'del', false); set(target.id, 'checked', true); set(target.id, 'purchased', false); res.ticked++;
+      } else {
+        const id = 'c:' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+        set(id, 'name', name); set(id, 'price', 0); set(id, 'cat', CAT_IDS.has(p.cat) ? p.cat : 'canned-goods'); set(id, 'checked', true);
+        byKey.set(key(name), { id, name, checked: true, purchased: false }); res.added++;
+      }
+    }
+    return res;
+  }
+  // Add on this device (+ Drive when signed in)
+  async function add(picks) {
+    const loc = readLocal();
+    let localRes = null, d = null;
+    if (loc.state === 'v3' || loc.state === 'none') {
+      d = loc.doc; localRes = apply(d, picks);
+      storage.set(G_DOC, JSON.stringify(d));
+      try { const m = JSON.parse(storage.get(G_META) || 'null'); if (m && typeof m === 'object' && m.everSignedIn) { m.dirty = true; storage.set(G_META, JSON.stringify(m)); } } catch (e) { /* ignore */ }
+    }
+    let drive = 'skipped';
+    try { drive = await Sync.pushGrocery((remote) => { const m = d ? merge(remote, d) : remote; if (!d) apply(m, picks); return m; }, (merged) => { if (d) storage.set(G_DOC, JSON.stringify(merged)); }); }
+    catch (e) { drive = 'error: ' + e.message; }
+    return { localRes, state: loc.state, drive };
+  }
+  return { CATS, plan, add, present, readLocal, shortName, guessCat, normalize, merge, canon, appId: G_APP, itemsLabel, metaKey: G_META };
+})();
+
+// ================= Google Drive sync (same sign-in + merge approach as Grocery List v2.2) =================
+// v2: one Drive folder per book. The open book syncs continuously; Send can push into another book on demand.
+const SYNC = {
+  clientId: '172687019522-ubguh8de1h0uc4decopqt2c0k9lcmkhl.apps.googleusercontent.com',   // same OAuth Web client as Grocery List
+  appId: '172687019522',
+  pickerApiKey: 'AIzaSyCd2NHzbJA4FFVwkhW4osKotCQY-1j16UE',                                   // same browser key Grocery List uses for Google Picker
+  scope: 'https://www.googleapis.com/auth/drive.file',
+  fileName: 'recipe-book.json', shardPrefix: 'recipe-photos-', shards: 8, sharedName: 'book-shared.json',
+  onlineUrl: 'https://arthur1134.github.io/recipes/',
+  tokenKey: 'recipeBook.token', groceryTokenKey: 'groceryApp.token'
+};
+const LOCALHOST = ['localhost', '127.0.0.1'].includes(location.hostname);
+const FAKE = LOCALHOST && new URLSearchParams(location.search).has('fakedrive') && typeof window.__fakeDrive === 'function';
+const API = 'https://www.googleapis.com/drive/v3', UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
+const hhmm = (t) => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+const shardName = (n) => SYNC.shardPrefix + n + '.json';
+const shardOf = (pid) => { let h = 0; for (const c of pid) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h % SYNC.shards; };
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+function folderNameFor(b) { return b.kind === 'family' ? FAMILY_NAME : 'RecipeBook - ' + b.name; }
+
+// ----- shared file: comments + submitted recipes (kids get "writer" on just this one file) -----
+const CID = /^c[a-z0-9]{6,30}$/, SID = /^s[a-z0-9]{6,30}$/;
+function emptyShared() { return { comments: {}, subs: {} }; }
+function normalizeShared(raw) {
+  const out = emptyShared(); if (!raw || typeof raw !== 'object') return out;
+  for (const [id, c] of Object.entries(raw.comments || {})) {
+    if (!CID.test(id) || !c || !RID.test(c.rid) || typeof c.at !== 'number') continue;
+    out.comments[id] = { rid: c.rid, by: str(c.by, 120).toLowerCase(), name: str(c.name, 60), text: str(c.text, 2000), at: c.at, del: c.del === true };
+  }
+  for (const [id, x] of Object.entries(raw.subs || {})) {
+    if (!SID.test(id) || !x || !x.recipe || typeof x.at !== 'number') continue;
+    const st = Array.isArray(x.status) && ['pending', 'approved', 'declined'].includes(x.status[0]) && typeof x.status[1] === 'number' ? x.status : ['pending', x.at];
+    const recipe = {}; for (const f of ['title', 'cat', 'tags', 'servings', 'prep', 'cook', 'ingr', 'steps', 'notes', 'from', 'src']) { const v = cleanVal(f, x.recipe[f]); if (v !== undefined) recipe[f] = v; }
+    const photos = {}; if (st[0] === 'pending') for (const [k, u] of Object.entries(x.photos || {})) if (PID.test(k) && typeof u === 'string' && u.startsWith('data:image/') && u.length < 900000) photos[k] = u;
+    out.subs[id] = { by: str(x.by, 120).toLowerCase(), name: str(x.name, 60), at: x.at, recipe, photos, status: [st[0], st[1]], note: str(x.note, 300), approvedAs: typeof x.approvedAs === 'string' && RID.test(x.approvedAs) ? x.approvedAs : '' };
+  }
+  return out;
+}
+function mergeShared(a, b) {
+  const out = emptyShared();
+  for (const id of new Set([...Object.keys(a.comments), ...Object.keys(b.comments)])) {
+    const x = a.comments[id], y = b.comments[id], w = x || y;
+    out.comments[id] = Object.assign({}, w, { del: !!((x && x.del) || (y && y.del)) });   // a deleted comment stays deleted
+  }
+  for (const id of new Set([...Object.keys(a.subs), ...Object.keys(b.subs)])) {
+    const x = a.subs[id], y = b.subs[id];
+    if (!x || !y) { out.subs[id] = JSON.parse(JSON.stringify(x || y)); continue; }
+    const st = newer(x.status, y.status), win = st === x.status ? x : y;
+    out.subs[id] = Object.assign({}, x, { status: [st[0], st[1]], approvedAs: win.approvedAs || x.approvedAs || y.approvedAs, photos: st[0] === 'pending' ? Object.assign({}, y.photos, x.photos) : {} });
+  }
+  return out;
+}
+const canonShared = (s) => JSON.stringify([Object.keys(s.comments).sort().map(k => [k, s.comments[k].del]), Object.keys(s.subs).sort().map(k => [k, s.subs[k].status, Object.keys(s.subs[k].photos).length])]);
+function loadShared(bid) { return normalizeShared(readJson(sharedKeyFor(bid || activeBid), null)); }
+function saveShared(bid, s) { return storage.set(sharedKeyFor(bid || activeBid), JSON.stringify(s)); }
+
+const Sync = (() => {
+  const loadMeta = (bid) => { const m = readJson(metaKeyFor(bid), {}) || {}; m.shardVer = m.shardVer || {}; m.pinned = m.pinned || null; return m; };
+  let meta = loadMeta(activeBid);
+  let ident = readJson(IDENT_KEY, {}) || {};
+  let token = null;
+  try { token = JSON.parse(storage.get(SYNC.tokenKey) || 'null'); } catch (e) { token = null; }
+  let busy = false, again = false, timer = null, lastRun = 0, errMsg = '', gisPromise = null, retryMs = 15000, swapping = false;
+  const saveMeta = () => { storage.set(metaKeyFor(activeBid), JSON.stringify(meta)); storage.set(IDENT_KEY, JSON.stringify(ident)); };
+  const okTok = (t) => !!(t && t.access_token && t.exp > Date.now() + 60e3);
+  function borrow() {
+    if (okTok(token)) return;
+    try { const g = JSON.parse(storage.get(SYNC.groceryTokenKey) || 'null'); if (okTok(g)) token = g; } catch (e) { /* ignore */ }
+  }
+  const tokenValid = () => { if (FAKE) return !!ident.fakeSignedIn; borrow(); return okTok(token); };
+  function dropToken() { token = null; storage.set(SYNC.tokenKey, 'null'); if (FAKE) { ident.fakeSignedIn = false; saveMeta(); } }
+  function loadGis() {
+    if (window.google && google.accounts && google.accounts.oauth2) return Promise.resolve();
+    if (!gisPromise) gisPromise = loadScript('https://accounts.google.com/gsi/client').catch((e) => { gisPromise = null; throw e; });
+    return gisPromise;
+  }
+  async function getToken(interactive) {
+    if (tokenValid()) return FAKE ? 'fake' : token.access_token;
+    if (!interactive) return null;
+    if (FAKE) { ident.fakeSignedIn = true; saveMeta(); return 'fake'; }
+    await loadGis();
+    return new Promise((res, rej) => {
+      const tc = google.accounts.oauth2.initTokenClient({
+        client_id: SYNC.clientId, scope: SYNC.scope, login_hint: ident.email || undefined,
+        callback: (r) => {
+          if (r.error) return rej(new Error(r.error_description || r.error));
+          if (!google.accounts.oauth2.hasGrantedAllScopes(r, SYNC.scope)) return rej(new Error('Google Drive access was not allowed'));
+          token = { access_token: r.access_token, exp: Date.now() + (r.expires_in || 3600) * 1000 };
+          storage.set(SYNC.tokenKey, JSON.stringify(token)); res(token.access_token);
+        },
+        error_callback: (e) => rej(new Error(e && e.type === 'popup_closed' ? 'The Google sign-in window was closed' : (e && e.message) || 'Google sign-in failed'))
+      });
+      tc.requestAccessToken({ prompt: ident.consented ? '' : 'consent' });
+    });
+  }
+  // ----- Drive REST -----
+  async function req(url, init = {}, asJson = true) {
+    const r = await fetch(url, Object.assign({}, init, { headers: Object.assign({ Authorization: 'Bearer ' + token.access_token }, init.headers || {}) }));
+    if (r.status === 401) { dropToken(); throw Object.assign(new Error('Google sign-in expired'), { auth: true }); }
+    if (r.status === 404) throw Object.assign(new Error('Google Drive file not found'), { notFound: true });
+    if (r.status === 403) throw Object.assign(new Error('No permission for that Google Drive file'), { forbidden: true });
+    if (!r.ok) throw new Error('Google Drive error ' + r.status);
+    return asJson ? r.json() : r.text();
+  }
+  const fileUrl = (id) => API + '/files/' + encodeURIComponent(id);
+  const FF = 'files(id,name,version,ownedByMe,parents,capabilities(canEdit))';
+  const GDrive = {
+    async whoami() { const u = (await req(API + '/about?fields=user(emailAddress,displayName)')).user || {}; return { email: u.emailAddress || '', name: u.displayName || '' }; },
+    async list(q) { return (await req(API + '/files?' + new URLSearchParams({ q: q + ' and trashed = false', orderBy: 'modifiedTime desc', pageSize: '100', fields: FF }))).files || []; },
+    info: (id) => req(fileUrl(id) + '?fields=id,name,version,trashed,ownedByMe,parents,owners(emailAddress),capabilities(canEdit)'),
+    read: (id) => req(fileUrl(id) + '?alt=media', {}, false),
+    write: (id, body) => req(UPLOAD + '/files/' + encodeURIComponent(id) + '?uploadType=media&fields=id,version', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body }),
+    async create(name, body, parent) {
+      if (body === null) return req(API + '/files?fields=id,version', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder' }) });
+      const b = 'rb' + Math.random().toString(36).slice(2);
+      const m = JSON.stringify({ name, mimeType: 'application/json', parents: parent ? [parent] : undefined });
+      const payload = '--' + b + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + m + '\r\n--' + b + '\r\nContent-Type: application/json\r\n\r\n' + body + '\r\n--' + b + '--';
+      return req(UPLOAD + '/files?uploadType=multipart&fields=id,version', { method: 'POST', headers: { 'Content-Type': 'multipart/related; boundary=' + b }, body: payload });
+    },
+    share: (id, email, role) => req(fileUrl(id) + '/permissions?sendNotificationEmail=false&fields=id', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role: role || 'writer', type: 'user', emailAddress: email }) }),
+    setRole: (id, permId, role) => req(fileUrl(id) + '/permissions/' + encodeURIComponent(permId) + '?fields=id', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role }) }),
+    async people(id) { return (await req(fileUrl(id) + '/permissions?fields=permissions(id,emailAddress,role)')).permissions || []; }
+  };
+  const call = async (...a) => { const r = await window.__fakeDrive(...a); if (r && r.error) throw Object.assign(new Error(r.error), r.flags || {}); return r; };
+  const FakeDrive = { whoami: () => call('whoami'), list: (q) => call('list', q), info: (id) => call('info', id), read: (id) => call('read', id),
+    write: (id, b) => call('write', id, b), create: (n, b, p) => call('create', n, b, p), share: (id, e, r) => call('share', id, e, r || 'writer'),
+    setRole: (id, p, r) => call('setrole', id, p, r), people: (id) => call('people', id) };
+  const D = () => FAKE ? FakeDrive : GDrive;
+  const q = (name) => `name = '${name.replace(/'/g, "\\'")}'`;
+  const inFolder = (fid) => ` and '${String(fid).replace(/'/g, '')}' in parents`;
+  const me = () => (ident.email || '').toLowerCase();
+
+  function parseFile(text) { try { const x = JSON.parse(text); if (x && x.app === APP_ID && x.format === 'recipe-sync' && x.doc) return { doc: normalizeDoc(x.doc), book: x.book || null }; } catch (e) { /* not ours */ } return null; }
+  function parseShard(text) { try { const x = JSON.parse(text); if (x && x.app === APP_ID && x.format === 'recipe-photos' && x.photos) return x.photos; } catch (e) { /* not ours */ } return null; }
+  function parseSharedFile(text) { try { const x = JSON.parse(text); if (x && x.app === APP_ID && x.format === 'recipe-shared') return normalizeShared(x.data); } catch (e) { /* not ours */ } return null; }
+  function schedule(ms) { clearTimeout(timer); timer = setTimeout(() => run(false), ms); }
+
+  // App rule on top of Drive's: the family book is edited only by Arthur + wife.
+  function writable(bid, m) {
+    const b = bookById(bid || activeBid); if (!b) return false;
+    m = m || (bid && bid !== activeBid ? loadMeta(bid) : meta);
+    if (m.canEdit === false) return false;
+    if (b.kind === 'family') return me() ? FAMILY_EDITORS.includes(me()) : !m.pinned;
+    return true;
+  }
+  const isEditor = (bid) => writable(bid);
+
+  async function folderId(d) {
+    if (meta.folderId) return meta.folderId;
+    if (meta.fileId) { try { const inf = await d.info(meta.fileId); if (inf.parents && inf.parents[0]) return (meta.folderId = inf.parents[0]); } catch (e) { if (e.auth) throw e; } }
+    const f = await d.create(folderNameFor(activeBook()), null);   // never search by name: each book gets its own folder
+    return (meta.folderId = f.id);
+  }
+  function header() { const b = activeBook(); return { id: b.id, name: b.name, kind: b.kind }; }
+
+  async function syncBook(d) {
+    const ro = !writable();
+    for (let attempt = 0; attempt < 3; attempt++) {
+      let primary = null;
+      const pinnedId = meta.pinned && meta.pinned.book;
+      const fid = pinnedId || meta.fileId;
+      if (fid) {
+        try { primary = await d.info(fid); if (primary.trashed) primary = null; }
+        catch (e) { if (e.auth || !(e.notFound || e.forbidden)) throw e; primary = null; }
+        if (!primary && pinnedId) throw new Error("this shared book can't be opened any more — ask the owner to share it again");
+      }
+      if (!primary && meta.folderId) { primary = (await d.list(q(SYNC.fileName) + inFolder(meta.folderId)))[0] || null; }
+      if (primary && primary.capabilities) meta.canEdit = primary.capabilities.canEdit !== false;
+      let primaryDoc = null;
+      if (primary) { const p = parseFile(await d.read(primary.id)); primaryDoc = p ? p.doc : emptyDoc(); }
+      if (!meta.firstMergeDone) storage.set(PRESYNC_KEY + '.' + activeBid, JSON.stringify({ savedAt: new Date().toISOString(), doc }));
+      const before = effSignature(doc);
+      if (primaryDoc) { doc = mergeDocs(doc, primaryDoc); observeT(doc); }
+      if (me() && !ro && !doc.members[me()] && (!primary || primary.ownedByMe)) doc.members[me()] = { role: ['parent', tick()] };
+      persist(); meta.firstMergeDone = true;
+      if (effSignature(doc) !== before && !swapping) onRemoteChange();
+      if (ro) { if (!primary) throw new Error('this book is view-only and has no file yet'); meta.fileId = primary.id; }
+      else if (!primary || canonical(doc) !== canonical(primaryDoc)) {
+        const body = JSON.stringify({ app: APP_ID, format: 'recipe-sync', version: APP_VERSION, updated: new Date().toISOString(), by: me(), book: header(), doc });
+        if (!primary) { const c = await d.create(SYNC.fileName, body, await folderId(d)); meta.fileId = c.id; meta.canEdit = true; }
+        else {
+          const now = await d.info(primary.id);
+          if (String(now.version) !== String(primary.version)) continue;
+          await d.write(primary.id, body); meta.fileId = primary.id;
+        }
+      } else meta.fileId = primary.id;
+      if (meta.fileInfoFor !== meta.fileId) {
+        const inf = await d.info(meta.fileId);
+        meta.ownedByMe = !!inf.ownedByMe; meta.fileOwner = ((inf.owners || [])[0] || {}).emailAddress || '';
+        meta.folderId = (inf.parents || [])[0] || meta.folderId || ''; meta.fileInfoFor = meta.fileId;
+        if (inf.capabilities) meta.canEdit = inf.capabilities.canEdit !== false;
+      }
+      return;
+    }
+    throw new Error('the recipe book kept changing — trying again shortly');
+  }
+
+  // Photos live in 8 "photo shard" files per book so one folder share + one pick covers every photo.
+  async function syncPhotos(d, opts) {
+    const ro = !writable();
+    const refs = referencedPhotos(doc);
+    const local = new Map((await DB.all()).map(r => [r.id, r]));
+    let files = [];
+    if (meta.pinned && meta.pinned.shards) files = Object.entries(meta.pinned.shards).map(([name, id]) => ({ id, name }));
+    else if (meta.folderId) files = await d.list(`name contains '${SYNC.shardPrefix}'` + inFolder(meta.folderId));
+    const byName = {};
+    for (const f of files) if (!byName[f.name]) byName[f.name] = f;
+    let pendingLeft = false;
+    for (let n = 0; n < SYNC.shards; n++) {
+      const name = shardName(n), f = byName[name];
+      const missing = [...refs].filter(id => shardOf(id) === n && !local.has(id));
+      const pending = ro ? [] : [...local.values()].filter(r => shardOf(r.id) === n && !r.up && refs.has(r.id));
+      const ensure = !ro && opts && opts.ensureShards;
+      if (!f && !pending.length && !ensure) continue;
+      let photos = {}, ver = f ? null : undefined;
+      if (f && (missing.length || pending.length || ensure || meta.shardVer[f.id] === undefined)) {
+        const inf = await d.info(f.id); ver = String(inf.version);
+        if (ver !== meta.shardVer[f.id] || missing.length || pending.length) {
+          photos = parseShard(await d.read(f.id)) || {};
+          for (const id of missing) if (typeof photos[id] === 'string' && photos[id].startsWith('data:image/')) {
+            const rec = { id, blob: await dataUrlToBlob(photos[id]), up: true, t: Date.now() }; await DB.put(rec); local.set(id, rec);
+          }
+          for (const r of pending) if (photos[r.id]) { r.up = true; await DB.put(r); }
+        }
+      }
+      const toPush = pending.filter(r => !r.up);
+      if (toPush.length || (!f && ensure)) {
+        for (const r of toPush) photos[r.id] = await blobToDataUrl(r.blob);
+        for (const id of Object.keys(photos)) if (!refs.has(id)) delete photos[id];
+        const body = JSON.stringify({ app: APP_ID, format: 'recipe-photos', shard: n, updated: new Date().toISOString(), photos });
+        let res;
+        if (f) {
+          const now = await d.info(f.id);
+          if (String(now.version) !== ver) { pendingLeft = true; continue; }
+          res = await d.write(f.id, body);
+        } else res = await d.create(name, body, await folderId(d));
+        for (const r of toPush) { r.up = true; await DB.put(r); }
+        if (res && res.id) meta.shardVer[res.id] = String(res.version);
+      } else if (f && ver) meta.shardVer[f.id] = ver;
+    }
+    if (pendingLeft) again = true;
+  }
+
+  // ----- the book's shared file (comments + submitted recipes) -----
+  function sharedFileId(m) { return (m.pinned && m.pinned.shared) || m.sharedId || ''; }
+  async function syncSharedFor(d, bid, m) {
+    let fid = sharedFileId(m);
+    if (!fid && m.ownedByMe && m.folderId && m.canEdit !== false) {        // the owner's app makes the file once
+      const f = (await d.list(q(SYNC.sharedName) + inFolder(m.folderId)))[0];
+      fid = f ? f.id : (await d.create(SYNC.sharedName, JSON.stringify({ app: APP_ID, format: 'recipe-shared', data: emptyShared() }), m.folderId)).id;
+      m.sharedId = fid;
+    }
+    if (!fid) { m.sharedMissing = true; return false; }
+    m.sharedMissing = false;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const inf = await d.info(fid);
+      const remote = parseSharedFile(await d.read(fid)) || emptyShared();
+      const local = loadShared(bid), merged = mergeShared(local, remote);
+      saveShared(bid, merged);
+      if (canonShared(merged) === canonShared(remote) || (inf.capabilities && inf.capabilities.canEdit === false)) return true;
+      const now = await d.info(fid);
+      if (String(now.version) !== String(inf.version)) continue;
+      await d.write(fid, JSON.stringify({ app: APP_ID, format: 'recipe-shared', version: APP_VERSION, updated: new Date().toISOString(), by: me(), data: merged }));
+      return true;
+    }
+    return false;
+  }
+  // Change the shared file of any book: change the local copy at once, upload now if possible (else next sync)
+  async function updateShared(bid, fn) {
+    const s = loadShared(bid); fn(s); saveShared(bid, s);
+    if (bid === activeBid && route && route.name !== 'edit') render();
+    if (!WEB || !navigator.onLine || !tokenValid()) return 'saved on this device — it will be sent when you are signed in';
+    try {
+      const m = bid === activeBid ? meta : loadMeta(bid);
+      const ok = await syncSharedFor(D(), bid, m);
+      if (bid === activeBid) saveMeta(); else storage.set(metaKeyFor(bid), JSON.stringify(m));
+      if (bid === activeBid && route.name !== 'edit') render();
+      return ok ? 'ok' : 'no-file';
+    } catch (e) { if (e.auth) { dropToken(); paint(); } return 'error: ' + e.message; }
+  }
+
+  async function whoami(d) {
+    if (ident.email && ident.name) return;
+    const w = await d.whoami().catch((e) => { if (e.auth) throw e; return { email: '', name: '' }; });
+    if (w.email) ident.email = w.email.toLowerCase(); if (w.name) ident.name = w.name;
+  }
+
+  // Find the user's own books on Drive (e.g. on a new phone): every recipe-book.json this app created
+  async function discover(d) {
+    const known = new Set();
+    for (const b of books) { const m = b.id === activeBid ? meta : loadMeta(b.id); if (m.fileId) known.add(m.fileId); if (m.pinned && m.pinned.book) known.add(m.pinned.book); }
+    let added = 0;
+    for (const f of await d.list(q(SYNC.fileName))) {
+      if (!f.ownedByMe || known.has(f.id)) continue;
+      const p = parseFile(await d.read(f.id)); if (!p) continue;
+      const h = p.book || (me() === OWNER_EMAIL ? { id: FAMILY_ID, name: FAMILY_NAME, kind: 'family' } : { id: newBid(), name: 'My Recipes (online)', kind: 'personal' });
+      if (!BID.test(h.id)) continue;
+      let b = bookById(h.id);
+      const m = b ? (b.id === activeBid ? meta : loadMeta(b.id)) : { shardVer: {}, pinned: null };
+      if (b && (m.fileId || m.pinned)) continue;
+      if (!b) { b = { id: h.id, name: str(h.name, 60) || 'Recipe book', kind: h.kind === 'family' ? 'family' : 'personal' }; books.push(b); }
+      m.fileId = f.id; m.folderId = (f.parents || [])[0] || ''; m.fileInfoFor = '';
+      if (b.id === activeBid) meta = m; else storage.set(metaKeyFor(b.id), JSON.stringify(m));
+      added++;
+    }
+    if (added) { saveBooks(); toast('Found ' + added + ' of your recipe books in Google Drive'); }
+  }
+
+  async function run(interactive, opts) {
+    if (!WEB) return;
+    if (busy) { again = true; return; }
+    if (!navigator.onLine) { if (interactive) toast("You're offline — changes are saved here and will sync later"); paint(); return; }
+    if (!tokenValid() && !interactive) { paint(); return; }
+    busy = true; paint();
+    const seq0 = changeSeq;
+    try {
+      await getToken(interactive);
+      if (!tokenValid()) throw Object.assign(new Error('Sign-in needed'), { auth: true });
+      const d = D();
+      await whoami(d);
+      ident.everSignedIn = true; ident.consented = true; saveMeta();
+      if (interactive || !ident.discovered) { await discover(d); ident.discovered = true; }
+      await syncBook(d);
+      await syncPhotos(d, opts);
+      await syncSharedFor(d, activeBid, meta).catch((e) => { if (e.auth) throw e; });
+      meta.lastSync = Date.now(); errMsg = ''; retryMs = 15000;
+      if (changeSeq === seq0) meta.dirty = false;
+      refreshVisiblePhotos();
+    } catch (e) {
+      if (e.auth) { dropToken(); errMsg = ''; if (interactive) toast(e.message); }
+      else { errMsg = e.message || 'sync failed'; schedule(retryMs); retryMs = Math.min(retryMs * 2, 300000); if (interactive) toast('Sync problem: ' + errMsg); }
+    } finally {
+      busy = false; lastRun = Date.now(); saveMeta(); paint();
+      if (again || (meta.dirty && changeSeq !== seq0 && tokenValid())) { again = false; schedule(1500); }
+    }
+  }
+  function markDirty() { meta.dirty = true; saveMeta(); paint(); if (WEB && tokenValid()) schedule(3000); }
+  async function idle() { while (busy) await sleep(150); }
+
+  // Sync another book (after Send) without opening it: briefly swap in its data, then swap back.
+  async function syncOther(bid) {
+    if (bid === activeBid) return run(false);
+    if (!WEB || !navigator.onLine || !tokenValid()) return 'later';
+    await idle();
+    busy = true; swapping = true;
+    const saved = { meta, doc, activeBid };
+    try {
+      activeBid = bid; meta = loadMeta(bid); doc = loadDoc(bid); observeT(doc);
+      const d = D();
+      await syncBook(d); await syncPhotos(d);
+      meta.dirty = false; meta.lastSync = Date.now(); saveMeta();
+      return 'ok';
+    } catch (e) { if (e.auth) dropToken(); try { saveMeta(); } catch (x) { /* ignore */ } return 'error: ' + e.message; }
+    finally { activeBid = saved.activeBid; meta = saved.meta; doc = saved.doc; swapping = false; busy = false; paint(); }
+  }
+  // Called after the app switched activeBid
+  async function switched() { await idle(); meta = loadMeta(activeBid); errMsg = ''; paint(); run(false); }
+  // ----- Grocery List file in Drive (same file Grocery List syncs; created by the same Google app) -----
+  async function pushGrocery(mergeFn, afterFn) {
+    if (!WEB || !navigator.onLine || !tokenValid()) return 'not signed in (saved on this device only)';
+    const d = D();
+    let gm = {}; try { gm = JSON.parse(storage.get(Grocery.metaKey) || '{}') || {}; } catch (e) { gm = {}; }
+    let fid = gm.pinnedFileId || gm.fileId || '';
+    for (let attempt = 0; attempt < 3; attempt++) {
+      let inf = null;
+      if (fid) { try { inf = await d.info(fid); if (inf.trashed) inf = null; } catch (e) { if (e.auth) throw e; inf = null; } }
+      if (!inf) { const fl = await d.list(q('grocery-list.json')); inf = fl[0] || null; if (inf) fid = inf.id; }
+      if (!inf) return 'no grocery list in Google Drive yet';
+      let remote = Grocery.normalize({});
+      try { const x = JSON.parse(await d.read(fid)); if (x && x.app === Grocery.appId && x.doc) remote = Grocery.normalize(x.doc); else return 'grocery file not recognised'; } catch (e) { if (e.auth) throw e; return 'grocery file not readable'; }
+      const merged = mergeFn(remote);
+      if (Grocery.canon(merged) === Grocery.canon(remote)) { afterFn(merged); return 'ok'; }
+      const now = await d.info(fid);
+      if (String(now.version) !== String(inf.version)) continue;
+      await d.write(fid, JSON.stringify({ app: Grocery.appId, format: 'grocery-sync', version: '2.2', updated: new Date().toISOString(), by: ident.email || '', doc: merged }));
+      afterFn(merged);
+      return 'ok';
+    }
+    return 'grocery list busy — try again';
+  }
+
+
+  function state() {
+    if (!WEB) return { k: 'local', text: 'Sync: available in the online version' };
+    if (busy && !swapping) return { k: 'busy', text: 'Sync: syncing…' };
+    if (!ident.everSignedIn) return { k: 'off', text: 'Sync: off — this device only' };
+    const last = meta.lastSync ? ' · synced ' + hhmm(meta.lastSync) : '';
+    if (!navigator.onLine) return { k: 'offline', text: 'Sync: offline' + (meta.dirty ? ' · changes wait here' : last) };
+    if (!tokenValid()) return { k: 'need', text: 'Sync: sign-in needed' + (meta.dirty ? ' · changes waiting' : last) };
+    if (errMsg) return { k: 'error', text: 'Sync: problem — ' + errMsg };
+    return { k: 'ok', text: 'Sync: on' + (ident.email ? ' (' + ident.email + ')' : '') + last + (meta.dirty ? ' · saving…' : '') };
+  }
+  function paint() {
+    const s = state();
+    $('syncBar').dataset.state = s.k; $('syncText').textContent = s.text;
+    $('syncSignIn').hidden = !(s.k === 'off' || s.k === 'need');
+    $('syncSignInTxt').textContent = s.k === 'need' ? 'Sign in again' : 'Sign in with Google';
+    $('syncNow').hidden = !(s.k === 'ok' || s.k === 'error' || s.k === 'busy');
+    $('syncNow').disabled = s.k === 'busy';
+    $('syncOpenOnline').hidden = WEB;
+    if (typeof onSyncPaint === 'function') onSyncPaint();
+  }
+
+  // ----- sharing (owner of the open book) -----
+  // editor: "can edit" on the book folder.  viewer (kids): "can view" on the folder + "can edit" on book-shared.json only
+  async function share(email, role) {
+    await getToken(true);
+    const d = D();
+    await run(true, { ensureShards: true });            // book, all 8 photo files and the shared file exist first
+    const fid = meta.folderId || await folderId(d);
+    const folderRole = role === 'editor' ? 'writer' : 'reader';
+    const cur = (await d.people(fid)).find(p => (p.emailAddress || '').toLowerCase() === email);
+    if (cur && cur.role !== 'owner') { if (cur.role !== folderRole) await d.setRole(fid, cur.id, folderRole); }
+    else if (!cur) await d.share(fid, email, folderRole);
+    const sid = sharedFileId(meta);
+    if (sid) { const sp = (await d.people(sid)).find(p => (p.emailAddress || '').toLowerCase() === email); if (!sp) await d.share(sid, email, 'writer'); else if (sp.role === 'reader') await d.setRole(sid, sp.id, 'writer'); }
+    doc.members[email] = { role: [role === 'editor' ? 'parent' : 'family', tick()] }; commit(false); render();
+    return joinLink();
+  }
+  async function people() { await getToken(true); return D().people(meta.folderId || await folderId(D())); }
+  function joinLink() {
+    const ids = [meta.fileId].concat(Object.keys(meta.shardVer), [meta.sharedId]).filter(Boolean);
+    return SYNC.onlineUrl + '#join=' + encodeURIComponent(ids.join(',')) + '&book=' + encodeURIComponent(activeBid);
+  }
+  // Open a book someone shared with me (invite link -> Google Picker with exactly the book's files)
+  async function openShared(fileIds, bookHint) {
+    if (!navigator.onLine) return toast("You're offline");
+    try {
+      const at = await getToken(true);
+      let picked;
+      if (FAKE) picked = await call('pick', fileIds || []);
+      else {
+        await loadScript('https://apis.google.com/js/api.js');
+        await new Promise((res) => gapi.load('picker', res));
+        picked = await new Promise((res) => {
+          const view = new google.picker.DocsView(google.picker.ViewId.DOCS).setMimeTypes('application/json').setMode(google.picker.DocsViewMode.LIST);
+          if (fileIds && fileIds.length) view.setFileIds(fileIds.join(',')); else view.setOwnedByMe(false).setIncludeFolders(true);
+          new google.picker.PickerBuilder().setAppId(SYNC.appId).setOAuthToken(at).setDeveloperKey(SYNC.pickerApiKey)
+            .enableFeature(google.picker.Feature.MULTISELECT_ENABLED).addView(view)
+            .setTitle('Select ALL the recipe book files (recipe-book.json, recipe-photos, book-shared)')
+            .setCallback((data) => {
+              if (data.action === google.picker.Action.PICKED) res((data.docs || []).map(x => ({ id: x.id, name: x.name })));
+              else if (data.action === google.picker.Action.CANCEL) res(null);
+            }).build().setVisible(true);
+        });
+      }
+      if (!picked || !picked.length) return;
+      const bookFile = picked.find(p => p.name === SYNC.fileName);
+      if (!bookFile) { alert('Please pick recipe-book.json (and the other files shown) — try again.'); return; }
+      const d = D(); await whoami(d);
+      const p = parseFile(await d.read(bookFile.id));
+      const h = (p && p.book) || { id: bookHint && BID.test(bookHint) ? bookHint : FAMILY_ID, name: FAMILY_NAME, kind: 'family' };
+      const shards = {}; picked.filter(x => x.name.startsWith(SYNC.shardPrefix)).forEach(x => { shards[x.name] = x.id; });
+      const sharedF = picked.find(x => x.name === SYNC.sharedName);
+      let b = bookById(h.id);
+      if (!b) { b = { id: h.id, name: str(h.name, 60) || 'Shared recipe book', kind: h.kind === 'family' ? 'family' : 'personal', shared: true }; books.push(b); }
+      const m = b.id === activeBid ? meta : loadMeta(b.id);
+      m.pinned = { book: bookFile.id, shards, shared: sharedF ? sharedF.id : '' }; m.fileInfoFor = ''; m.folderId = ''; m.shardVer = {};
+      if (b.id === activeBid) meta = m; else storage.set(metaKeyFor(b.id), JSON.stringify(m));
+      saveBooks();
+      if (Object.keys(shards).length < SYNC.shards) toast('Opened — but only ' + Object.keys(shards).length + ' of ' + SYNC.shards + ' photo files were picked, some photos may not show');
+      else toast('Opening “' + b.name + '”…');
+      await switchBook(b.id);
+    } catch (e) { toast('Could not open the shared book: ' + e.message); }
+  }
+  function signOut() {
+    if (!confirm('Sign out of Google on this device?\n\nYour recipes stay on this device; they just stop syncing until you sign in again.')) return;
+    try { if (token && window.google && google.accounts && google.accounts.oauth2) google.accounts.oauth2.revoke(token.access_token, () => {}); } catch (e) { /* ignore */ }
+    dropToken(); ident = {}; errMsg = ''; saveMeta(); paint(); render(); toast('Signed out — this device only');
+  }
+  function start() {
+    $('syncSignIn').addEventListener('click', () => run(true));
+    $('syncNow').addEventListener('click', () => run(true));
+    paint();
+    if (!WEB) return;
+    if (navigator.onLine && !FAKE) loadGis().catch(() => { /* offline */ });
+    if (navigator.onLine && tokenValid()) run(false);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) { if (meta.dirty) run(false); } else if (Date.now() - lastRun > 10000) run(false); });
+    window.addEventListener('focus', () => { if (Date.now() - lastRun > 10000) run(false); });
+    window.addEventListener('online', () => { paint(); run(false); });
+    window.addEventListener('offline', paint);
+    setInterval(() => { if (!document.hidden && navigator.onLine && tokenValid()) run(false); else paint(); }, 90000);
+    window.addEventListener('storage', (e) => {
+      if (e.key !== curDocKey() || !e.newValue || swapping) return;
+      try { const b = effSignature(doc); doc = mergeDocs(doc, normalizeDoc(JSON.parse(e.newValue))); observeT(doc); if (effSignature(doc) !== b) render(); } catch (err) { /* ignore */ }
+    });
+  }
+  return {
+    start, run, markDirty, paint, share, people, openShared, signOut, pushGrocery, joinLink, syncOther, switched, idle, updateShared, writable, isEditor,
+    me, myName: () => ident.name || (ident.email ? ident.email.split('@')[0] : ''), signedIn: () => !!ident.everSignedIn, web: WEB,
+    info: () => ({ state: state().k, text: state().text, fake: FAKE, meta: JSON.parse(JSON.stringify(meta)) }),
+    metaFor: (bid) => bid === activeBid ? JSON.parse(JSON.stringify(meta)) : loadMeta(bid)
+  };
+})();
+
+// ================= UI =================
+const view = $('view');
+const setView = (...nodes) => view.replaceChildren(...nodes.flat().filter(n => n !== null && n !== undefined && n !== false));
+let ui = { q: '', cat: 'All', from: '', sort: 'title' };
+try { Object.assign(ui, JSON.parse(storage.get(UI_KEY) || '{}')); } catch (e) { /* defaults */ }
+const saveUi = () => storage.set(UI_KEY, JSON.stringify({ cat: ui.cat, from: ui.from, sort: ui.sort }));
+let route = { name: 'home' }, draft = null, scan = { pages: [], busy: false, text: '' };
+const ingrPicked = new Set(), stepsDone = new Set();
+
+function myRole() { const m = doc.members[Sync.me()]; return m ? m.role[0] : ''; }
+// Grocery buttons: only Arthur + wife (by Google account). Before sign-in: only on a device that has the Grocery List app.
+function canGrocery() {
+  if (Sync.signedIn() && Sync.me()) return GROCERY_EMAILS.includes(Sync.me());
+  return Grocery.present();
+}
+const canEdit = () => Sync.writable(activeBid);
+function isParent() { return canEdit(); }
+function go(hash) { if (location.hash !== hash) location.hash = hash; else render(); }
+function parseRoute() {
+  const h = location.hash.replace(/^#\/?/, '');
+  const [a, b] = h.split('/');
+  if (a === 'r' && b) return { name: 'recipe', id: b };
+  if (a === 'edit' && b) return { name: 'edit', id: b };
+  if (a === 'new') return { name: 'edit', id: '' };
+  if (['scan', 'more', 'favs', 'inbox', 'import'].includes(a)) return { name: a };
+  return { name: 'home' };
+}
+window.addEventListener('hashchange', () => {
+  const prev = route; route = parseRoute();
+  if (prev.name === 'edit' && route.name !== 'edit') draft = null;
+  if (route.name !== 'recipe' || prev.id !== route.id) { ingrPicked.clear(); stepsDone.clear(); releaseWake(); }
+  render(); window.scrollTo(0, 0);
+});
+function onRemoteChange() { if (route.name !== 'edit') render(); toast('↻ Recipes updated from another device'); }
+function onSyncPaint() { if (route.name === 'more') { const s = $('moreSync'); if (s) s.textContent = Sync.info().text; } }
+function refreshVisiblePhotos() { if (route.name !== 'edit') render(); }
+
+async function setImg(imgEl, pid, bgTarget) {
+  const u = await photoUrl(pid);
+  if (!u) return false;
+  if (bgTarget) bgTarget.style.backgroundImage = 'url("' + u + '")'; else imgEl.src = u;
+  return true;
+}
+function backLink(text, hash) { return el('button', { class: 'backlink', type: 'button', onclick: () => (history.length > 1 && hash === '#/' ? history.back() : go(hash)) }, '‹ ' + text); }
+
+function paintBook() {
+  const b = activeBook(), ed = canEdit();
+  $('bookPill').dataset.kind = b.kind; $('bookIcon').textContent = b.kind === 'family' ? '🏡' : '📒';
+  $('bookName').textContent = b.name; $('bookRole').textContent = ed ? '✏️ can edit' : '👀 view only'; $('bookRole').className = 'rolebadge' + (ed ? '' : ' view');
+  document.title = b.name + ' · Family Recipe Book';
+}
+function viewOnlyPanel(what) {
+  return [backLink('All recipes', '#/'), el('div', { class: 'panel' }, el('h2', { text: '👀 “' + activeBook().name + '” is view-only for you' }),
+    el('p', { text: 'Only Arthur and Mom can ' + what + ' here. You can add it to your own book instead — and use 📤 Send on a recipe to suggest it for the family book.' }),
+    el('button', { class: 'btn green', type: 'button', onclick: openBooks }, '📚 Switch book'))];
+}
+function render() {
+  paintBook();
+  if (!canEdit() && (route.name === 'edit' || route.name === 'scan' || route.name === 'import')) return setView(viewOnlyPanel('add or change recipes'));
+  if (route.name === 'inbox') return renderInbox();
+  if (route.name === 'import') return renderImport();
+  document.querySelectorAll('nav.bottom [data-nav]').forEach(b => b.removeAttribute('aria-current'));
+  const cur = { home: 'home', favs: 'favs', scan: 'scan', more: 'more', edit: route.id ? '' : 'new' }[route.name];
+  const nb = cur && document.querySelector('nav.bottom [data-nav="' + cur + '"]'); if (nb) nb.setAttribute('aria-current', 'page');
+  if (route.name === 'recipe') return renderRecipe(route.id);
+  if (route.name === 'edit') return renderEdit(route.id);
+  if (route.name === 'scan') return renderScan();
+  if (route.name === 'more') return renderMore();
+  return renderHome(route.name === 'favs');
+}
+
+// ---------- home ----------
+function renderHome(favsOnly) {
+  const all = allRecipes();
+  const froms = [...new Set(all.map(r => r.from).filter(Boolean))].sort();
+  const q = ui.q.trim().toLowerCase();
+  const search = el('input', { type: 'search', placeholder: 'Search recipes, ingredients, people…', value: ui.q, 'aria-label': 'Search recipes', id: 'searchBox',
+    oninput: (e) => { ui.q = e.target.value; renderGrid(); } });
+  const usedCats = new Set(all.map(r => r.cat));
+  const chips = el('div', { class: 'chips', role: 'toolbar', 'aria-label': 'Categories' },
+    ['All', ...CATEGORIES.filter(c => usedCats.has(c))].map(c => el('button', { type: 'button', class: 'chip', 'aria-pressed': String(ui.cat === c),
+      onclick: () => { ui.cat = c; saveUi(); render(); } }, c === 'All' ? '🍽 All' : CAT_EMOJI[c] + ' ' + c)));
+  const fromSel = el('select', { 'aria-label': 'From', onchange: (e) => { ui.from = e.target.value; saveUi(); render(); } },
+    el('option', { value: '', text: 'Everyone' }), froms.map(f => el('option', { value: f, text: 'From ' + f, selected: ui.from === f })));
+  const sortSel = el('select', { 'aria-label': 'Sort', onchange: (e) => { ui.sort = e.target.value; saveUi(); render(); } },
+    el('option', { value: 'title', text: 'A–Z', selected: ui.sort === 'title' }), el('option', { value: 'new', text: 'Newest', selected: ui.sort === 'new' }));
+  const grid = el('div', { class: 'grid', id: 'grid' }), count = el('span', { class: 'count' });
+  function renderGrid() {
+    const qq = ui.q.trim().toLowerCase();
+    const base = all.filter(r => (!favsOnly || r.fav) && (ui.cat === 'All' || r.cat === ui.cat) && (!ui.from || r.from === ui.from));
+    const res = qq ? base.filter(r => [r.title, r.from, r.notes, r.cat, ...r.tags, ...r.ingr].join('\n').toLowerCase().includes(qq)) : base;
+    res.sort(ui.sort === 'new' ? (a, b) => b.created - a.created : (a, b) => a.title.localeCompare(b.title));
+    count.textContent = res.length + (res.length === 1 ? ' recipe' : ' recipes');
+    grid.replaceChildren(...res.map(cardFor));
+    if (!res.length) grid.replaceChildren(el('div', { class: 'empty', style: 'grid-column:1/-1' },
+      el('div', { class: 'big', text: favsOnly ? '⭐' : '🔍' }), el('p', { text: favsOnly && !qq ? 'No favorites yet — tap the ☆ on a recipe.' : 'Nothing matches that search.' })));
+  }
+  const banner = inboxBanner();
+  if (!all.length) {
+    setView(joinPanel(), banner, el('div', { class: 'empty', style: 'margin-top:20px' },
+      el('div', { class: 'big', text: '📖' }), el('h2', { style: 'font-family:var(--hand);font-weight:normal;color:var(--tomato-dark)', text: '“' + activeBook().name + '” is empty' }),
+      el('p', { text: canEdit() ? 'Scan a recipe card, paste a web link, or type one in.' : 'Nothing here yet — or it has not synced yet.' }),
+      canEdit() ? el('div', { class: 'row', style: 'justify-content:center' },
+        el('button', { class: 'btn light', type: 'button', onclick: () => go('#/import') }, '🔗 From a web link'),
+        el('button', { class: 'btn', type: 'button', onclick: () => go('#/scan') }, '📷 Scan a recipe'),
+        el('button', { class: 'btn light', type: 'button', onclick: () => go('#/new') }, '✍️ Type one in')) : null,
+      Sync.signedIn() ? null : el('p', { style: 'font-size:.88em;margin-top:16px', text: 'Already have a family book? Sign in with Google at the top, or open More ☰ → “Open a book shared with me”.' })));
+    return;
+  }
+  setView(joinPanel(), banner,
+    favsOnly ? el('h2', { class: 'sec', style: 'margin-top:16px' }, '⭐ Favorites') : null,
+    el('div', { class: 'search' }, el('span', { class: 'ico', text: '🔍' }), search,
+      el('button', { class: 'clear', type: 'button', 'aria-label': 'Clear search', onclick: () => { ui.q = ''; render(); } }, '✕')),
+    chips, el('div', { class: 'filters2' }, fromSel, sortSel, count), grid);
+  renderGrid();
+}
+function cardFor(r) {
+  const ph = el('div', { class: 'ph', text: r.photos.length || r.scans.length ? '' : CAT_EMOJI[r.cat] || '🍴' });
+  const pid = r.photos[0] || r.scans[0];
+  if (pid) setImg(null, pid, ph).then(ok => { if (!ok) ph.textContent = CAT_EMOJI[r.cat] || '🍴'; });
+  const time = [r.prep && 'prep ' + r.prep, r.cook && 'cook ' + r.cook].filter(Boolean).join(' · ');
+  return el('button', { class: 'card', type: 'button', onclick: () => go('#/r/' + r.id), 'aria-label': r.title },
+    ph, r.fav ? el('span', { class: 'fav', text: '⭐' }) : null,
+    el('div', { class: 'body' }, el('div', { class: 't', text: r.title }),
+      el('div', { class: 's', text: [r.from && 'from ' + r.from, time || r.cat].filter(Boolean).join(' · ') })));
+}
+
+// ---------- recipe ----------
+let wakeLock = null;
+async function toggleWake(btn) {
+  try {
+    if (wakeLock) { await wakeLock.release(); wakeLock = null; }
+    else if ('wakeLock' in navigator) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; if (btn.isConnected) btn.textContent = '☀️ Keep screen on'; }); }
+    else return toast('This browser cannot keep the screen on');
+  } catch (e) { toast('Could not keep the screen on'); }
+  btn.textContent = wakeLock ? '🌙 Let screen sleep' : '☀️ Keep screen on';
+}
+function releaseWake() { if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; } }
+
+function photoThumbs(ids, opts) {
+  return ids.map((pid) => {
+    const img = el('img', { alt: opts.label || 'Photo', loading: 'lazy' });
+    const box = el('div', { class: 'thumb' }, img, opts.label ? el('span', { class: 'lbl', text: opts.label }) : null);
+    setImg(img, pid).then(ok => { if (!ok) box.replaceChildren(el('div', { class: 'thumb missing', text: Sync.signedIn() ? 'photo not downloaded yet' : 'photo on another device' })); });
+    img.addEventListener('click', () => { $('viewerImg').src = img.src; $('viewerDialog').showModal(); });
+    if (opts.remove) box.append(el('button', { class: 'x', type: 'button', 'aria-label': 'Remove photo', onclick: (e) => { e.stopPropagation(); opts.remove(pid); } }, '✕'));
+    return box;
+  });
+}
+function addPhotoTiles(onFiles) {
+  const pick = (input) => { input.value = ''; input.onchange = () => { const f = [...input.files]; if (f.length) onFiles(f); }; input.click(); };
+  return [el('button', { class: 'thumb add', type: 'button', onclick: () => pick($('fileCamera')) }, el('div', {}, el('span', { text: '📷' }), 'Camera')),
+    el('button', { class: 'thumb add', type: 'button', onclick: () => pick($('fileGallery')) }, el('div', {}, el('span', { text: '🖼️' }), 'Gallery'))];
+}
+
+function renderRecipe(id) {
+  const r = doc.recipes[id] ? effRecipe(doc, id) : null;
+  if (!r || r.del) { setView(backLink('All recipes', '#/'), el('div', { class: 'empty', style: 'margin-top:14px' }, el('div', { class: 'big', text: '🤷' }), el('p', { text: 'That recipe is not here (deleted, or not synced yet).' }))); return; }
+  const strip = el('div', { class: 'strip' });
+  const hero = el('div', { class: 'hero' }, strip);
+  const heroIds = r.photos.length ? r.photos : r.scans.slice(0, 1);
+  if (heroIds.length) {
+    heroIds.forEach(pid => { const img = el('img', { alt: r.title }); strip.append(img); setImg(img, pid).then(ok => { if (!ok) img.remove(); if (!strip.children.length) strip.replaceChildren(el('div', { class: 'noimg', text: CAT_EMOJI[r.cat] })); }); });
+    if (heroIds.length > 1) hero.append(el('span', { class: 'badge', text: '⇆ ' + heroIds.length + ' photos' }));
+  } else strip.append(el('div', { class: 'noimg', text: CAT_EMOJI[r.cat] || '🍴' }));
+  const ed = canEdit();
+  const favBtn = !ed ? null : el('button', { class: 'btn light', type: 'button', onclick: () => { setReg(id, 'fav', !r.fav); commit(r.fav ? 'Removed from favorites' : '⭐ Added to favorites'); render(); } }, r.fav ? '⭐ Favorite' : '☆ Favorite');
+  const wakeBtn = el('button', { class: 'btn light', type: 'button', onclick: (e) => toggleWake(e.currentTarget) }, wakeLock ? '🌙 Let screen sleep' : '☀️ Keep screen on');
+  const metas = [r.servings && '🍽 Serves ' + r.servings, r.prep && '⏱ Prep ' + r.prep, r.cook && '🔥 Cook ' + r.cook, CAT_EMOJI[r.cat] + ' ' + r.cat].filter(Boolean);
+
+  // ingredients + grocery
+  const groc = canGrocery();
+  const ul = el('ul', { class: 'ingr' });
+  r.ingr.forEach((line, i) => {
+    const cb = el('input', { type: 'checkbox', checked: ingrPicked.has(i), onchange: (e) => { e.target.checked ? ingrPicked.add(i) : ingrPicked.delete(i); updBar(); } });
+    ul.append(el('li', {}, groc ? el('label', {}, cb, el('span', { text: line })) : el('label', { style: 'cursor:default' }, el('span', { text: '•', style: 'color:var(--tan-dark)' }), el('span', { text: line }))));
+  });
+  const addSel = el('button', { class: 'btn green', type: 'button', onclick: () => openGrocery(r, [...ingrPicked].sort((a, b) => a - b).map(i => r.ingr[i])) });
+  const addAll = el('button', { class: 'btn light', type: 'button', onclick: () => openGrocery(r, r.ingr) }, '🛒 Add all');
+  function updBar() { addSel.textContent = '🛒 Add ' + (ingrPicked.size || '') + ' checked to grocery list'; addSel.disabled = !ingrPicked.size; }
+  updBar();
+  const steps = el('ol', { class: 'steps' }, r.steps.map((s, i) => el('li', { class: stepsDone.has(i) ? 'done' : '', title: 'Tap to mark done', text: s,
+    onclick: (e) => { stepsDone.has(i) ? stepsDone.delete(i) : stepsDone.add(i); e.currentTarget.classList.toggle('done'); } })));
+
+  const addPhotos = async (files) => {
+    toast('Adding ' + files.length + ' photo' + (files.length > 1 ? 's' : '') + '…');
+    const ids = [];
+    for (const f of files) { try { ids.push(await storePhoto(f, 'photo')); } catch (e) { toast(e.message); } }
+    if (!ids.length) return;
+    const now = effRecipe(doc, id); setReg(id, 'photos', now.photos.concat(ids).slice(0, 20)); commit('📸 Photo added'); render();
+  };
+  setView(
+    backLink('All recipes', '#/'),
+    el('article', { class: 'sheet' }, hero,
+      el('div', { class: 'card-pad' },
+        el('h2', { class: 'rtitle', text: r.title }),
+        r.from ? el('div', { class: 'from', text: 'From the kitchen of ' + r.from }) : null,
+        r.src ? el('a', { class: 'srclink', href: r.src, target: '_blank', rel: 'noopener noreferrer', text: '🔗 Original recipe: ' + (() => { try { return new URL(r.src).hostname.replace(/^www\./, ''); } catch (e) { return r.src; } })() }) : null,
+        el('div', { class: 'metas' }, metas.map(m => el('span', { class: 'meta', text: m }))),
+        r.tags.length ? el('div', { class: 'tagrow' }, r.tags.map(t => el('span', { class: 'tag', text: '#' + t }))) : null,
+        el('div', { class: 'actions' }, favBtn, ed ? el('button', { class: 'btn', type: 'button', onclick: () => go('#/edit/' + id) }, '✏️ Edit') : null,
+          el('button', { class: 'btn light', type: 'button', id: 'sendBtn', onclick: () => openSend(r) }, '📤 Send'), wakeBtn),
+        ed ? null : el('div', { class: 'viewonly-note', text: '👀 View only — you can read, comment and 📤 Send this recipe to your own book.' }),
+        el('h2', { class: 'sec' }, '🧺 Ingredients', el('span', { class: 'r', text: r.ingr.length + ' items' })),
+        r.ingr.length ? ul : el('p', { class: 'from', text: 'No ingredients yet.' }),
+        groc && r.ingr.length ? el('div', { class: 'groc-bar' }, addSel, addAll) : null,
+        el('h2', { class: 'sec' }, '👩‍🍳 Steps', el('span', { class: 'r', text: r.steps.length ? 'tap a step when done' : '' })),
+        r.steps.length ? steps : el('p', { class: 'from', text: 'No steps yet.' }),
+        r.notes ? el('h2', { class: 'sec' }, '📝 Notes') : null, r.notes ? el('div', { class: 'notes', text: r.notes }) : null,
+        r.photos.length || ed ? el('h2', { class: 'sec' }, '📸 Food photos') : null,
+        el('div', { class: 'thumbs' }, photoThumbs(r.photos, ed ? { remove: (pid) => { if (!confirm('Remove this photo from the recipe?')) return; setReg(id, 'photos', effRecipe(doc, id).photos.filter(x => x !== pid)); commit('Photo removed'); render(); } } : {}), ed ? addPhotoTiles(addPhotos) : null),
+        r.scans.length ? el('h2', { class: 'sec' }, '🗒️ Original recipe card') : null,
+        r.scans.length ? el('div', { class: 'thumbs' }, photoThumbs(r.scans, { label: 'scan' })) : null,
+        el('div', { class: 'actions', style: 'margin-top:24px' },
+          el('button', { class: 'btn light small', type: 'button', onclick: () => window.print() }, '🖨 Print'),
+          ed ? el('button', { class: 'btn danger small', type: 'button', onclick: () => { if (!confirm('Delete “' + r.title + '”?\n\nIt is removed on every synced device.')) return; setReg(id, 'del', true); commit('Recipe deleted'); go('#/'); } }, '🗑 Delete') : null),
+        commentsSection(id))));
+}
+
+// ---------- grocery dialog ----------
+let glPlan = [];
+function openGrocery(r, lines) {
+  if (!lines.length) return toast('Tick some ingredients first');
+  const loc = Grocery.readLocal();
+  glPlan = Grocery.plan(lines);
+  const catOpts = (sel) => Grocery.CATS.map(c => el('option', { value: c.id, text: c.title, selected: c.id === sel }));
+  $('glList').replaceChildren(...glPlan.map((p, i) => {
+    const name = el('input', { type: 'text', value: p.name, maxlength: 60, 'aria-label': 'Grocery name', oninput: (e) => { p.name = e.target.value; } });
+    const inc = el('input', { type: 'checkbox', checked: !p.skip, 'aria-label': 'Include', style: 'width:22px;height:22px', onchange: (e) => { p.skip = !e.target.checked; } });
+    const cat = el('select', { 'aria-label': 'Grocery section', onchange: (e) => { p.cat = e.target.value; } }, catOpts(p.cat));
+    const matchSel = el('select', { 'aria-label': 'Match', onchange: (e) => { p.match = e.target.value; cat.disabled = !!p.match; } },
+      el('option', { value: '', text: '➕ New item' }),
+      p.match ? el('option', { value: p.match, selected: true, text: '✓ ' + Grocery.itemsLabel(p.items, p.match) + ' (on your grocery catalogue)' }) : null,
+      p.similar.map(s => el('option', { value: s.id, text: '≈ ' + s.name + (s.checked && !s.purchased ? ' (already on list)' : '') })));
+    cat.disabled = !!p.match;
+    void i;
+    return el('li', {}, el('div', { class: 'top' }, inc, name), el('div', { class: 'src', text: 'from: ' + p.line }), el('div', { class: 'row' }, matchSel, cat));
+  }));
+  $('glIntro').textContent = loc.state === 'needs-upgrade' ? 'Note: open Grocery List once on this device first so it can upgrade its data. ' + (Sync.signedIn() ? 'These will still go to your Google Drive list.' : '')
+    : 'Check the names — short names work best on the grocery list. Items already on the list are not added twice.';
+  $('glErr').textContent = ''; $('glGo').disabled = false;
+  $('groceryDialog').showModal();
+}
+async function doGrocery(e) {
+  e.preventDefault();
+  const picks = glPlan.filter(p => !p.skip && p.name.trim());
+  if (!picks.length) { $('glErr').textContent = 'Nothing selected.'; return; }
+  $('glGo').disabled = true;
+  try {
+    const res = await Grocery.add(picks);
+    $('groceryDialog').close();
+    const lr = res.localRes;
+    let msg = lr ? '🛒 ' + (lr.added + lr.ticked) + ' added to Grocery List' + (lr.skipped ? ' · ' + lr.skipped + ' already on it' : '') : '🛒 Sent to your Google Drive grocery list';
+    if (res.drive === 'ok') msg += ' · synced';
+    toast(msg);
+    ingrPicked.clear(); render();
+    window.__lastGrocery = res;
+  } catch (err) { $('glErr').textContent = 'Could not add: ' + err.message; $('glGo').disabled = false; }
+}
+
+// ---------- edit / new ----------
+function blankDraft() { return { title: '', cat: 'Mains', tags: [], servings: '', prep: '', cook: '', ingr: [], steps: [], notes: '', from: '', src: '', fav: false, photos: [], scans: [] }; }
+function renderEdit(id) {
+  if (!draft || draft._for !== (id || 'new')) {
+    const r = id && doc.recipes[id] ? effRecipe(doc, id) : null;
+    if (id && !r) { go('#/'); return; }
+    draft = Object.assign(blankDraft(), r ? JSON.parse(JSON.stringify(r)) : {}, { _for: id || 'new' });
+  }
+  const d = draft;
+  const f = (label, input, hint) => el('div', { class: 'field' }, el('label', { for: input.id, text: label }), input, hint ? el('div', { class: 'hint', text: hint }) : null);
+  const inp = (key, attrs) => { const a = Object.assign({}, attrs || {}), isList = a.list === true; delete a.list;
+    return el('input', Object.assign({ id: 'f_' + key, value: Array.isArray(d[key]) ? d[key].join(', ') : d[key], oninput: (e) => { d[key] = isList ? e.target.value.split(',').map(s => s.trim()).filter(Boolean) : e.target.value; } }, a)); };
+  const ta = (key, rows, sep) => el('textarea', { id: 'f_' + key, rows, value: sep ? d[key].join(sep) : d[key],
+    oninput: (e) => { d[key] = sep ? e.target.value.split(sep === '\n' ? /\n/ : /\n\s*\n/).map(s => s.trim()).filter(Boolean) : e.target.value; } });
+  const photoBox = el('div', { class: 'thumbs' }), scanBox = el('div', { class: 'thumbs' });
+  const paintPhotos = () => {
+    photoBox.replaceChildren(...photoThumbs(d.photos, { remove: (pid) => { d.photos = d.photos.filter(x => x !== pid); paintPhotos(); } }), ...addPhotoTiles(async (files) => {
+      for (const file of files) { try { d.photos.push(await storePhoto(file, 'photo')); } catch (e) { toast(e.message); } }
+      paintPhotos();
+    }));
+    scanBox.replaceChildren(...photoThumbs(d.scans, { label: 'scan', remove: (pid) => { if (confirm('Remove this scan from the recipe?')) { d.scans = d.scans.filter(x => x !== pid); paintPhotos(); } } }));
+  };
+  paintPhotos();
+  const save = () => {
+    if (!d.title.trim()) { toast('Please give the recipe a name'); $('f_title').focus(); return; }
+    const rid = id || newRid();
+    saveRecipe(rid, d);
+    draft = null; commit(id ? '✓ Recipe saved' : '✓ Recipe added to the book');
+    go('#/r/' + rid);
+  };
+  setView(
+    backLink(id ? 'Back to recipe' : 'All recipes', id ? '#/r/' + id : '#/'),
+    el('div', { class: 'panel' },
+      el('h2', { text: id ? '✏️ Edit recipe' : (d.scans.length ? '🔎 Check the scanned recipe' : '✍️ New recipe') }),
+      d._imported && !id ? el('p', { class: 'tip', id: 'importTip', text: '🔗 Read from the web page using ' + d._imported + '. Please check it over before saving into “' + activeBook().name + '”.' }) : null,
+      d.scans.length && !id ? el('p', { class: 'tip', text: 'The text reader is good but not perfect — please read it over and fix anything odd (numbers and fractions especially) before saving. The original photo is kept with the recipe.' }) : null,
+      el('div', { class: 'form' },
+        f('Recipe name', inp('title', { maxlength: 120, placeholder: 'Grandma’s apple pie', autocomplete: 'off' })),
+        el('div', { class: 'grid2' },
+          f('Category', el('select', { id: 'f_cat', onchange: (e) => { d.cat = e.target.value; } }, CATEGORIES.map(c => el('option', { value: c, text: CAT_EMOJI[c] + ' ' + c, selected: d.cat === c })))),
+          f('From (family member)', inp('from', { maxlength: 60, placeholder: 'Grandma Rose', list: false }))),
+        el('div', { class: 'grid3' },
+          f('Serves', inp('servings', { maxlength: 20, placeholder: '4', inputmode: 'text' })),
+          f('Prep time', inp('prep', { maxlength: 30, placeholder: '15 min' })),
+          f('Cook time', inp('cook', { maxlength: 30, placeholder: '45 min' }))),
+        f('Ingredients', ta('ingr', 8, '\n'), 'One ingredient per line, e.g. “2 cups flour”.'),
+        f('Steps', ta('steps', 9, '\n\n'), 'Leave a blank line between steps.'),
+        f('Notes', ta('notes', 3, ''), 'Tips, memories, “double it for Thanksgiving”…'),
+        f('Original web page (optional)', inp('src', { maxlength: 600, placeholder: 'https://…', inputmode: 'url', type: 'url' })),
+        f('Tags', inp('tags', { maxlength: 300, placeholder: 'holiday, quick, kids love it', list: true }), 'Separate with commas.'),
+        el('label', { class: 'check-line' }, el('input', { type: 'checkbox', checked: d.fav, onchange: (e) => { d.fav = e.target.checked; } }), '⭐ Favorite'),
+        el('div', { class: 'field' }, el('span', { class: 'lab', text: 'Food photos' }), photoBox),
+        d.scans.length ? el('div', { class: 'field' }, el('span', { class: 'lab', text: 'Original scan' }), scanBox) : null)),
+    el('div', { class: 'sticky-save' },
+      el('button', { class: 'btn light', type: 'button', onclick: () => { if (confirm('Discard changes?')) { draft = null; go(id ? '#/r/' + id : '#/'); } } }, 'Cancel'),
+      el('button', { class: 'btn green', type: 'button', id: 'saveRecipe', onclick: save }, '💾 Save recipe')));
+}
+
+// ---------- scan ----------
+function renderScan() {
+  const pages = el('div', { class: 'thumbs' });
+  const bar = el('div', { class: 'progress' }, el('div', { id: 'ocrBar' }));
+  const status = el('div', { class: 'ocr-status', id: 'ocrStatus', text: scan.busy ? 'Reading…' : '' });
+  const readBtn = el('button', { class: 'btn green block', type: 'button', id: 'ocrGo', disabled: !scan.pages.length || scan.busy, onclick: runOcr }, scan.pages.length > 1 ? '🔎 Read all ' + scan.pages.length + ' pages' : '🔎 Read the recipe');
+  const raw = el('textarea', { class: 'rawtext', id: 'ocrText', value: scan.text, oninput: (e) => { scan.text = e.target.value; }, 'aria-label': 'Text found' });
+  const useBtn = el('button', { class: 'btn block', type: 'button', id: 'ocrUse', onclick: useText }, '➡️ Sort into a recipe & review');
+  function paintPages() {
+    pages.replaceChildren(...scan.pages.map((p, i) => {
+      const img = el('img', { src: p.url, alt: 'Page ' + (i + 1) });
+      img.addEventListener('click', () => { $('viewerImg').src = p.url; $('viewerDialog').showModal(); });
+      return el('div', { class: 'thumb' }, img, el('span', { class: 'lbl', text: 'page ' + (i + 1) + (p.text ? ' ✓' : '') }),
+        el('button', { class: 'x', type: 'button', 'aria-label': 'Remove page', onclick: () => { URL.revokeObjectURL(p.url); scan.pages.splice(i, 1); renderScan(); } }, '✕'));
+    }), ...addPhotoTiles((files) => {
+      for (const file of files) if (scan.pages.length < 8) scan.pages.push({ file, url: URL.createObjectURL(file), text: '' });
+      OCR.warm(); renderScan();
+    }));
+  }
+  paintPages();
+  setView(
+    el('div', { class: 'panel' },
+      el('h2', { text: '📷 Scan a recipe' }),
+      el('button', { class: 'btn light block', type: 'button', id: 'goImport', style: 'margin:6px 0 12px', onclick: () => go('#/import') }, '🔗 Or add one from a web link'),
+      el('div', { class: 'steps-guide' },
+        el('div', {}, el('b', { text: '1' }), el('span', { text: 'Take a photo of the recipe card or page (or pick one). Add more pages if it continues on the back.' })),
+        el('div', {}, el('b', { text: '2' }), el('span', { text: 'Tap “Read”. The text is read right here on your phone — nothing is uploaded.' })),
+        el('div', {}, el('b', { text: '3' }), el('span', { text: 'Check the title, ingredients and steps, fix anything, and save.' }))),
+      pages,
+      el('p', { class: 'tip', style: 'margin-top:10px', text: 'Best results: lay the card flat, good light, no shadows, fill the screen with the text. Printed recipes read well; neat handwriting sometimes; cursive usually not — you can always type it in.' })),
+    el('div', { class: 'panel' }, readBtn, bar, status,
+      scan.text || scan.pages.some(p => p.text) ? el('div', { style: 'margin-top:12px' }, el('div', { class: 'field' }, el('span', { class: 'lab', text: 'Text found (you can fix it here too)' }), raw), el('div', { style: 'margin-top:10px' }, useBtn)) : null,
+      el('button', { class: 'btn light block', type: 'button', style: 'margin-top:10px', onclick: () => { draft = null; go('#/new'); } }, '✍️ Skip scanning — type it in')));
+}
+async function runOcr() {
+  if (scan.busy || !scan.pages.length) return;
+  scan.busy = true; $('ocrGo').disabled = true;
+  const setP = (frac, msg) => { const b = $('ocrBar'), s = $('ocrStatus'); if (b) b.style.width = Math.round(frac * 100) + '%'; if (s) s.textContent = msg; };
+  const t0 = performance.now(); let confs = [];
+  try {
+    for (let i = 0; i < scan.pages.length; i++) {
+      const p = scan.pages[i], n = scan.pages.length;
+      setP(i / n, 'Page ' + (i + 1) + ' of ' + n + ': getting ready…');
+      const r = await OCR.read(p.file, (m) => {
+        if (m.status === 'recognizing text') setP((i + m.progress) / n, 'Page ' + (i + 1) + ' of ' + n + ': reading… ' + Math.round(m.progress * 100) + '%');
+        else if (/load|init/i.test(m.status)) setP(i / n, (OCR.ready() ? '' : 'First time: loading the text reader (about 7 MB, then it works offline)… ') + Math.round((m.progress || 0) * 100) + '%');
+      });
+      p.text = r.text; confs.push(r.conf);
+    }
+    scan.text = scan.pages.map(p => p.text.trim()).join('\n\n');
+    const avg = Math.round(confs.reduce((a, b) => a + b, 0) / confs.length);
+    window.__ocr = { ms: Math.round(performance.now() - t0), conf: avg };
+    scan.busy = false; renderScan();
+    setP(1, '✓ Done in ' + Math.round((performance.now() - t0) / 1000) + ' s · reader confidence ' + avg + '%' + (avg < 60 ? ' (low — check carefully or retake in better light)' : ''));
+  } catch (e) {
+    scan.busy = false; renderScan(); const s = $('ocrStatus'); if (s) s.textContent = '⚠ ' + ((e && e.message) || String(e));
+  }
+}
+async function useText() {
+  const parsed = parseRecipe(scan.text);
+  const btn = $('ocrUse'); if (btn) { btn.disabled = true; btn.textContent = 'Saving the scan…'; }
+  const scans = [];
+  for (const p of scan.pages) { try { scans.push(await storePhoto(p.file, 'scan')); } catch (e) { /* keep going */ } }
+  draft = Object.assign(blankDraft(), { title: parsed.title, servings: parsed.servings, prep: parsed.prep, cook: parsed.cook, ingr: parsed.ingr, steps: parsed.steps, notes: parsed.notes, from: parsed.from, scans, src: '', _for: 'new' });
+  if (/cake|cookie|pie|brownie|dessert|pudding|frosting/i.test(parsed.title)) draft.cat = 'Desserts';
+  else if (/soup|stew|chili|chowder/i.test(parsed.title)) draft.cat = 'Soups & Stews';
+  else if (/bread|muffin|biscuit|roll|scone/i.test(parsed.title)) draft.cat = 'Breads & Baking';
+  else if (/salad/i.test(parsed.title)) draft.cat = 'Salads';
+  else if (/pancake|waffle|omelet|breakfast|french toast/i.test(parsed.title)) draft.cat = 'Breakfast';
+  scan.pages.forEach(p => URL.revokeObjectURL(p.url)); scan = { pages: [], busy: false, text: '' };
+  go('#/new');
+}
+
+// ================= v2: book switcher =================
+function bookRoleText(b) {
+  const m = Sync.metaFor(b.id), ed = Sync.writable(b.id);
+  const where = m.pinned ? 'shared with you' + (m.fileOwner ? ' by ' + m.fileOwner : '') : (b.kind === 'family' ? 'in your Google Drive' : 'your own book');
+  return (ed ? '✏️ can edit' : '👀 view only') + ' · ' + where;
+}
+function openBooks() {
+  $('bkErr').textContent = ''; $('newBookName').value = '';
+  $('bookList').replaceChildren(...books.map(b => el('li', {}, el('button', { type: 'button', class: 'bk', 'aria-current': String(b.id === activeBid), 'data-book': b.id,
+    onclick: () => { $('booksDialog').close(); switchBook(b.id); } },
+    el('span', { class: 'ic', text: b.kind === 'family' ? '🏡' : '📒' }),
+    el('span', { class: 'nm' }, b.name, el('small', { text: bookRoleText(b) })),
+    b.id === activeBid ? el('span', { class: 'rolebadge', text: 'open' }) : null))));
+  if (!bookById(FAMILY_ID)) $('bookList').append(el('li', { class: 'tip', style: 'font-size:.86em', text: '🏡 To connect the McConnell Family Recipe Book, open the invite link Dad sent you.' }));
+  $('booksDialog').showModal();
+}
+async function switchBook(bid) {
+  if (!bookById(bid)) return;
+  await Sync.idle();
+  persist();
+  activeBid = bid; saveBooks();
+  doc = loadDoc(); observeT(doc); draft = null; ui.q = ''; ui.from = ''; ui.cat = 'All';
+  await Sync.switched();
+  if (location.hash && location.hash !== '#/') location.hash = '#/'; else render();
+  toast('📖 Now in “' + activeBook().name + '”');
+}
+function createBook() {
+  const name = $('newBookName').value.trim().slice(0, 60);
+  if (!name) { $('bkErr').textContent = 'Give the new book a name.'; return; }
+  if (books.some(b => b.name.toLowerCase() === name.toLowerCase())) { $('bkErr').textContent = 'You already have a book with that name.'; return; }
+  const b = { id: newBid(), name, kind: 'personal' };
+  books.push(b); saveBooks(); $('booksDialog').close(); switchBook(b.id);
+}
+
+// ================= v2: Send a recipe to another book =================
+let sendFor = null;
+function openSend(r) {
+  sendFor = r;
+  const dests = books.filter(b => b.id !== activeBid).sort((x, y) => (y.kind === 'family') - (x.kind === 'family'));
+  $('sdErr').textContent = ''; $('sdGo').disabled = !dests.length;
+  $('sdFrom').value = r.from || Sync.myName() || '';
+  $('sdIntro').textContent = dests.length ? 'Pick where “' + r.title + '” should go. A copy is made — this one stays here.' : 'You only have this one book. Create another book (📚 at the top) or open the family book invite link first.';
+  $('sdList').replaceChildren(...dests.map((b, i) => {
+    const ed = Sync.writable(b.id);
+    return el('label', {}, el('input', { type: 'radio', name: 'sdDest', value: b.id, checked: i === 0 }),
+      el('span', {}, (b.kind === 'family' ? '🏡 ' : '📒 ') + b.name,
+        el('small', { text: ed ? 'Added straight into this book' : '📥 Goes to the “Submitted recipes” inbox — Arthur or Mom approve it' })));
+  }));
+  $('sendDialog').showModal();
+}
+async function doSend(e) {
+  e.preventDefault();
+  const r = sendFor, sel = document.querySelector('input[name=sdDest]:checked');
+  if (!r || !sel) return;
+  const bid = sel.value, b = bookById(bid), credit = $('sdFrom').value.trim().slice(0, 60), withPhotos = $('sdPhotos').checked;
+  const data = { title: r.title, cat: r.cat, tags: r.tags, servings: r.servings, prep: r.prep, cook: r.cook, ingr: r.ingr, steps: r.steps, notes: r.notes, from: credit || r.from, src: r.src };
+  $('sdGo').disabled = true; $('sdErr').textContent = 'Sending…';
+  try {
+    if (Sync.writable(bid)) {
+      data.photos = withPhotos ? await clonePhotos(r.photos) : [];
+      data.scans = withPhotos ? await clonePhotos(r.scans) : [];
+      addRecipeToBook(bid, data);
+      const res = await Sync.syncOther(bid);
+      $('sendDialog').close();
+      toast('📤 Sent to “' + b.name + '”' + (res === 'ok' ? ' · synced' : res === 'later' ? ' (syncs when you open it online)' : ' — will sync later'));
+    } else {
+      const photos = {};
+      if (withPhotos) for (const pid of r.photos.concat(r.scans).slice(0, 4)) {     // keep the inbox file small: up to 4 pictures, re-compressed
+        const rec = await DB.get(pid).catch(() => null); if (!rec || !rec.blob) continue;
+        const { img, done } = await loadImage(rec.blob); try { photos[newPid()] = await blobToDataUrl(await toBlob(drawScaled(img, 1000), 0.66)); } finally { done(); }
+      }
+      const sid = 's' + rnd();
+      const res = await Sync.updateShared(bid, (s) => { s.subs[sid] = { by: Sync.me(), name: Sync.myName() || credit, at: Date.now(), recipe: data, photos, status: ['pending', Date.now()], note: '', approvedAs: '' }; });
+      $('sendDialog').close();
+      toast(res === 'ok' ? '📥 Sent to the “' + b.name + '” inbox for approval' : res === 'no-file' ? '⚠ Saved — open the newest invite link from Dad so it can reach the inbox' : '📥 Saved — ' + res);
+    }
+  } catch (err) { $('sdErr').textContent = 'Could not send: ' + err.message; }
+  finally { $('sdGo').disabled = false; }
+}
+
+// ================= v2: Submitted recipes inbox =================
+function inboxBanner() {
+  const s = loadShared(), subs = Object.values(s.subs);
+  if (canEdit()) {
+    const n = subs.filter(x => x.status[0] === 'pending').length;
+    return n ? el('div', { class: 'inbox-banner' }, el('span', { style: 'font-size:1.6em', text: '📥' }), el('span', { style: 'flex:1', text: n + ' submitted recipe' + (n > 1 ? 's' : '') + ' waiting for you' }),
+      el('button', { class: 'btn small green', type: 'button', id: 'inboxOpen', onclick: () => go('#/inbox') }, 'Review')) : null;
+  }
+  const mine = subs.filter(x => x.by && x.by === Sync.me()).length;
+  return mine ? el('div', { class: 'inbox-banner' }, el('span', { text: '📥 ' }), el('span', { style: 'flex:1', text: 'Your ' + mine + ' submitted recipe' + (mine > 1 ? 's' : '') }), el('button', { class: 'btn small light', type: 'button', onclick: () => go('#/inbox') }, 'See status')) : null;
+}
+function renderInbox() {
+  const s = loadShared(), ed = canEdit();
+  let subs = Object.entries(s.subs).sort((a, b) => b[1].at - a[1].at);
+  if (!ed) subs = subs.filter(([, x]) => x.by === Sync.me());
+  const pending = subs.filter(([, x]) => x.status[0] === 'pending'), done = subs.filter(([, x]) => x.status[0] !== 'pending').slice(0, 30);
+  const card = ([sid, x]) => {
+    const r = x.recipe, st = x.status[0];
+    return el('div', { class: 'sub-card', 'data-sub': sid },
+      el('h3', { style: 'font-family:var(--hand);font-weight:normal;color:var(--tomato-dark);font-size:1.3em', text: r.title || 'Untitled' }),
+      el('div', { class: 'who', text: 'Sent by ' + (x.name || x.by || 'someone') + ' · ' + new Date(x.at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) + (r.from ? ' · from ' + r.from : '') }),
+      Object.keys(x.photos).length ? el('div', { class: 'sub-photos' }, Object.values(x.photos).map(u => el('img', { src: u, alt: 'photo' }))) : null,
+      r.ingr && r.ingr.length ? el('ul', {}, r.ingr.slice(0, 8).map(i => el('li', { text: i })), r.ingr.length > 8 ? el('li', { text: '… ' + (r.ingr.length - 8) + ' more' }) : null) : null,
+      r.steps && r.steps.length ? el('div', { class: 'who', text: r.steps.length + ' steps' }) : null,
+      st === 'pending' ? (ed ? el('div', { class: 'row', style: 'margin-top:8px' },
+        el('button', { class: 'btn light', type: 'button', 'data-act': 'decline', onclick: () => decide(sid, 'declined') }, '✕ Decline'),
+        el('button', { class: 'btn green', type: 'button', 'data-act': 'approve', onclick: () => decide(sid, 'approved') }, '✓ Approve into the book'))
+        : el('div', { class: 'st', text: '⏳ Waiting for Arthur or Mom' }))
+        : el('div', { class: 'st ' + st, text: st === 'approved' ? '✓ Approved — it is in the book' : '✕ Declined' + (x.note ? ': ' + x.note : '') }));
+  };
+  setView(backLink('All recipes', '#/'),
+    el('div', { class: 'panel' }, el('h2', { text: ed ? '📥 Submitted recipes' : '📥 My submitted recipes' }),
+      el('p', { style: 'font-size:.9em', text: ed ? 'Recipes the kids sent to “' + activeBook().name + '”. Approve copies it into the book (with photos); Decline keeps it out.' : 'Recipes you sent to this book, and what happened to them.' })),
+    pending.length ? pending.map(card) : el('p', { class: 'empty', text: 'Nothing waiting. 🎉' }),
+    done.length ? el('h2', { class: 'sec', text: 'Done' }) : null, done.map(card));
+}
+async function decide(sid, status) {
+  const s = loadShared(), x = s.subs[sid]; if (!x || x.status[0] !== 'pending') return;
+  let rid = '';
+  if (status === 'approved') {
+    const photos = [];
+    for (const u of Object.values(x.photos)) { try { const id = newPid(); await DB.put({ id, blob: await dataUrlToBlob(u), up: false, t: Date.now(), kind: 'photo' }); photos.push(id); } catch (e) { /* skip bad photo */ } }
+    const data = Object.assign({ cat: 'Other', tags: [], ingr: [], steps: [] }, x.recipe, { photos, scans: [] });
+    if (!data.from) data.from = x.name || '';
+    rid = newRid(); saveRecipe(rid, data); commit('✓ Approved — “' + (data.title || 'recipe') + '” is in the book');
+  } else {
+    const note = prompt('Decline “' + (x.recipe.title || 'recipe') + '”? Optional note for the sender:', '') ;
+    if (note === null) return;
+    x.note = note.slice(0, 300);
+  }
+  const t = tick(), note = x.note || '';
+  await Sync.updateShared(activeBid, (sh) => { const y = sh.subs[sid]; if (!y) return; y.status = [status, t]; y.approvedAs = rid; y.note = note; y.photos = {}; });
+  if (status === 'declined') toast('Declined');
+  render();
+}
+
+// ================= v2: comments (stored in the book's shared file; everyone who can see the book can comment) =================
+function commentsSection(rid) {
+  const s = loadShared(), me = Sync.me(), ed = canEdit();
+  const list = Object.entries(s.comments).filter(([, c]) => c.rid === rid && !c.del).sort((a, b) => a[1].at - b[1].at);
+  const box = el('textarea', { id: 'commentText', maxlength: 2000, placeholder: Sync.signedIn() ? 'Leave a comment… (“Made it Sunday — double the garlic!”)' : 'Sign in with Google to comment' , disabled: !Sync.signedIn() });
+  const post = async () => {
+    const text = box.value.trim(); if (!text) return;
+    const cid = 'c' + rnd();
+    box.value = '';
+    const res = await Sync.updateShared(activeBid, (sh) => { sh.comments[cid] = { rid, by: me, name: Sync.myName() || me, text: text.slice(0, 2000), at: Date.now(), del: false }; });
+    toast(res === 'ok' ? '💬 Comment posted' : res === 'no-file' ? '💬 Saved here — the book owner needs to sync once (or open the newest invite link) before comments can be shared' : '💬 Saved — ' + res);
+  };
+  return el('div', { class: 'comment-wrap' },
+    el('h2', { class: 'sec' }, '💬 Comments', el('span', { class: 'r', text: list.length ? list.length + '' : '' })),
+    list.length ? el('ul', { class: 'comments', id: 'commentList' }, list.map(([cid, c]) => el('li', { 'data-cid': cid },
+      el('div', { class: 'ch' }, el('b', { text: c.name || c.by }), el('span', { text: new Date(c.at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) }),
+        (c.by && c.by === me) || ed ? el('button', { class: 'cdel', type: 'button', 'aria-label': 'Delete comment', onclick: async () => { if (!confirm('Delete this comment?')) return; await Sync.updateShared(activeBid, (sh) => { if (sh.comments[cid]) sh.comments[cid].del = true; }); toast('Comment deleted'); } }, '🗑') : null),
+      el('div', { class: 'ct', text: c.text }))))
+      : el('p', { class: 'from', text: 'No comments yet — be the first!' }),
+    el('div', { class: 'comment-box' }, box, el('div', { class: 'row', style: 'margin-top:6px' }, el('button', { class: 'btn small green', type: 'button', id: 'commentPost', disabled: !Sync.signedIn(), onclick: post }, '💬 Post comment'))));
+}
+
+// ================= v2: import a recipe from a web link =================
+// GitHub Pages cannot read other sites directly (CORS), so we try: direct -> r.jina.ai (HTML) -> r.jina.ai (text) -> allorigins -> codetabs.
+// Then: schema.org Recipe JSON-LD (most recipe sites) -> microdata -> heuristic text parsing. You always review before saving.
+const READERS = [
+  { name: 'direct', url: (u) => u, kind: 'html' },
+  { name: 'r.jina.ai', url: (u) => 'https://r.jina.ai/' + u, kind: 'html', headers: { 'X-Return-Format': 'html' } },
+  { name: 'r.jina.ai text', url: (u) => 'https://r.jina.ai/' + u, kind: 'text' },
+  { name: 'allorigins', url: (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u), kind: 'html' },
+  { name: 'codetabs', url: (u) => 'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(u), kind: 'html' }
+];
+const IMPORT_TEST = LOCALHOST && new URLSearchParams(location.search).has('importproxy');   // tests: route readers through a local mock
+async function fetchText(url, headers, ms) {
+  const ac = new AbortController(), t = setTimeout(() => ac.abort(), ms || 20000);
+  try {
+    const r = await fetch(url, { headers: headers || {}, signal: ac.signal, credentials: 'omit', referrerPolicy: 'no-referrer' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return await r.text();
+  } finally { clearTimeout(t); }
+}
+const decodeEnt = (s) => { if (typeof s !== 'string') return ''; const t = document.createElement('textarea'); t.innerHTML = s.replace(/<[^>]+>/g, ' '); return t.value.replace(/\s+/g, ' ').trim(); };
+function isoDur(v) {
+  if (typeof v !== 'string') return '';
+  const m = v.trim().match(/^P(?:\d+Y)?(?:\d+M)?(?:(\d+)D)?(?:T(?:(\d+(?:\.\d+)?)H)?(?:(\d+(?:\.\d+)?)M)?(?:\d+(?:\.\d+)?S)?)?$/i);
+  if (!m) return decodeEnt(v).slice(0, 30);
+  let h = (+m[1] || 0) * 24 + (+m[2] || 0), mi = Math.round(+m[3] || 0); h += Math.floor(mi / 60); mi %= 60;
+  if (!h && !mi) return '';
+  return [h && h + (h === 1 ? ' hr' : ' hrs'), mi && mi + ' min'].filter(Boolean).join(' ');
+}
+function findRecipeNode(x, depth) {
+  if (!x || typeof x !== 'object' || depth > 8) return null;
+  if (Array.isArray(x)) { for (const y of x) { const r = findRecipeNode(y, depth + 1); if (r) return r; } return null; }
+  const t = x['@type']; if (t === 'Recipe' || (Array.isArray(t) && t.includes('Recipe'))) return x;
+  for (const k of ['@graph', 'mainEntity', 'mainEntityOfPage', 'itemListElement', 'item']) if (x[k]) { const r = findRecipeNode(x[k], depth + 1); if (r) return r; }
+  return null;
+}
+function flatSteps(v, out, depth) {
+  out = out || []; depth = depth || 0; if (depth > 6 || !v) return out;
+  if (typeof v === 'string') { decodeEnt(v).split(/\n+|(?<=\.)\s{2,}/).map(s => s.trim()).filter(Boolean).forEach(s => out.push(s)); return out; }
+  if (Array.isArray(v)) { v.forEach(x => flatSteps(x, out, depth + 1)); return out; }
+  if (typeof v === 'object') {
+    if (v.itemListElement) { if (v.name && /Section/i.test(v['@type'] || '')) out.push('— ' + decodeEnt(v.name) + ' —'); flatSteps(v.itemListElement, out, depth + 1); }
+    else if (v.text) out.push(decodeEnt(v.text)); else if (v.name) out.push(decodeEnt(v.name));
+  }
+  return out;
+}
+function imgUrl(v) {
+  if (!v) return ''; if (typeof v === 'string') return v;
+  if (Array.isArray(v)) return imgUrl(v[0]);
+  return v.url || v.contentUrl || '';
+}
+function guessCat(title, cat) {
+  const s = (String(cat || '') + ' ' + title).toLowerCase();
+  const rules = [[/dessert|cake|cookie|pie\b|brownie|pudding|frosting|candy/, 'Desserts'], [/breakfast|brunch|pancake|waffle|omelet|french toast/, 'Breakfast'], [/soup|stew|chili|chowder/, 'Soups & Stews'],
+    [/salad/, 'Salads'], [/bread|muffin|biscuit|roll\b|scone|baking/, 'Breads & Baking'], [/side/, 'Sides'], [/appetizer|snack|dip\b/, 'Snacks & Apps'], [/drink|beverage|smoothie|cocktail/, 'Drinks'], [/sauce|dressing/, 'Sauces'],
+    [/main|dinner|entree|lunch|chicken|beef|pork|pasta|fish/, 'Mains']];
+  for (const [re, c] of rules) if (re.test(s)) return c;
+  return 'Other';
+}
+function recipeFromLd(html) {
+  const dom = new DOMParser().parseFromString(html, 'text/html');
+  for (const sc of dom.querySelectorAll('script[type="application/ld+json"]')) {
+    let j; try { j = JSON.parse(sc.textContent.trim()); } catch (e) { try { j = JSON.parse(sc.textContent.replace(/[\u0000-\u001f]+/g, ' ')); } catch (e2) { continue; } }
+    const r = findRecipeNode(j, 0); if (!r) continue;
+    const title = decodeEnt(r.name || r.headline || '');
+    const yieldV = Array.isArray(r.recipeYield) ? (r.recipeYield.find(y => /\D/.test(String(y))) || r.recipeYield[0]) : r.recipeYield;
+    const author = Array.isArray(r.author) ? r.author[0] : r.author;
+    const kw = Array.isArray(r.keywords) ? r.keywords : String(r.keywords || '').split(',');
+    return { how: 'schema.org Recipe data', title, ingr: (Array.isArray(r.recipeIngredient) ? r.recipeIngredient : Array.isArray(r.ingredients) ? r.ingredients : []).map(decodeEnt).filter(Boolean),
+      steps: flatSteps(r.recipeInstructions), prep: isoDur(r.prepTime), cook: isoDur(r.cookTime) || (!r.prepTime ? isoDur(r.totalTime) : ''), servings: decodeEnt(String(yieldV || '')).slice(0, 20),
+      image: imgUrl(r.image), notes: decodeEnt(r.description || '').slice(0, 600), author: decodeEnt(author && (author.name || author) || ''),
+      cat: guessCat(title, Array.isArray(r.recipeCategory) ? r.recipeCategory.join(' ') : r.recipeCategory), tags: kw.map(k => decodeEnt(String(k))).filter(k => k && k.length < 30).slice(0, 6) };
+  }
+  // microdata fallback
+  const md = dom.querySelector('[itemtype*="schema.org/Recipe"]');
+  if (md) {
+    const all = (p) => [...md.querySelectorAll('[itemprop="' + p + '"]')].map(e => decodeEnt(e.getAttribute('content') || e.textContent)).filter(Boolean);
+    const ingr = all('recipeIngredient').concat(all('ingredients'));
+    if (ingr.length) return { how: 'schema.org microdata', title: all('name')[0] || '', ingr, steps: all('recipeInstructions'), prep: isoDur(all('prepTime')[0]), cook: isoDur(all('cookTime')[0]), servings: (all('recipeYield')[0] || '').slice(0, 20), image: '', notes: '', author: '', cat: guessCat(all('name')[0] || ''), tags: [] };
+  }
+  return null;
+}
+function recipeFromText(text, titleHint) {
+  // markdown from readers: pick the bullet list that looks most like ingredients, and the numbered list right after it
+  const L = text.split(/\r?\n/).filter(l => !/^\s*(\* ){2,}\*?\s*$/.test(l));
+  const isB = (l) => /^\s*[*-]\s+\S/.test(l), qty = (l) => /^\s*[*-]\s+(\d|½|¼|¾|⅓|⅔|a |one |two |pinch)/i.test(l);
+  let best = null;
+  for (let i = 0; i < L.length; i++) {
+    if (!isB(L[i])) continue;
+    let j = i, sc = 0; while (j < L.length && (isB(L[j]) || (!L[j].trim() && j + 1 < L.length && isB(L[j + 1])))) { if (qty(L[j])) sc++; j++; }
+    if (!best || sc > best.sc) best = { i, j, sc };
+    i = j;
+  }
+  if (best && best.sc >= 3) {
+    let k = best.j; while (k < L.length && !/^\s*1\.\s+\S/.test(L[k])) k++;
+    let e = k; while (e < L.length && e - k < 80 && !/^\s*(notes?|nutrition|video)\b/i.test(L[e])) e++;
+    text = ['Ingredients', ...L.slice(best.i, best.j), '', 'Instructions', ...L.slice(k, e)].join('\n');
+  }
+  const clean = text.replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/^#+\s*/gm, '').replace(/^\s*[*-]\s+/gm, '').replace(/\*\*|__/g, '');
+  // keep the part from the first "Ingredients" heading on (skips menus / life stories)
+  const i = clean.search(/^\s*ingredients\s*:?\s*$/im);
+  const body = i > 0 ? clean.slice(Math.max(0, i)) : clean;
+  const p = parseRecipe(body.slice(0, 12000));
+  const title = titleHint || p.title;
+  return { how: 'text reading (no recipe data found — check carefully)', title, ingr: p.ingr, steps: p.steps.slice(0, 40), prep: p.prep, cook: p.cook, servings: p.servings, image: '', notes: '', author: '', cat: guessCat(title), tags: [] };
+}
+function titleFromHtml(html) {
+  const dom = new DOMParser().parseFromString(html, 'text/html');
+  const og = dom.querySelector('meta[property="og:title"]'); const h1 = dom.querySelector('h1');
+  return decodeEnt((og && og.getAttribute('content')) || (h1 && h1.textContent) || dom.title || '').replace(/\s*[|–-]\s*[^|–-]+$/, '').slice(0, 120);
+}
+function textFromHtml(html) {
+  const dom = new DOMParser().parseFromString(html, 'text/html');
+  dom.querySelectorAll('script,style,noscript,nav,header,footer,aside,form,iframe,svg').forEach(e => e.remove());
+  const root = dom.querySelector('.wprm-recipe, .tasty-recipes, .recipe, article, main') || dom.body;
+  if (!root) return '';
+  root.querySelectorAll('li,p,h1,h2,h3,h4,br,div').forEach(e => e.append('\n'));
+  return root.textContent.replace(/[ \t]+/g, ' ').replace(/\n\s*\n\s*/g, '\n\n');
+}
+async function importFromUrl(url, onStatus) {
+  const tried = [];
+  let fallback = null;
+  for (const rd of READERS) {
+    const target = IMPORT_TEST ? '/__proxy/' + rd.name.replace(/\W+/g, '-') + '?u=' + encodeURIComponent(url) : rd.url(url);
+    onStatus('Trying ' + rd.name + '…');
+    try {
+      const txt = await fetchText(target, IMPORT_TEST ? {} : rd.headers);
+      if (!txt || txt.length < 300 || /Just a moment|cf-chl|Security Checkpoint|captcha/i.test(txt.slice(0, 4000)) && !/ld\+json/.test(txt)) { tried.push(rd.name + ': blocked'); continue; }
+      if (rd.kind === 'html' && /<html|<script|<body/i.test(txt)) {
+        const r = recipeFromLd(txt); if (r && (r.ingr.length || r.steps.length)) return Object.assign(r, { via: rd.name, tried });
+        if (!fallback) { const t = recipeFromText(textFromHtml(txt), titleFromHtml(txt)); if (t.ingr.length >= 2) fallback = Object.assign(t, { via: rd.name }); }
+      } else if (!fallback) {
+        const tm = txt.match(/^Title:\s*(.+)$/m), mc = txt.indexOf('Markdown Content:');
+        const t = recipeFromText(mc >= 0 ? txt.slice(mc + 17) : txt, tm ? tm[1].trim().replace(/\s*[|–-]\s*[^|–-]+$/, '') : '');
+        if (t.ingr.length >= 2) fallback = Object.assign(t, { via: rd.name });
+      }
+      tried.push(rd.name + ': no recipe data');
+    } catch (e) { tried.push(rd.name + ': ' + (e.name === 'AbortError' ? 'timed out' : 'not reachable')); }
+  }
+  if (fallback) return Object.assign(fallback, { tried });
+  throw Object.assign(new Error('Could not read a recipe from that page'), { tried });
+}
+async function fetchImageAsPhoto(u) {
+  if (!u) return '';
+  const tries = IMPORT_TEST ? ['/__proxy/img?u=' + encodeURIComponent(u)] : [u, 'https://wsrv.nl/?url=' + encodeURIComponent(u) + '&w=1280&output=jpg'];
+  for (const t of tries) {
+    try {
+      const ac = new AbortController(), tm = setTimeout(() => ac.abort(), 15000);
+      const r = await fetch(t, { signal: ac.signal, credentials: 'omit', referrerPolicy: 'no-referrer' }); clearTimeout(tm);
+      if (!r.ok) continue; const b = await r.blob(); if (!/^image\//.test(b.type) || b.size < 2000) continue;
+      return await storePhoto(b, 'photo');
+    } catch (e) { /* next */ }
+  }
+  return '';
+}
+let importState = { url: '', busy: false, msg: '', tried: [] };
+function renderImport() {
+  const inp = el('input', { type: 'url', id: 'importUrl', placeholder: 'https://www.example.com/best-pancakes', value: importState.url, inputmode: 'url', autocomplete: 'off', oninput: (e) => { importState.url = e.target.value; } });
+  const go1 = el('button', { class: 'btn green block', type: 'button', id: 'importGo', disabled: importState.busy, onclick: runImport }, importState.busy ? '⏳ Reading the page…' : '🔗 Get the recipe');
+  const paste = el('textarea', { class: 'rawtext', id: 'importPaste', placeholder: 'Or copy the recipe text from the web page and paste it here' });
+  setView(backLink('All recipes', '#/'),
+    el('div', { class: 'panel' }, el('h2', { text: '🔗 Add a recipe from a web link' }),
+      el('p', { style: 'font-size:.92em', text: 'Paste the address of a recipe page (Allrecipes, Food Network, a blog…). The app reads it and fills in a new recipe for you to check before saving into “' + activeBook().name + '”.' }),
+      el('div', { class: 'field' }, el('label', { for: 'importUrl', text: 'Recipe web address' }), inp),
+      el('div', { style: 'margin-top:10px' }, go1),
+      el('div', { class: 'ocr-status', id: 'importStatus', text: importState.msg }),
+      importState.tried.length ? el('details', { style: 'font-size:.8em;color:var(--muted)' }, el('summary', { text: 'What was tried' }), el('ul', {}, importState.tried.map(t => el('li', { text: t })))) : null),
+    el('div', { class: 'panel' }, el('h2', { text: '📋 Some sites block reading' }),
+      el('p', { style: 'font-size:.9em', text: 'If the link does not work, open the page, select the ingredients and steps, copy, and paste here.' }), paste,
+      el('button', { class: 'btn light block', type: 'button', style: 'margin-top:8px', id: 'importPasteGo', onclick: () => {
+        const t = paste.value.trim(); if (!t) return toast('Paste some recipe text first');
+        startDraft(recipeFromText(t, ''), importState.url.trim());
+      } }, '➡️ Sort it into a recipe & review')));
+}
+function startDraft(r, srcUrl, photoId) {
+  draft = Object.assign(blankDraft(), { title: r.title, cat: CATEGORIES.includes(r.cat) ? r.cat : 'Other', servings: r.servings, prep: r.prep, cook: r.cook, ingr: r.ingr, steps: r.steps,
+    notes: r.notes, from: r.author ? r.author.slice(0, 60) : '', tags: r.tags || [], src: /^https?:\/\//i.test(srcUrl || '') ? srcUrl : '', photos: photoId ? [photoId] : [], _for: 'new', _imported: r.how });
+  go('#/new');
+}
+async function runImport() {
+  let url = (importState.url || '').trim();
+  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+  try { url = new URL(url).href; } catch (e) { return toast('That does not look like a web address'); }
+  importState = { url, busy: true, msg: 'Reading the page…', tried: [] }; renderImport();
+  const status = (m) => { importState.msg = m; const s = $('importStatus'); if (s) s.textContent = m; };
+  try {
+    const r = await importFromUrl(url, status);
+    status('Found “' + r.title + '” via ' + r.via + ' — getting the photo…');
+    const pid = await fetchImageAsPhoto(r.image);
+    window.__lastImport = { title: r.title, how: r.how, via: r.via, ingr: r.ingr.length, steps: r.steps.length, prep: r.prep, cook: r.cook, servings: r.servings, photo: !!pid, tried: r.tried };
+    importState = { url: '', busy: false, msg: '', tried: [] };
+    startDraft(r, url, pid);
+  } catch (e) {
+    importState.busy = false; importState.tried = e.tried || []; importState.msg = '⚠ ' + e.message + '. Try pasting the text below.';
+    window.__lastImport = { error: e.message, tried: e.tried };
+    renderImport();
+  }
+}
+
+// ---------- more: sync, sharing, family, backup ----------
+function renderMore() {
+  const info = Sync.info(), m = info.meta, signed = Sync.signedIn(), b = activeBook(), ed = canEdit();
+  const owner = signed && !m.pinned && (m.ownedByMe || !m.fileId);
+  const members = Object.entries(doc.members).filter(([, v]) => v.role[0] !== 'removed').sort();
+  setView(
+    el('div', { class: 'panel' },
+      el('h2', { text: '📚 Books' }),
+      el('p', { text: 'You are in “' + b.name + '” (' + (ed ? 'you can edit' : 'view only') + '). You have ' + books.length + ' book' + (books.length > 1 ? 's' : '') + '.' }),
+      el('div', { class: 'row' }, el('button', { class: 'btn light', type: 'button', onclick: openBooks }, '📚 Switch / new book'),
+        el('button', { class: 'btn light', type: 'button', onclick: () => go('#/inbox') }, ed ? '📥 Submitted recipes' : '📥 My submissions'),
+        ed ? el('button', { class: 'btn light', type: 'button', onclick: () => go('#/import') }, '🔗 Add from web link') : null)),
+    el('div', { class: 'panel' },
+      el('h2', { text: '☁️ Sync with Google Drive' }),
+      el('p', { id: 'moreSync', text: info.text }),
+      el('p', { text: !WEB ? 'Google sign-in only works in the online version: ' + SYNC.onlineUrl
+        : signed ? (m.pinned ? '“' + b.name + '” is shared with you by ' + (m.fileOwner || 'its owner') + '.' : '“' + b.name + '” is saved in your Google Drive in the folder “' + folderNameFor(b) + '”.') + ' Every change syncs by itself.'
+          : 'Sign in with Google to keep your recipes the same on your phone and PC, and to share books with family.' }),
+      el('div', { class: 'row' },
+        !signed && WEB ? el('button', { class: 'btn green', type: 'button', onclick: () => Sync.run(true) }, '🔑 Sign in with Google') : null,
+        signed ? el('button', { class: 'btn light', type: 'button', onclick: () => Sync.run(true) }, '↻ Sync now') : null,
+        WEB ? el('button', { class: 'btn light', type: 'button', id: 'openSharedBtn', onclick: () => Sync.openShared() }, '📂 Open a book shared with me') : null,
+        signed ? el('button', { class: 'btn light', type: 'button', onclick: () => Sync.signOut() }, 'Sign out') : null),
+      m.sharedMissing && signed ? el('p', { class: 'tip', text: 'Comments and submissions for this book need the newest invite link from the book owner (it includes the “book-shared” file).' }) : null),
+    WEB && owner ? el('div', { class: 'panel' },
+      el('h2', { text: '👪 Share “' + b.name + '”' }),
+      el('p', { text: b.kind === 'family' ? 'Mom: “Editor” (can edit the family book, sees grocery buttons). Kids: “Viewer” (can read, comment, and send recipes to the inbox for you to approve).' : 'Share your book view-only (they can read and comment) or as an editor.' }),
+      el('div', { class: 'row' },
+        el('button', { class: 'btn green', type: 'button', onclick: () => openShare('editor') }, '✏️ Share as editor'),
+        el('button', { class: 'btn', type: 'button', onclick: () => openShare('viewer') }, '👀 Share as viewer (kids)'))) : null,
+    members.length ? el('div', { class: 'panel' },
+      el('h2', { text: '🏡 People in this book' }),
+      el('ul', { style: 'list-style:none;display:grid;gap:8px' }, members.map(([em, v]) => el('li', { class: 'row', style: 'justify-content:space-between' },
+        el('span', { text: em + (em === Sync.me() ? ' (you)' : ''), style: 'word-break:break-all' }),
+        el('span', { class: 'tag', text: (b.kind === 'family' ? FAMILY_EDITORS.includes(em) : v.role[0] === 'parent') ? 'Editor' : 'Viewer' })))),
+      el('p', { style: 'margin-top:8px;font-size:.85em', text: b.kind === 'family' ? 'Only Arthur and Mom can edit the family book; the app and Google Drive both enforce it (kids are shared “can view”). To fully stop someone, remove their access to the folder in Google Drive.' : 'To fully stop someone, remove their access to the folder in Google Drive.' })) : null,
+    el('div', { class: 'panel' },
+      el('h2', { text: '🛒 Grocery List' }),
+      el('p', { text: canGrocery() ? 'On a recipe, tick ingredients and tap “Add to grocery list”. They go onto the same list as the Grocery List app (on this device right away, and in Google Drive when you are signed in).' : 'Grocery buttons are only for the family grocery shoppers (Dad & Mom).' }),
+      canGrocery() ? el('a', { class: 'btn light', href: WEB ? '../grocery/' : 'https://arthur1134.github.io/grocery/', style: 'text-decoration:none' }, '🛒 Open Grocery List') : null),
+    el('div', { class: 'panel' },
+      el('h2', { text: '💾 Backup' }),
+      el('p', { text: 'Save every recipe in “' + b.name + '” (with photos) as one file. Importing combines it with the open book — nothing is lost.' }),
+      el('div', { class: 'row' },
+        el('button', { class: 'btn light', type: 'button', id: 'exportBtn', onclick: () => exportBackup(true) }, '⬇️ Export (with photos)'),
+        el('button', { class: 'btn light', type: 'button', onclick: () => exportBackup(false) }, '⬇️ Export (text only)'),
+        ed ? el('button', { class: 'btn light', type: 'button', onclick: () => { const i = $('fileImport'); i.value = ''; i.click(); } }, '⬆️ Import backup') : null)),
+    el('div', { class: 'panel' },
+      el('h2', { text: '📱 Put it on your home screen' }),
+      el('p', { text: 'iPhone: open ' + SYNC.onlineUrl + ' in Safari → Share button → “Add to Home Screen”. Android: open it in Chrome → ⋮ menu → “Add to Home screen” / “Install app”. It then opens like an app and works offline.' })),
+    el('p', { class: 'small-print', text: 'Family Recipe Book v' + APP_VERSION + ' · Retro Gaming Dad · ' + allRecipes().length + ' recipes in this book' }));
+}
+async function openShare(role) {
+  $('shareEmail').value = ''; $('shareError').textContent = ''; $('sharePeople').replaceChildren();
+  $('shareForm').dataset.role = role;
+  $('shTitle').textContent = role === 'editor' ? '✏️ Share as editor' : '👀 Share as viewer';
+  $('shIntro').textContent = role === 'editor' ? 'They get “can edit” on the book folder in Google Drive. Google does not e-mail them — send them the link yourself.'
+    : 'They get “can view” on the book (they cannot change it) and can write only comments and submitted recipes. If they already had edit access, it is lowered to view. Google does not e-mail them.';
+  $('shareGo').textContent = role === 'editor' ? 'Share (can edit)' : 'Share (view + comment)';
+  $('shareDialog').showModal();
+  try { const ppl = await Sync.people(); $('sharePeople').replaceChildren(...ppl.filter(p => p.emailAddress).map(p => el('li', { text: p.emailAddress + ' (' + (p.role === 'owner' ? 'owner' : p.role === 'writer' ? 'can edit' : 'can view') + ')' }))); }
+  catch (e) { $('shareError').textContent = 'Could not load who has access: ' + e.message; }
+}
+async function doShare(e) {
+  e.preventDefault();
+  const email = $('shareEmail').value.trim().toLowerCase(), role = $('shareForm').dataset.role || 'viewer';
+  if (!EMAIL_RE.test(email)) { $('shareError').textContent = 'Please enter their full Google e-mail address.'; return; }
+  $('shareGo').disabled = true; $('shareError').textContent = 'Sharing…';
+  try {
+    const link = await Sync.share(email, role);
+    $('shareDialog').close();
+    const msg = 'Shared with ' + email + ' (' + (role === 'editor' ? 'can edit' : 'view + comment + submit') + ').\n\nGoogle does not e-mail them. Send them this link:\n' + link +
+      '\n\nThey open it, tap “Sign in with Google”, then select all the files shown and press Select. Done once per phone.' +
+      '\n\nWhile the Google project is in Testing mode, ' + email + ' must also be added as a test user in Google Cloud.';
+    window.__lastJoinLink = link;
+    try { await navigator.clipboard.writeText(link); } catch (err) { /* not allowed */ }
+    alert(msg + '\n\n(The link was copied.)');
+  } catch (err) { $('shareError').textContent = 'Could not share: ' + err.message + (err.forbidden ? ' (only the owner can share)' : ''); }
+  finally { $('shareGo').disabled = false; }
+}
+async function exportBackup(withPhotos) {
+  const btn = $('exportBtn'); if (btn) btn.disabled = true;
+  try {
+    const photos = {};
+    if (withPhotos) {
+      const refs = referencedPhotos(doc);
+      for (const r of await DB.all()) if (refs.has(r.id)) photos[r.id] = await blobToDataUrl(r.blob);
+    }
+    const data = { app: APP_ID, format: 'recipe-backup', version: APP_VERSION, exported: new Date().toISOString(), doc, photos };
+    const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+    const d = new Date(), z = (n) => String(n).padStart(2, '0');
+    const a = el('a', { href: URL.createObjectURL(blob), download: 'recipe-book-backup-' + d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + '.json' });
+    document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    toast('Backup saved (' + Math.round(blob.size / 1024) + ' KB)');
+  } finally { if (btn) btn.disabled = false; }
+}
+async function importBackup(file) {
+  try {
+    const data = JSON.parse(await file.text());
+    if (!data || data.app !== APP_ID || !data.doc) throw new Error('That is not a Family Recipe Book backup');
+    const inc = normalizeDoc(data.doc);
+    const n = Object.keys(inc.recipes).length;
+    if (!confirm('Import ' + n + ' recipes from this backup?\n\nThey are combined with what is here — nothing is lost.')) return;
+    let np = 0;
+    for (const [id, u] of Object.entries(data.photos || {})) if (PID.test(id) && typeof u === 'string' && u.startsWith('data:image/') && !(await DB.get(id))) { await DB.put({ id, blob: await dataUrlToBlob(u), up: false, t: Date.now() }); np++; }
+    if (!canEdit()) throw new Error('This book is view-only for you — switch to your own book first');
+    doc = mergeDocs(doc, inc); observeT(doc); commit('✓ Imported ' + n + ' recipes' + (np ? ' + ' + np + ' photos' : '')); render();
+  } catch (e) { alert('Could not import: ' + e.message); }
+}
+
+// Remove photos nobody uses (e.g. added while editing, then cancelled) after a day
+async function tidyPhotos() {
+  try { const refs = referencedPhotos(doc); for (const b of books) if (b.id !== activeBid) referencedPhotos(loadDoc(b.id)).forEach(p => refs.add(p)); for (const r of await DB.all()) if (!refs.has(r.id) && Date.now() - (r.t || 0) > 864e5) await DB.del(r.id); } catch (e) { /* ignore */ }
+}
+
+// ---------- start ----------
+doc = loadDoc(); observeT(doc);
+$('versionLabel').textContent = 'v' + APP_VERSION;
+document.querySelectorAll('nav.bottom [data-nav]').forEach(b => b.addEventListener('click', () => {
+  const n = b.dataset.nav;
+  if (n === 'new') { draft = null; go('#/new'); } else go(n === 'home' ? '#/' : '#/' + n);
+}));
+$('glForm').addEventListener('submit', doGrocery);
+$('glCancel').addEventListener('click', () => $('groceryDialog').close());
+$('shareForm').addEventListener('submit', doShare);
+$('shareCancel').addEventListener('click', () => $('shareDialog').close());
+$('bookPill').addEventListener('click', openBooks);
+$('bkClose').addEventListener('click', () => $('booksDialog').close());
+$('bkCreate').addEventListener('click', createBook);
+$('sendForm').addEventListener('submit', doSend);
+$('sdCancel').addEventListener('click', () => $('sendDialog').close());
+$('viewerClose').addEventListener('click', () => $('viewerDialog').close());
+$('viewerDialog').addEventListener('click', (e) => { if (e.target === $('viewerDialog')) $('viewerDialog').close(); });
+$('fileImport').addEventListener('change', (e) => { const f = e.target.files[0]; if (f) importBackup(f); });
+// Invite link: #join=<fileIds>  -> sign in, then Google Picker shows exactly those files
+let joinIds = null, joinBook = '';
+if (location.hash.startsWith('#join=')) {
+  const [ids, ...rest] = location.hash.slice(6).split('&');
+  joinIds = decodeURIComponent(ids).split(',').filter(x => /^[\w-]{10,}$/.test(x));
+  rest.forEach(kv => { const [k, v] = kv.split('='); if (k === 'book') joinBook = decodeURIComponent(v || ''); });
+  history.replaceState(null, '', location.pathname + location.search);
+}
+function joinPanel() {
+  if (!joinIds || !joinIds.length || !WEB) return null;
+  const jb = bookById(joinBook || FAMILY_ID), jm = jb && Sync.metaFor(jb.id);
+  if (jm && jm.pinned && joinIds.includes(jm.pinned.book) && (jm.pinned.shared || !joinIds.some(x => !Object.values(jm.pinned.shards || {}).includes(x) && x !== jm.pinned.book))) return null;
+  return el('div', { class: 'panel', style: 'border:2px solid var(--sage)' }, el('h2', { text: '👋 You were invited to the Family Recipe Book' }),
+    el('p', { text: 'Tap below, sign in with the Google account the invite was sent to, then select ALL the files shown and press “Select”.' }),
+    el('button', { class: 'btn green block', type: 'button', onclick: () => Sync.openShared(joinIds, joinBook) }, '📂 Open the family recipe book'));
+}
+route = parseRoute();
+render();
+if (migration && migration.n) toast('📚 v2: your ' + migration.n + ' recipes are now in “' + (migration.to === 'family' ? FAMILY_NAME : 'My Recipes') + '”');
+Sync.start();
+if (!storage.ok) toast('⚠ This browser is blocking storage — changes will not be saved');
+setTimeout(tidyPhotos, 5000);
+if (WEB && 'serviceWorker' in navigator) {
+  const m = document.createElement('link'); m.rel = 'manifest'; m.href = 'manifest.json'; document.head.append(m);
+  window.addEventListener('load', () => navigator.serviceWorker.register('service-worker.js').catch(() => { /* fine without */ }));
+}
+window.__recipes = { get doc() { return doc; }, get books() { return books; }, get activeBid() { return activeBid; }, parseRecipe, Grocery, Sync, OCR, DB, allRecipes, switchBook, recipeFromLd, recipeFromText, loadShared, mergeShared, normalizeShared, mergeDocs, normalizeDoc, canonical };
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jewel Drop Deluxe</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #1a0a2e 0%, #16213e 50%, #0f3460 100%);
+    color: #fff;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+  }
+  h1 {
+    font-size: 2.5em;
+    margin-bottom: 10px;
+    text-shadow: 0 0 10px #ffd700, 0 0 20px #ff6b6b;
+    letter-spacing: 2px;
+  }
+  .info-bar {
+    display: flex;
+    gap: 30px;
+    margin: 15px 0;
+    font-size: 1.2em;
+    background: rgba(0,0,0,0.4);
+    padding: 10px 25px;
+    border-radius: 15px;
+    border: 2px solid #ffd700;
+  }
+  .board-container {
+    background: rgba(0,0,0,0.6);
+    padding: 15px;
+    border-radius: 20px;
+    border: 3px solid #ffd700;
+    box-shadow: 0 0 30px rgba(255,215,0,0.5);
+  }
+  #board {
+    display: grid;
+    grid-template-columns: repeat(8, 60px);
+    grid-template-rows: repeat(8, 60px);
+    gap: 4px;
+    background: #111;
+    padding: 8px;
+    border-radius: 12px;
+  }
+  .jewel {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: transform 0.15s, opacity 0.3s, box-shadow 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: bold;
+    box-shadow: inset 0 0 10px rgba(255,255,255,0.5), 0 4px 8px rgba(0,0,0,0.5);
+    position: relative;
+    user-select: none;
+  }
+  .jewel:hover { transform: scale(1.05); }
+  .jewel.selected { outline: 3px solid #fff; transform: scale(1.1); }
+  .jewel.matching { animation: pulse 0.4s; }
+  .jewel.clearing { opacity: 0; transform: scale(0.5); }
+  .jewel.dropping { transition: transform 0.4s ease-in; }
+  .special { box-shadow: 0 0 15px #fff, inset 0 0 10px #fff; }
+  .line-h::after { content: '↔'; position: absolute; font-size: 18px; }
+  .line-v::after { content: '↕'; position: absolute; font-size: 18px; }
+  .bomb::after { content: '💥'; position: absolute; font-size: 20px; }
+  .color::after { content: '🌈'; position: absolute; font-size: 20px; }
+  @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.2); } }
+  .controls {
+    margin-top: 20px;
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  button {
+    padding: 12px 24px;
+    font-size: 1em;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(45deg, #ff6b6b, #ffd700);
+    color: #111;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.2s;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  }
+  button:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(255,215,0,0.6); }
+  button:active { transform: translateY(1px); }
+  .mode-select { margin: 10px 0; }
+  select, .mode-select button { margin: 0 5px; }
+  #message {
+    margin-top: 15px;
+    min-height: 30px;
+    font-size: 1.3em;
+    color: #ffd700;
+    text-align: center;
+    text-shadow: 0 0 5px #000;
+  }
+  .colors {
+    --c0: #e74c3c; /* red */
+    --c1: #2ecc71; /* green */
+    --c2: #3498db; /* blue */
+    --c3: #9b59b6; /* purple */
+    --c4: #f1c40f; /* yellow */
+    --c5: #e67e22; /* orange */
+  }
+  .c0 { background: radial-gradient(circle at 30% 30%, #ff8a80, #e74c3c); }
+  .c1 { background: radial-gradient(circle at 30% 30%, #69f0ae, #2ecc71); }
+  .c2 { background: radial-gradient(circle at 30% 30%, #82b1ff, #3498db); }
+  .c3 { background: radial-gradient(circle at 30% 30%, #ea80fc, #9b59b6); }
+  .c4 { background: radial-gradient(circle at 30% 30%, #fff176, #f1c40f); }
+  .c5 { background: radial-gradient(circle at 30% 30%, #ffcc80, #e67e22); }
+
+  /* Mobile: scale board to fit phone screens */
+  @media (max-width: 620px) {
+    h1 { font-size: 1.7em; }
+    .info-bar { gap: 12px; padding: 8px 12px; font-size: 1em; flex-wrap: wrap; justify-content: center; }
+    .board-container { padding: 6px; }
+    #board { grid-template-columns: repeat(8, calc((100vw - 60px) / 8)); grid-template-rows: repeat(8, calc((100vw - 60px) / 8)); gap: 2px; padding: 4px; }
+    .jewel { width: calc((100vw - 60px) / 8); height: calc((100vw - 60px) / 8); font-size: 20px; border-radius: 8px; }
+  }
+  #board { touch-action: none; }
+</style>
+</head>
+<body>
+  <h1>💎 Jewel Drop Deluxe 💎</h1>
+  <div class="info-bar">
+    <div>Score: <span id="score">0</span></div>
+    <div>High: <span id="high">0</span></div>
+    <div>Combo: <span id="combo">x1</span></div>
+    <div id="timer" style="display:none;">Time: <span id="time">60</span>s</div>
+  </div>
+  <div class="mode-select">
+    <button onclick="startGame('classic')">Classic Mode</button>
+    <button onclick="startGame('timed')">Timed Blitz (60s)</button>
+  </div>
+  <div class="board-container">
+    <div id="board"></div>
+  </div>
+  <div class="controls">
+    <button onclick="useHint()">Hint</button>
+    <button onclick="useShuffle()">Shuffle ( -200 )</button>
+    <button onclick="startGame(currentMode)">Restart</button>
+  </div>
+  <div id="message">Match 3 or more jewels! Cascades give combo bonuses.</div>
+
+<script>
+const ROWS = 8, COLS = 8;
+const COLORS = 6;
+let board = [];
+let selected = null;
+let score = 0;
+let highScore = parseInt(localStorage.getItem('jewelHigh') || '0');
+let combo = 1;
+let isProcessing = false;
+let currentMode = 'classic';
+let timerInterval = null;
+let timeLeft = 60;
+
+const boardEl = document.getElementById('board');
+const scoreEl = document.getElementById('score');
+const highEl = document.getElementById('high');
+const comboEl = document.getElementById('combo');
+const msgEl = document.getElementById('message');
+const timerEl = document.getElementById('timer');
+const timeEl = document.getElementById('time');
+
+highEl.textContent = highScore;
+
+function initBoard() {
+  board = [];
+  for (let r = 0; r < ROWS; r++) {
+    board[r] = [];
+    for (let c = 0; c < COLS; c++) {
+      board[r][c] = randomColor();
+    }
+  }
+  // Ensure no initial matches
+  while (findMatches().length > 0) {
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        board[r][c] = randomColor();
+      }
+    }
+  }
+}
+
+function randomColor() {
+  return Math.floor(Math.random() * COLORS);
+}
+
+function render() {
+  boardEl.innerHTML = '';
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const cell = document.createElement('div');
+      cell.className = `jewel c${board[r][c]}`;
+      cell.dataset.r = r;
+      cell.dataset.c = c;
+      cell.onclick = () => handleClick(r, c);
+      boardEl.appendChild(cell);
+    }
+  }
+}
+
+function handleClick(r, c) {
+  if (isProcessing) return;
+  if (!selected) {
+    selected = {r, c};
+    highlightSelected();
+    return;
+  }
+  const dr = Math.abs(selected.r - r);
+  const dc = Math.abs(selected.c - c);
+  if ((dr === 1 && dc === 0) || (dr === 0 && dc === 1)) {
+    // Adjacent, try swap
+    swap(selected.r, selected.c, r, c);
+    if (hasMatch()) {
+      selected = null;
+      processMatches();
+    } else {
+      // Swap back
+      swap(selected.r, selected.c, r, c);
+      msgEl.textContent = "Invalid move! Must create a match.";
+      selected = null;
+      render();
+    }
+  } else {
+    selected = {r, c};
+    highlightSelected();
+  }
+}
+
+function highlightSelected() {
+  render();
+  if (selected) {
+    const idx = selected.r * COLS + selected.c;
+    boardEl.children[idx].classList.add('selected');
+  }
+}
+
+function swap(r1, c1, r2, c2) {
+  const temp = board[r1][c1];
+  board[r1][c1] = board[r2][c2];
+  board[r2][c2] = temp;
+}
+
+function hasMatch() {
+  return findMatches().length > 0;
+}
+
+function findMatches() {
+  const matches = new Set();
+  // Horizontal
+  for (let r = 0; r < ROWS; r++) {
+    let count = 1;
+    for (let c = 1; c < COLS; c++) {
+      if (board[r][c] === board[r][c-1] && board[r][c] !== null) {
+        count++;
+      } else {
+        if (count >= 3) {
+          for (let i = 0; i < count; i++) matches.add(`${r},${c-1-i}`);
+        }
+        count = 1;
+      }
+    }
+    if (count >= 3) {
+      for (let i = 0; i < count; i++) matches.add(`${r},${COLS-1-i}`);
+    }
+  }
+  // Vertical
+  for (let c = 0; c < COLS; c++) {
+    let count = 1;
+    for (let r = 1; r < ROWS; r++) {
+      if (board[r][c] === board[r-1][c] && board[r][c] !== null) {
+        count++;
+      } else {
+        if (count >= 3) {
+          for (let i = 0; i < count; i++) matches.add(`${r-1-i},${c}`);
+        }
+        count = 1;
+      }
+    }
+    if (count >= 3) {
+      for (let i = 0; i < count; i++) matches.add(`${ROWS-1-i},${c}`);
+    }
+  }
+  return Array.from(matches).map(s => {
+    const [r, c] = s.split(',').map(Number);
+    return {r, c};
+  });
+}
+
+async function processMatches() {
+  isProcessing = true;
+  combo = 1;
+  let totalCleared = 0;
+  while (true) {
+    const matches = findMatches();
+    if (matches.length === 0) break;
+    totalCleared += matches.length;
+    // Score
+    const points = matches.length * 10 * combo;
+    score += points;
+    updateScore();
+    msgEl.textContent = `Cascade! +${points} (x${combo})`;
+    // Animate clear
+    matches.forEach(m => {
+      const idx = m.r * COLS + m.c;
+      boardEl.children[idx].classList.add('clearing');
+    });
+    await sleep(300);
+    // Remove and drop
+    for (const m of matches) {
+      board[m.r][m.c] = null;
+    }
+    dropJewels();
+    fillEmpty();
+    render();
+    combo++;
+    comboEl.textContent = `x${combo}`;
+    await sleep(400);
+  }
+  combo = 1;
+  comboEl.textContent = 'x1';
+  isProcessing = false;
+  checkGameOver();
+}
+
+function dropJewels() {
+  for (let c = 0; c < COLS; c++) {
+    let write = ROWS - 1;
+    for (let r = ROWS - 1; r >= 0; r--) {
+      if (board[r][c] !== null) {
+        board[write][c] = board[r][c];
+        if (write !== r) board[r][c] = null;
+        write--;
+      }
+    }
+  }
+}
+
+function fillEmpty() {
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (board[r][c] === null) {
+        board[r][c] = randomColor();
+      }
+    }
+  }
+}
+
+function updateScore() {
+  scoreEl.textContent = score;
+  if (score > highScore) {
+    highScore = score;
+    highEl.textContent = highScore;
+    localStorage.setItem('jewelHigh', highScore);
+  }
+}
+
+function checkGameOver() {
+  if (currentMode === 'classic' && !hasAnyMoves()) {
+    msgEl.textContent = `Game Over! No more moves. Final Score: ${score}`;
+    isProcessing = true;
+  }
+}
+
+function hasAnyMoves() {
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      // Try right
+      if (c + 1 < COLS) {
+        swap(r, c, r, c+1);
+        if (hasMatch()) { swap(r, c, r, c+1); return true; }
+        swap(r, c, r, c+1);
+      }
+      // Try down
+      if (r + 1 < ROWS) {
+        swap(r, c, r+1, c);
+        if (hasMatch()) { swap(r, c, r+1, c); return true; }
+        swap(r, c, r+1, c);
+      }
+    }
+  }
+  return false;
+}
+
+function useHint() {
+  if (isProcessing) return;
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (c + 1 < COLS) {
+        swap(r, c, r, c+1);
+        if (hasMatch()) {
+          swap(r, c, r, c+1);
+          msgEl.textContent = `Hint: Try swapping at (${r},${c}) and right!`;
+          // Highlight
+          render();
+          boardEl.children[r*COLS + c].classList.add('matching');
+          boardEl.children[r*COLS + c+1].classList.add('matching');
+          return;
+        }
+        swap(r, c, r, c+1);
+      }
+      if (r + 1 < ROWS) {
+        swap(r, c, r+1, c);
+        if (hasMatch()) {
+          swap(r, c, r+1, c);
+          msgEl.textContent = `Hint: Try swapping at (${r},${c}) and down!`;
+          render();
+          boardEl.children[r*COLS + c].classList.add('matching');
+          boardEl.children[(r+1)*COLS + c].classList.add('matching');
+          return;
+        }
+        swap(r, c, r+1, c);
+      }
+    }
+  }
+  msgEl.textContent = "No moves available!";
+}
+
+function useShuffle() {
+  if (isProcessing || score < 200) {
+    msgEl.textContent = "Need 200 score for shuffle!";
+    return;
+  }
+  score -= 200;
+  updateScore();
+  initBoard();
+  render();
+  msgEl.textContent = "Board shuffled!";
+}
+
+function startGame(mode) {
+  currentMode = mode;
+  score = 0;
+  combo = 1;
+  updateScore();
+  comboEl.textContent = 'x1';
+  isProcessing = false;
+  selected = null;
+  initBoard();
+  render();
+  if (timerInterval) clearInterval(timerInterval);
+  if (mode === 'timed') {
+    timerEl.style.display = 'block';
+    timeLeft = 60;
+    timeEl.textContent = timeLeft;
+    timerInterval = setInterval(() => {
+      timeLeft--;
+      timeEl.textContent = timeLeft;
+      if (timeLeft <= 0) {
+        clearInterval(timerInterval);
+        msgEl.textContent = `Time's up! Final Score: ${score}`;
+        isProcessing = true;
+      }
+    }, 1000);
+    msgEl.textContent = "Timed Blitz! Score as much as you can in 60 seconds.";
+  } else {
+    timerEl.style.display = 'none';
+    msgEl.textContent = "Classic Mode: Play until no more moves.";
+  }
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Specials placeholder - can extend for power-ups from 4+ matches
+// For simplicity in base, matches of 4+ still clear more but no special yet.
+// Extendable.
+
+startGame('classic');
+
+// Touch: swipe a jewel to swap it with its neighbour (tap-to-select still works)
+(function(){
+  let t0=null;
+  boardEl.addEventListener('touchstart', e => {
+    const el = e.target.closest('.jewel'); if (!el) return;
+    const t = e.touches[0]; t0 = {x:t.clientX, y:t.clientY, r:+el.dataset.r, c:+el.dataset.c};
+  }, {passive:true});
+  boardEl.addEventListener('touchend', e => {
+    if (!t0) return; const t = e.changedTouches[0];
+    const dx = t.clientX - t0.x, dy = t.clientY - t0.y, s = t0; t0 = null;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 20) return; // a tap: let click handle it
+    e.preventDefault();
+    let r = s.r, c = s.c;
+    if (Math.abs(dx) > Math.abs(dy)) c += dx > 0 ? 1 : -1; else r += dy > 0 ? 1 : -1;
+    if (r < 0 || c < 0 || r >= ROWS || c >= COLS || isProcessing) return;
+    selected = null; handleClick(s.r, s.c); handleClick(r, c);
+  });
+})();
+</script>
+</body>
+</html>

@@ -85,6 +85,7 @@
     <input id="manualCode" inputmode="numeric" pattern="[0-9 ]*" maxlength="16" placeholder="Type the barcode numbers" aria-label="Barcode number">
     <button class="primary" type="submit">Look up</button>
   </form>
+  <button id="scPhoto" class="secondary wide photo-btn" type="button">&#x1F4F7;&#xFE0E; No barcode? Photo / Read label</button>
   <div class="recent" id="recentScans"></div>
 </div>
 
@@ -92,6 +93,29 @@
   <div class="sheetbar"><button id="srBack" class="iconbtn" type="button" aria-label="Back">&#x2190;</button><span class="sheettitle">Barcode</span>
     <button id="srAgain" class="secondary slim" type="button">Rescan</button></div>
   <div class="sheetbody" id="srBody"></div>
+</div>
+
+<div id="photoId" class="sheet" hidden role="dialog" aria-modal="true" aria-label="Identify from photo">
+  <div class="sheetbar"><button id="phBack" class="iconbtn" type="button" aria-label="Back">&#x2190;</button><span class="sheettitle">Photo / Read label</span></div>
+  <div class="sheetbody">
+    <div id="phPick" class="phpick">
+      <div class="phicon">&#x1F4F7;&#xFE0E;</div>
+      <p>For loose cartridges, discs and figures: take a photo of the label and the phone reads the title.</p>
+      <button id="phTake" class="primary big wide" type="button">Take a photo</button>
+      <button id="phChoose" class="secondary wide" type="button">Choose from gallery</button>
+      <p class="small dim">Text is read on this phone (free, no account). The photo is not uploaded.</p>
+    </div>
+    <input id="phCam" type="file" accept="image/*" capture="environment" hidden>
+    <input id="phFile" type="file" accept="image/*" hidden>
+    <div id="phStage" hidden>
+      <img id="phImg" class="phimg" alt="Your photo">
+      <div id="phProg" class="phprog" hidden><i id="phBar"></i></div>
+      <p id="phStatus" class="small dim"></p>
+      <div class="form"><label>Recognized text (edit it)<textarea id="phText" rows="2" maxlength="160" autocapitalize="words"></textarea></label></div>
+      <div class="actions"><button id="phSearch" class="primary" type="button">&#x1F50D;&#xFE0E; Search</button><button class="secondary" type="button" onclick="document.getElementById('phCam').click()">Retake</button></div>
+      <div id="phResults"></div>
+    </div>
+  </div>
 </div>
 
 <div id="editor" class="sheet" hidden role="dialog" aria-modal="true">

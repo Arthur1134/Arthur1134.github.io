@@ -3,12 +3,14 @@
    read with the Drive REST API as the signed-in user (scope drive.file), cached in IndexedDB for offline.
    v1.1: barcode scanning + adding / editing on the phone. Changes are queued on the phone and uploaded as
    NEW files MyLibrary/phone-changes-<stamp>.json (never editing the export); the launcher applies them and
-   lists their ids in the next export (applied_changes), which clears them from the phone's queue. */
+   lists their ids in the next export (applied_changes), which clears them from the phone's queue.
+   v1.3: "Photo / Read label" (on-device OCR with Tesseract.js, lazy-loaded) + "Did you mean?" close matches. */
 (() => {
 "use strict";
 const CFG = Object.assign({exportName: "collection-export.json", thumbsName: "collection-thumbs.json",
   folderName: "MyLibrary", clientId: "", loginHint: ""}, window.LIBRARY_CONFIG || {});
-const APP_VERSION = "1.2.0";
+const APP_VERSION = "1.3.0";
+const TESS_SRC = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";   // free OCR, loaded only when used
 const SCOPE_FILE = "https://www.googleapis.com/auth/drive.file";
 const SCOPE_RO = "https://www.googleapis.com/auth/drive.readonly";
 const LOCAL = ["localhost", "127.0.0.1"].includes(location.hostname);
@@ -406,6 +408,7 @@ function render() {
       empty.innerHTML = `<div style="font-size:40px">\ud83d\udd0d\ufe0e</div><big>No \u201c${esc(ui.q)}\u201d here</big>` +
         (elsewhere ? `<p>${elsewhere} match${elsewhere > 1 ? "es" : ""} in other lists.</p><button class="secondary" id="showAll" type="button">Search everything</button>`
                    : `<span class="nope">NOT IN YOUR LIBRARY</span><p><button class="secondary" id="addThis" type="button">+ Add \u201c${esc(ui.q)}\u201d</button></p>`);
+      if (!elsewhere) { const d = document.createElement("div"); d.className = "dym-wrap"; empty.appendChild(d); renderDidYouMean(d, ui.q, {}); }
     } else empty.innerHTML = ui.scope === "wishlist" ? "<big>Wishlist is empty</big>Add items with Owned = Wishlist (tap + or scan)."
       : "<big>Nothing here yet</big>";
   } else empty.hidden = true;
@@ -424,7 +427,7 @@ function renderPill() {
 }
 
 /* ------------------------------------------------------------------ sheets / navigation */
-const SHEETS = ["detail", "settings", "scanner", "scanResult", "editor"];
+const SHEETS = ["detail", "settings", "scanner", "scanResult", "editor", "photoId"];
 function closeSheets() { for (const s of SHEETS) $("#" + s).hidden = true; Scanner.stop(); }
 function showSheet(id, state, push) {
   closeSheets(); $("#" + id).hidden = false; $("#" + id).scrollTop = 0;
@@ -564,7 +567,7 @@ function openSettings(push = true) {
     <button class="secondary" id="sOut" type="button">Sign out &amp; delete data on this phone</button></div>
    <div class="setgroup"><h3>About</h3><p class="small dim">My Library phone app v${APP_VERSION} \u00b7 search, scan barcodes, add and update items (deletes only on the PC).
     Your data never goes to this website \u2014 it is read from and written to your own Google Drive and kept on this phone.
-    Barcode scanning uses the phone's built-in detector or ZXing (Apache-2.0, see vendor/ZXING-LICENSE.txt). Product names come from your own lookup server (UPCitemdb), Open Library / Open Products Facts, or your PC as a last resort. Only the barcode number is sent for a lookup.</p></div>`;
+    Barcode scanning uses the phone's built-in detector or ZXing (Apache-2.0, see vendor/ZXING-LICENSE.txt). Product names come from your own lookup server (UPCitemdb), Open Library / Open Products Facts, or your PC as a last resort. Only the barcode number is sent for a lookup. Photo / Read label reads text on the phone with Tesseract.js (Apache-2.0, loaded from jsDelivr the first time); the photo never leaves the phone. \u201cDid you mean?\u201d also asks Open Library for book titles.</p></div>`;
   showSheet("settings", {sheet: "settings"}, push);
   $("#sSync").onclick = () => { history.back(); sync(true); };
   const ro = $("#sRO"); if (ro) ro.onclick = async () => { META.readonly = true; await DB.set("meta", META); token = null; history.back(); sync(true); };
@@ -850,6 +853,7 @@ function renderLookupResult(code, fmt, info) {
     const t = $("#srTitle").value.trim(), m = findMatches(t, platform, 5, category);
     $("#srMatches").innerHTML = m.length ? `<h3 style="margin:8px 0">Is it one of these?</h3>` +
       m.map((it) => itemCard(it, `<button type="button" class="primary" data-link="${esc(it.id)}">Yes \u2713</button>`)).join("") : "";
+    if (!m.length) renderDidYouMean($("#srMatches"), t || name, {code, fmt, platform, category});
     $("#srNot").innerHTML = (t || !info.found) ? `${m.length ? "" : `<div class="banner sold" style="background:#5a2230">\u2715 NOT IN YOUR LIBRARY</div>`}
       <div class="actions"><button type="button" class="primary" id="srAddC">+ Add to Collection</button><button type="button" class="primary wish-btn" id="srAddW">\u2605 Add to Wishlist</button></div>
       <p class="small dim">${m.length ? "None of these? " : ""}Opens the add form ${t ? `prefilled (${esc([category, platform].filter(Boolean).join(", "))})` : "with this barcode"} so you can fix anything first.</p>` : "";
@@ -860,12 +864,134 @@ function renderLookupResult(code, fmt, info) {
   };
   $("#srTitle").addEventListener("input", upd); upd();
   $("#srMatches").onclick = (e) => {
+    if (pickSuggestion(e, {code, fmt, platform, category})) return;
     const b = e.target.closest("[data-link]"); if (!b) return;
     const it = ITEMS.find((x) => x.id === b.dataset.link); if (!it) return;
     queueChange("link_barcode", it.id, {barcode: code, format: fmt || ""});
     rememberScan(code, "linked", it.title); toast(`Linked \u2014 next time this barcode shows \u201c${it.title}\u201d`);
     handleCode(code, fmt, "replace");
   };
+}
+
+/* ------------------------------------------------------------------ v1.3: "Did you mean?" close matches */
+function listTag(it) {
+  return it.owned === "wishlist" ? ["wish", "WISHLIST"] : it.in_collection ? ["own", "COLLECTION"] : it.done ? ["done", "WATCHED"] : ["", "LIBRARY"];
+}
+function closeMatches(q, opt = {}, limit = 8) {
+  // fuzzy score against Collection + Wishlist + Watched (same scorer as the scan matcher, looser threshold)
+  if (!q || q.trim().length < 2) return [];
+  const out = [];
+  for (const it of ITEMS) {
+    if (!(it.in_collection || it.owned === "wishlist" || it.done)) continue;
+    let s = similarity(q, it.title);
+    if (opt.platform && it.platform) s += it.platform === opt.platform ? 0.06 : -0.06;
+    if (s >= 0.3) out.push([it, s]);
+  }
+  return out.sort((a, b) => b[1] - a[1]).slice(0, limit);
+}
+const ONLINE = new Map();
+async function onlineTitles(q) {
+  // free, keyless title search (CORS *): Open Library. Returns [{title, brand, cover, category}]
+  const k = norm(q); if (!k || k.length < 3 || !navigator.onLine) return [];
+  if (ONLINE.has(k)) return ONLINE.get(k);
+  let res = [];
+  try {
+    const j = await fetchJson(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&fields=title,author_name,cover_i,first_publish_year&limit=6`, 6000);
+    res = ((j && j.docs) || []).filter((d) => d.title).map((d) => ({title: d.title, brand: (d.author_name || []).slice(0, 2).join(", "),
+      year: d.first_publish_year || "", cover: d.cover_i ? `https://covers.openlibrary.org/b/id/${d.cover_i}-S.jpg` : "", category: "Books", source: "Open Library"}));
+    res = res.map((r) => [r, similarity(q, r.title)]).filter((x) => x[1] >= 0.35).sort((a, b) => b[1] - a[1]).map((x) => x[0]);
+  } catch (e) { console.warn("online titles", e && e.name); }
+  ONLINE.set(k, res); return res;
+}
+function renderDidYouMean(el, q, opt) {
+  if (!el) return;
+  const local = closeMatches(q, opt);
+  const card = (it, s) => { const [cls, txt] = listTag(it);
+    return `<div class="match dym" data-pick="${esc(it.id)}">${thumbHTML(it)}<div class="rmain"><div class="rtitle">${esc(it.title)}</div>
+      <div class="rsub">${subline(it)}</div><div class="badges"><span class="b lt ${cls}">${txt}</span><span class="b pct">${Math.round(Math.min(s, 1) * 100)}% match</span></div></div>
+      <button type="button" class="primary">Pick</button></div>`; };
+  const head = `<h3 class="dymh">Did you mean?</h3>${opt.code ? `<p class="small dim">Picking one remembers barcode ${esc(prettyCode(opt.code))} for it.</p>` : ""}`;
+  el.innerHTML = q && q.trim().length >= 2 ? head + (local.length ? `<h4 class="dymsub">In your lists</h4>` + local.map(([it, s]) => card(it, s)).join("") : `<p class="small dim">Nothing close in your Collection, Wishlist or Watched.</p>`) +
+    `<div class="dymonline"><p class="small dim"><i class="spin sm"></i> Checking online titles\u2026</p></div>` : "";
+  if (!q || q.trim().length < 2) return;
+  const want = q;
+  onlineTitles(q).then((res) => {
+    const box = el.querySelector(".dymonline"); if (!box || el.dataset.q !== want) return;
+    const have = new Set(local.map(([it]) => sortTitle(it.title)));
+    res = res.filter((r) => !have.has(sortTitle(r.title))).slice(0, 4);
+    el._online = res;
+    box.innerHTML = res.length ? `<h4 class="dymsub">Online titles</h4>` + res.map((r, i) => `<div class="match dym" data-online="${i}">
+      ${r.cover ? `<img class="thumb" src="${esc(r.cover)}" alt="" loading="lazy">` : `<div class="thumb ph" style="background:#6d4c41">BOOK</div>`}
+      <div class="rmain"><div class="rtitle">${esc(r.title)}</div><div class="rsub">${esc([r.brand, r.year].filter(Boolean).join(" \u00b7 "))}</div>
+      <div class="badges"><span class="b lt">${esc(r.source)}</span></div></div><button type="button" class="secondary">Pick</button></div>`).join("") : "";
+  });
+  el.dataset.q = want;
+}
+function pickSuggestion(e, opt) {
+  const host = e.target.closest("[data-pick],[data-online]"); if (!host) return false;
+  const wrap = host.closest("#srMatches,#phResults,.dym-wrap");
+  const ctx = Object.assign({}, (wrap && wrap._ctx) || {}, opt);
+  if (host.dataset.pick) {
+    const it = ITEMS.find((x) => x.id === host.dataset.pick); if (!it) return true;
+    if (ctx.code && gtinOk(ctx.code)) {            // remember the barcode -> queued link_barcode change (reviewed on the PC)
+      queueChange("link_barcode", it.id, {barcode: ctx.code, format: ctx.fmt || "", via: "did_you_mean"});
+      rememberScan(ctx.code, "linked", it.title); toast(`Picked \u2014 barcode remembered for \u201c${it.title}\u201d`);
+      handleCode(ctx.code, ctx.fmt || "", "replace");
+    } else openDetail(it.id, "replace");
+    return true;
+  }
+  const holder = host.closest("[data-q]"), r = holder && holder._online;
+  const o = r && r[+host.dataset.online]; if (!o) return true;
+  openEditor({title: o.title, category: o.category || ctx.category || "", platform: ctx.platform || "", owned: "yes", in_collection: true,
+    barcode: ctx.code || "", barcode_format: ctx.fmt || "", notes: o.brand ? `By ${o.brand}` : ""}, "replace");
+  return true;
+}
+
+/* ------------------------------------------------------------------ v1.3: Photo / Read label (on-device OCR) */
+let tessP = null;
+function loadTesseract() {
+  if (window.Tesseract) return Promise.resolve(window.Tesseract);
+  return tessP = tessP || new Promise((res, rej) => { const s = document.createElement("script"); s.src = TESS_SRC; s.async = true;
+    s.onload = () => res(window.Tesseract); s.onerror = () => { tessP = null; rej(new Error("Couldn't load the text reader (offline?)")); }; document.head.appendChild(s); });
+}
+function cleanOcr(text) {
+  // keep lines that look like words (labels have lots of noise: logos, ratings, legal text)
+  const lines = String(text || "").split(/\n+/).map((l) => l.replace(/[^\p{L}\p{N}:'&!.\- ]+/gu, " ").replace(/\s+/g, " ").trim())
+    .filter((l) => (l.match(/\p{L}/gu) || []).length >= 3 && !/^(nintendo|sega|sony|licensed|made in|tm|\u00ae|rated|esrb|patent|all rights)/i.test(l));
+  return lines.slice(0, 3).join(" ").slice(0, 120);
+}
+let photoUrl = "";
+function openPhoto(_ctx, push = true) {
+  Scanner.stop();
+  showSheet("photoId", {sheet: "photoId"}, push);
+  if (push) { $("#phStage").hidden = true; $("#phPick").hidden = false; $("#phText").value = ""; $("#phResults").innerHTML = ""; $("#phStatus").textContent = ""; }
+}
+async function readPhoto(file) {
+  if (photoUrl) URL.revokeObjectURL(photoUrl);
+  photoUrl = URL.createObjectURL(file);
+  $("#phImg").src = photoUrl; $("#phStage").hidden = false; $("#phPick").hidden = true; $("#phResults").innerHTML = "";
+  const st = $("#phStatus"), bar = $("#phBar"); $("#phText").value = ""; $("#phText").disabled = true; $("#phSearch").disabled = true;
+  st.textContent = "Loading the text reader\u2026"; bar.style.width = "5%"; $("#phProg").hidden = false;
+  try {
+    const T = await loadTesseract();
+    const r = await T.recognize(file, "eng", {logger: (m) => { if (m.status === "recognizing text") { st.textContent = `Reading the label\u2026 ${Math.round(m.progress * 100)}%`; bar.style.width = `${10 + m.progress * 90}%`; }
+      else if (/load|init/.test(m.status)) st.textContent = "Getting ready (first time downloads ~4 MB)\u2026"; }});
+    const txt = cleanOcr(r.data.text);
+    $("#phText").value = txt;
+    st.textContent = txt ? "Fix the text if needed, then Search." : "Couldn't read any words \u2014 type the title instead.";
+  } catch (e) { st.textContent = (e && e.message) || "Couldn't read the photo \u2014 type the title instead."; }
+  $("#phProg").hidden = true; $("#phText").disabled = false; $("#phSearch").disabled = false; $("#phText").focus();
+  if ($("#phText").value) photoSearch();
+}
+function photoSearch() {
+  const q = $("#phText").value.trim(); if (!q) return toast("Type or read some text first");
+  const box = $("#phResults"); box._ctx = {};
+  const exact = ITEMS.filter((it) => it._st === sortTitle(q));
+  box.innerHTML = (exact.length ? `<h3 class="dymh">In your library</h3>` + exact.map((it) => itemCard(it, `<button type="button" class="primary" data-pick-x="${esc(it.id)}">Open</button>`)).join("") : "") + `<div class="dyminner"></div>
+    <div class="actions"><button type="button" class="secondary" id="phAdd">+ None of these \u2014 add \u201c${esc(q.slice(0, 40))}\u201d</button></div>`;
+  box.querySelector("[data-pick-x]") && box.querySelectorAll("[data-pick-x]").forEach((b) => b.onclick = (e) => { e.stopPropagation(); openDetail(b.dataset.pickX, "replace"); });
+  if (!exact.length) renderDidYouMean(box.querySelector(".dyminner"), q, {});
+  $("#phAdd").onclick = (e) => { e.stopPropagation(); openEditor({title: q, owned: "yes", in_collection: true, category: guessCategory(q), platform: guessPlatform(q)}, "replace"); };
 }
 function loadGis() {
   if (window.google && google.accounts && google.accounts.oauth2) return Promise.resolve();
@@ -1043,6 +1169,15 @@ function bind() {
   for (const id of ["dBack", "sBack", "scBack", "srBack", "edBack"]) $("#" + id).onclick = () => history.back();
   $("#srAgain").onclick = () => { Scanner.unlockAudio(); openScanner({mode: "find"}, "replace"); };
   $("#scTorch").onclick = () => Scanner.torch();
+  $("#scPhoto").onclick = () => { if (!DATA) return toast("Sign in first"); openPhoto({}); };
+  $("#phTake").onclick = () => $("#phCam").click();
+  $("#phChoose").onclick = () => $("#phFile").click();
+  for (const id of ["phCam", "phFile"]) $("#" + id).onchange = (e) => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) readPhoto(f); };
+  $("#phBack").onclick = () => history.back();
+  $("#phSearch").onclick = () => photoSearch();
+  $("#phText").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); photoSearch(); } });
+  $("#phResults").onclick = (e) => pickSuggestion(e, {});
+  $("#empty").addEventListener("click", (e) => pickSuggestion(e, {}));
   $("#manualForm").onsubmit = (e) => { e.preventDefault(); const v = $("#manualCode").value; if (!digits(v)) return;
     if (!gtinOk(normBarcode(v))) { toast(`\u201c${v}\u201d isn't a valid UPC / EAN barcode \u2014 check the numbers`); return; }
     Scanner.stop(); handleCode(v, ""); };
@@ -1065,6 +1200,7 @@ function bind() {
     else if (st.sheet === "scanner") openScanner(st.ctx || {mode: "find"}, false);
     else if (st.sheet === "scanResult") handleCode(st.code, "", false);
     else if (st.sheet === "editor") openEditor(st.pre || {}, false);
+    else if (st.sheet === "photoId") openPhoto({}, false);
   });
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) { Scanner.stop(); scheduleUpload(0); }   // flush pending edits when the app is put away
@@ -1092,7 +1228,7 @@ async function start() {
   if (navigator.onLine && (STUB || savedToken())) sync(false);
   if (sp.get("scan") === "1") openScanner();     // home-screen shortcut
 }
-window.__ml = {ui, render, sync, handleCode, validRead, relayBase, cleanTitle, guessPlatform, guessCategory, findMatches, normBarcode, gtinOk, Scanner, lookupProduct,
+window.__ml = {ui, openPhoto, readPhoto, photoSearch, renderDidYouMean, closeMatches, cleanOcr, render, sync, handleCode, validRead, relayBase, cleanTitle, guessPlatform, guessCategory, findMatches, normBarcode, gtinOk, Scanner, lookupProduct,
   state: () => ({items: ITEMS.length, thumbs: Object.keys(THUMBS).length, exported: DATA && DATA.exported, meta: META,
     queue: QUEUE.map((c) => ({id: c.id, type: c.type, item_id: c.item_id, data: c.data, state: c._state})), scans: SCANS.slice(),
     pending: ITEMS.filter((i) => i._pending).map((i) => i.id), item: (id) => ITEMS.find((i) => i.id === id)})};

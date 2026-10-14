@@ -216,3 +216,14 @@ body{padding-bottom:calc(120px + var(--safe-bot))}
 .looking b{font-size:18px}
 .spin{width:28px;height:28px;border-radius:50%;border:4px solid #ffffff30;border-top-color:var(--accent);animation:spin .8s linear infinite;flex:none}
 @keyframes spin{to{transform:rotate(360deg)}}
+
+/* v1.3 photo / read label + did you mean */
+.photo-btn{margin:10px 12px 0;width:calc(100% - 24px)}
+.phpick{text-align:center;padding:18px 6px}.phpick .phicon{font-size:54px}.phpick button{margin-top:10px}
+.phimg{width:100%;max-height:230px;object-fit:contain;background:#000;border-radius:12px}
+.phprog{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin:8px 0}.phprog i{display:block;height:100%;width:0;background:var(--accent,#1e6fd9);transition:width .2s}
+#phText{width:100%;font-size:17px}
+.dymh{margin:14px 0 4px}.dymsub{margin:10px 0 6px;font-size:13px;opacity:.75;text-transform:uppercase;letter-spacing:.04em}
+.dym .b.lt{background:#37474f}.dym .b.lt.own{background:#2e7d32}.dym .b.lt.wish{background:#8e24aa}.dym .b.lt.done{background:#00838f}.dym .b.pct{background:transparent;border:1px solid var(--line)}
+.dym-wrap{text-align:left;margin-top:14px}
+.spin.sm{display:inline-block;width:12px;height:12px;border-width:2px;vertical-align:-2px}

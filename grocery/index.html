@@ -502,7 +502,7 @@
     <script>
     'use strict';
     (function () {
-        const APP_VERSION = '2.3';
+        const APP_VERSION = '2.3.1';
         const STORE_KEY = 'groceryApp.v2';
         const CALC_KEY = 'groceryApp.calc';
         const LEGACY_BACKUP_KEY = 'groceryApp.legacyBackup';
@@ -1305,7 +1305,9 @@
                 acc = op === '+' ? acc + rv : op === '−' ? acc - rv : NaN;
             }
             if (!Number.isFinite(acc)) throw new Error('bad');
-            return Math.round(acc * 1e10) / 1e10;
+            // Money app: round results to 2 decimal places (Number.EPSILON avoids 1.005 -> 1.00).
+            const r2 = Math.round((acc + Math.sign(acc) * Number.EPSILON) * 100) / 100;
+            return Object.is(r2, -0) ? 0 : r2;
         }
         const fmt = (n) => Math.abs(n) >= 1e15 ? n.toExponential(6) : String(n);
         function lastNumber(expr) { const m = /-?[0-9.]*%?$/.exec(expr); return m ? m[0] : ''; }
@@ -1374,7 +1376,10 @@
                 exprEl.textContent = calc.expr;
                 let preview = '';
                 try { const v = evaluate(calc.expr); preview = v === null ? '' : fmt(v); } catch (e) { preview = ''; }
-                resEl.textContent = preview || (calc.expr ? '…' : '0');
+                // While a lone number is being typed, show it exactly as typed so "5." / "0." / "2.50"
+                // stay visible (the evaluated preview would drop the trailing dot or zeros).
+                const lone = /^[−-]?[0-9]*\.?[0-9]*$/.test(calc.expr) && /[0-9.]/.test(calc.expr);
+                resEl.textContent = lone ? calc.expr.replace(/^-/, '−') : (preview || (calc.expr ? '…' : '0'));
             }
             $('calcHistory').replaceChildren(...calc.history.slice(0, 4).map((h, i) =>
                 el('button', { type: 'button', class: 'calc-chip', 'data-hist': i, title: h.expr + ' = ' + h.result, 'aria-label': 'Use earlier result ' + h.result, text: h.result })));
@@ -1440,7 +1445,7 @@
             appId: '172687019522',     // Google Cloud project number (first part of the client ID), used by Google Picker
             // Browser API key for Google Picker - only needed to open a list someone else shared with you.
             // Leave '' until the one-time setup is done; the "Open a list shared with me" button then explains it.
-            pickerApiKey: 'AIzaSyCd2NHzbJA4FFVwkhW4osKotCQY-1j16UE',
+            pickerApiKey: '[REDACTED]',
             scope: 'https://www.googleapis.com/auth/drive.file',
             folderName: 'GroceryList',
             fileName: 'grocery-list.json',

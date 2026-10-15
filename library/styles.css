@@ -57,6 +57,7 @@ code{background:#0003;padding:1px 5px;border-radius:4px}
 .chips{display:flex;gap:6px;overflow-x:auto;padding:8px 0 2px;scrollbar-width:none}
 .chips::-webkit-scrollbar{display:none}
 .chips:empty{display:none}
+#catChips{flex-wrap:wrap;overflow-x:visible}   /* v1.3.1: every category chip visible (Cartoons was off-screen) */
 .chip{flex:none;height:36px;padding:0 12px;border-radius:18px;border:1px solid var(--line);background:var(--card);
   font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap}
 .chip i{width:10px;height:10px;border-radius:50%;display:inline-block}

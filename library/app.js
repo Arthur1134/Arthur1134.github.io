@@ -9,7 +9,7 @@
 "use strict";
 const CFG = Object.assign({exportName: "collection-export.json", thumbsName: "collection-thumbs.json",
   folderName: "MyLibrary", clientId: "", loginHint: ""}, window.LIBRARY_CONFIG || {});
-const APP_VERSION = "1.3.0";
+const APP_VERSION = "1.3.1";
 const TESS_SRC = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";   // free OCR, loaded only when used
 const SCOPE_FILE = "https://www.googleapis.com/auth/drive.file";
 const SCOPE_RO = "https://www.googleapis.com/auth/drive.readonly";
@@ -1151,8 +1151,8 @@ function bind() {
   $("#clearQ").onclick = () => { $("#q").value = ""; ui.q = ""; $("#clearQ").hidden = true; render(); $("#q").focus(); };
   $("#tabs").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; ui.scope = b.dataset.scope; ui.limit = PAGE;
     localStorage.setItem("ml_scope", ui.scope); render(); window.scrollTo({top: 0}); };
-  $("#catChips").onclick = (e) => { const b = e.target.closest(".chip"); if (!b) return; ui.cat = b.dataset.cat; ui.plat = ""; ui.limit = PAGE; render(); };
-  $("#platChips").onclick = (e) => { const b = e.target.closest(".chip"); if (!b) return; ui.plat = b.dataset.plat; ui.limit = PAGE; render(); };
+  $("#catChips").onclick = (e) => { const b = e.target.closest(".chip"); if (!b) return; ui.cat = b.dataset.cat; ui.plat = ""; ui.limit = PAGE; render(); window.scrollTo({top: 0}); };   // v1.3.1: short list was left scrolled out of view
+  $("#platChips").onclick = (e) => { const b = e.target.closest(".chip"); if (!b) return; ui.plat = b.dataset.plat; ui.limit = PAGE; render(); window.scrollTo({top: 0}); };
   $("#list").onclick = (e) => { const r = e.target.closest(".row"); if (r) openDetail(r.dataset.id); };
   $("#empty").onclick = (e) => {
     if (e.target.id === "showAll") { ui.scope = "all"; ui.cat = ""; ui.plat = ""; render(); }

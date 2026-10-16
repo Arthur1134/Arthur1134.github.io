@@ -247,8 +247,27 @@
         .calc-result.error { color: var(--danger); font-size: 1.3em; }
         .calc-extras { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
         .calc-use { min-height: 44px; padding: 6px 12px; border-radius: 8px; border: 2px solid var(--sage-dark); background: #EEF4EC; color: var(--ink); font-weight: bold; }
-        .calc-history { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
+        .calc-history { display: flex; gap: 6px; flex-wrap: nowrap; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+        .calc-chip { flex: none; }
         .calc-chip { min-height: 44px; padding: 4px 12px; border-radius: 22px; border: 1px solid var(--tan); background: #FBF6EC; color: var(--ink-soft); font-size: .9em; }
+        #calcSheet { position: relative; }
+        .calc-hist-toggle { min-height: 44px; padding: 6px 12px; border-radius: 8px; border: 2px solid var(--tan); background: #fff; color: var(--ink); font-weight: bold; }
+        .calc-hist-toggle[aria-expanded="true"] { background: #F0E8D8; }
+        .calc-hist-panel { border: 2px solid #D4C4A8; border-radius: 10px; background: #FBF6EC; margin: 0 0 8px; padding: 6px; }
+        .calc-hist-panel[hidden] { display: none; }
+        .calc-hist-list { list-style: none; max-height: 190px; overflow-y: auto; -webkit-overflow-scrolling: touch; margin: 0; padding: 0; }
+        .calc-hist-item { display: block; width: 100%; min-height: 44px; text-align: right; padding: 6px 10px; border: 0; border-bottom: 1px solid #E6DAC4; background: transparent; color: var(--ink); font-size: 1em; }
+        .calc-hist-item .he { color: var(--ink-muted); display: block; font-size: .9em; overflow-wrap: anywhere; }
+        .calc-hist-item .hr { font-weight: bold; font-size: 1.15em; }
+        .calc-hist-empty { color: var(--ink-muted); text-align: center; padding: 10px; }
+        .calc-hist-clear { margin-top: 6px; min-height: 40px; width: 100%; border-radius: 8px; border: 2px solid var(--danger); background: #fff; color: var(--danger); font-weight: bold; }
+        .calc-confirm { position: absolute; inset: 0; background: rgba(60,45,30,.35); display: flex; align-items: center; justify-content: center; z-index: 5; border-radius: inherit; }
+        .calc-confirm[hidden] { display: none; }
+        .calc-confirm-box { background: var(--cream, #FFFBF2); border: 2px solid var(--tan); border-radius: 12px; padding: 16px; width: min(300px, 86%); text-align: center; box-shadow: 0 6px 20px rgba(0,0,0,.25); }
+        .calc-confirm-box p { margin: 0 0 14px; font-size: 1.1em; color: var(--ink); }
+        .calc-confirm-btns { display: flex; gap: 10px; }
+        .calc-confirm-btns button { flex: 1; min-height: 48px; border-radius: 8px; font-weight: bold; font-size: 1.05em; border: 2px solid var(--tan); background: #fff; color: var(--ink); }
+        .calc-confirm-btns .yes { border-color: var(--danger); background: var(--danger); color: #fff; }
         .calc-keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
         .ck {
             min-height: 58px; border-radius: 10px; border: 2px solid #D4C4A8; background: #fff;
@@ -475,6 +494,20 @@
             <div class="calc-extras">
                 <button type="button" class="calc-use" id="calcUseTotal">🛒 Use total <span id="calcTotalVal">$0.00</span></button>
                 <div class="calc-history" id="calcHistory" aria-label="Recent results"></div>
+                <button type="button" class="calc-hist-toggle" id="calcHistToggle" aria-expanded="false" aria-controls="calcHistPanel">🕘 History</button>
+            </div>
+            <div class="calc-hist-panel" id="calcHistPanel" hidden>
+                <ul class="calc-hist-list" id="calcHistList" aria-label="Calculation history, newest first"></ul>
+                <button type="button" class="calc-hist-clear" id="calcHistClear">🗑 Clear history</button>
+            </div>
+            <div class="calc-confirm" id="calcConfirm" role="alertdialog" aria-modal="true" aria-labelledby="calcConfirmMsg" hidden>
+                <div class="calc-confirm-box">
+                    <p id="calcConfirmMsg"></p>
+                    <div class="calc-confirm-btns">
+                        <button type="button" class="no" id="calcConfirmNo">No</button>
+                        <button type="button" class="yes" id="calcConfirmYes">Yes</button>
+                    </div>
+                </div>
             </div>
             <div class="calc-keys" id="calcKeys">
                 <button type="button" class="ck fn" data-key="C" aria-label="Clear">C</button>
@@ -502,7 +535,7 @@
     <script>
     'use strict';
     (function () {
-        const APP_VERSION = '2.3.1';
+        const APP_VERSION = '2.4';
         const STORE_KEY = 'groceryApp.v2';
         const CALC_KEY = 'groceryApp.calc';
         const LEGACY_BACKUP_KEY = 'groceryApp.legacyBackup';
@@ -1237,13 +1270,14 @@
         // ---------- calculator ----------
         const calcDialog = $('calcDialog'), calcSheet = $('calcSheet');
         const OPS = ['+', '−', '×', '÷'];
+        const HIST_MAX = 10;
         let calc = { expr: '', fresh: false, history: [] };
         try {
             const c = JSON.parse(storage.get(CALC_KEY) || 'null');
             if (c && typeof c === 'object') {
                 calc.expr = typeof c.expr === 'string' && /^[0-9.+−×÷%]*$/.test(c.expr) ? c.expr.slice(0, 60) : '';
                 calc.fresh = c.fresh === true;
-                calc.history = Array.isArray(c.history) ? c.history.filter(h => h && typeof h.expr === 'string' && typeof h.result === 'string' && /^-?[0-9.e+]+$/.test(h.result)).slice(0, 5) : [];
+                calc.history = Array.isArray(c.history) ? c.history.filter(h => h && typeof h.expr === 'string' && typeof h.result === 'string' && /^-?[0-9.e+]+$/.test(h.result)).slice(0, HIST_MAX) : [];
             }
         } catch (e) { /* ignore bad saved calculator */ }
 
@@ -1346,7 +1380,7 @@
                     const v = evaluate(e);
                     if (v !== null) {
                         const r = fmt(v);
-                        if (r !== e) { calc.history.unshift({ expr: e, result: r }); calc.history = calc.history.slice(0, 5); }
+                        if (r !== e) { calc.history.unshift({ expr: e, result: r }); calc.history = calc.history.slice(0, HIST_MAX); }
                         e = r; calc.fresh = true;
                     }
                 } catch (err) {
@@ -1383,9 +1417,54 @@
             }
             $('calcHistory').replaceChildren(...calc.history.slice(0, 4).map((h, i) =>
                 el('button', { type: 'button', class: 'calc-chip', 'data-hist': i, title: h.expr + ' = ' + h.result, 'aria-label': 'Use earlier result ' + h.result, text: h.result })));
+            $('calcHistList').replaceChildren(...(calc.history.length ? calc.history.map((h, i) =>
+                el('li', {}, el('button', { type: 'button', class: 'calc-hist-item', 'data-hist': i, 'aria-label': h.expr + ' equals ' + h.result + '. Tap to use ' + h.result },
+                    el('span', { class: 'he', text: h.expr + ' =' }), el('span', { class: 'hr', text: h.result }))))
+                : [el('li', { class: 'calc-hist-empty', text: 'No calculations yet' })]));
+            $('calcHistClear').disabled = !calc.history.length;
             $('calcTotalVal').textContent = money(totals().total);
         }
-        $('calcKeys').addEventListener('click', (e) => { const b = e.target.closest('[data-key]'); if (b) calcPress(b.dataset.key); });
+        // Small in-app Yes/No confirm (inside the calculator sheet, so it works in the modal dialog)
+        let confirmResolve = null;
+        function calcConfirm(msg) {
+            if (confirmResolve) confirmResolve(false);
+            $('calcConfirmMsg').textContent = msg;
+            $('calcConfirm').hidden = false;
+            $('calcConfirmNo').focus({ preventScroll: true });
+            return new Promise((res) => { confirmResolve = res; });
+        }
+        function answerConfirm(yes) {
+            if (!confirmResolve) return;
+            const res = confirmResolve; confirmResolve = null;
+            $('calcConfirm').hidden = true;
+            calcSheet.focus({ preventScroll: true });
+            res(yes);
+        }
+        $('calcConfirmYes').addEventListener('click', () => answerConfirm(true));
+        $('calcConfirmNo').addEventListener('click', () => answerConfirm(false));
+        $('calcConfirm').addEventListener('click', (e) => { if (e.target === $('calcConfirm')) answerConfirm(false); });
+        // C asks first when there is something to clear; every other key acts at once.
+        async function requestPress(key) {
+            if (key === 'C' && calc.expr !== '') {
+                if (!(await calcConfirm('Clear the calculator?'))) return;
+            }
+            calcPress(key);
+        }
+        $('calcHistToggle').addEventListener('click', () => {
+            const p = $('calcHistPanel'); p.hidden = !p.hidden;
+            $('calcHistToggle').setAttribute('aria-expanded', String(!p.hidden));
+        });
+        $('calcHistList').addEventListener('click', (e) => {
+            const b = e.target.closest('[data-hist]'); if (b && calc.history[+b.dataset.hist]) calcInsertValue(calc.history[+b.dataset.hist].result);
+        });
+        $('calcHistClear').addEventListener('click', async () => {
+            if (!calc.history.length) return;
+            if (!(await calcConfirm('Clear all ' + calc.history.length + ' saved calculation' + (calc.history.length > 1 ? 's' : '') + '?'))) return;
+            calc.history = [];
+            if (calc.fresh) calc.fresh = false;
+            saveCalc(); renderCalc();
+        });
+        $('calcKeys').addEventListener('click', (e) => { const b = e.target.closest('[data-key]'); if (b) requestPress(b.dataset.key); });
         $('calcHistory').addEventListener('click', (e) => {
             const b = e.target.closest('[data-hist]'); if (b) calcInsertValue(calc.history[+b.dataset.hist].result);
         });
@@ -1399,19 +1478,23 @@
             calcDialog.showModal();
             calcSheet.focus({ preventScroll: true });
         }
-        function closeCalc() { if (calcDialog.open) calcDialog.close(); }
+        function closeCalc() { answerConfirm(false); if (calcDialog.open) calcDialog.close(); }
         $('calcBtn').addEventListener('click', openCalc);
         $('calcClose').addEventListener('click', closeCalc);
         calcDialog.addEventListener('click', (e) => { if (e.target === calcDialog) closeCalc(); });
         calcDialog.addEventListener('keydown', (e) => {
             if (e.ctrlKey || e.metaKey || e.altKey) return;
+            if (confirmResolve) {   // confirm is showing: Esc = No, Tab/Enter work on its buttons
+                if (e.key === 'Escape') { e.preventDefault(); answerConfirm(false); }
+                return;
+            }
             if (e.key === 'Enter' && e.target.closest && e.target.closest('#calcClose, .calc-chip, .calc-use')) return;
             const map = { '*': '×', 'x': '×', 'X': '×', '/': '÷', '-': '−', '+': '+', 'Enter': '=', '=': '=', ',': '.', '.': '.',
                           '%': '%', 'Backspace': 'Backspace', 'Delete': 'C', 'c': 'C', 'C': 'C' };
             const key = /^[0-9]$/.test(e.key) ? e.key : map[e.key];
             if (!key) return;
             e.preventDefault();
-            calcPress(key);
+            requestPress(key);
             const b = [...$('calcKeys').querySelectorAll('[data-key]')].find(x => x.dataset.key === key);
             if (b) { b.classList.add('pressed'); setTimeout(() => b.classList.remove('pressed'), 120); }
         });

@@ -9,7 +9,7 @@
 "use strict";
 const CFG = Object.assign({exportName: "collection-export.json", thumbsName: "collection-thumbs.json",
   folderName: "MyLibrary", clientId: "", loginHint: ""}, window.LIBRARY_CONFIG || {});
-const APP_VERSION = "1.3.1";
+const APP_VERSION = "1.3.2";
 const TESS_SRC = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";   // free OCR, loaded only when used
 const SCOPE_FILE = "https://www.googleapis.com/auth/drive.file";
 const SCOPE_RO = "https://www.googleapis.com/auth/drive.readonly";
@@ -497,6 +497,8 @@ function fillPlatList(cat) {
   const plats = new Set(CAT_SUGGEST[cat] || []);
   for (const it of ITEMS) if ((it.category || "Video Game") === cat && it.platform) plats.add(it.platform);
   $("#platList").innerHTML = [...plats].map((p) => `<option value="${esc(p)}">`).join("");
+  // v1.3.2: tappable arrow - a native picker over the right edge of the field (Android hides datalist arrows)
+  $("#platPick").innerHTML = `<option value="">Choose…</option>` + [...plats].map((p) => `<option value="${esc(p)}">${esc(p)}</option>`).join("");
 }
 function openEditor(pre = {}, push = true) {
   const f = $("#edForm");
@@ -1190,6 +1192,10 @@ function bind() {
   f.addEventListener("submit", saveEditor);
   f.title.addEventListener("input", () => { clearTimeout(f._t); f._t = setTimeout(edMatches, 120); });
   f.platform.addEventListener("change", edMatches);
+  $("#platPick").addEventListener("change", (e) => {
+    const v = e.target.value; e.target.value = "";
+    if (v) { f.platform.value = v; edMatches(); }
+  });
   f.category.addEventListener("change", () => { fillPlatList(f.category.value); edMatches(); });
   f.owned.addEventListener("change", () => { if (["yes", "rom"].includes(f.owned.value)) f.in_collection.checked = true; });
   window.addEventListener("popstate", (e) => {

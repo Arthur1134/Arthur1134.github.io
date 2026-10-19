@@ -18,10 +18,10 @@ code{background:#0003;padding:1px 5px;border-radius:4px}
   background:repeating-linear-gradient(0deg,#ffffff06 0 1px,transparent 1px 3px),linear-gradient(180deg,#22224a,#1a1a2e);
   border-bottom:2px solid var(--accent)}
 .logo{border-radius:50%;flex:none}
-.brand{font-weight:900;letter-spacing:.07em;font-size:15.5px;flex:1;min-width:0;overflow:hidden;white-space:nowrap;
-  text-shadow:0 0 8px #e9456066}
+.brand{font-weight:900;letter-spacing:.06em;font-size:clamp(13px,3.9vw,17px);line-height:1.05;flex:0 1 auto;min-width:0;
+  overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-shadow:0 0 8px #e9456066}
 .brand span{color:var(--accent)}
-.pill{flex:none;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:3px 10px;height:44px;
+.pill{flex:0 1 auto;min-width:0;margin-left:auto;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:3px 10px;height:44px;
   font-size:11px;color:var(--dim);max-width:48vw;white-space:nowrap;overflow:hidden;display:flex;flex-direction:column;
   justify-content:center;align-items:flex-end;line-height:1.25;cursor:pointer}
 .pill b{color:var(--text);font-size:12px;font-weight:700}
@@ -143,7 +143,7 @@ dl.fields dt:nth-last-of-type(1),dl.fields dd:last-of-type{border-bottom:0}
 .toast{position:fixed;left:50%;bottom:calc(18px + var(--safe-bot));transform:translateX(-50%);z-index:50;
   background:#0f3460;border:1px solid #2f5fa0;color:#fff;padding:12px 16px;border-radius:12px;font-weight:600;
   max-width:92vw;box-shadow:0 8px 24px #000a}
-@media (max-width:380px){.brand{font-size:0}.pill{max-width:46vw}}
+/* v1.3.2: the full title always shows - it shrinks / wraps and the sync pill gives way instead */
 
 /* ---- v1.1: scan + add/edit ---- */
 body{padding-bottom:calc(120px + var(--safe-bot))}
@@ -186,6 +186,15 @@ body{padding-bottom:calc(120px + var(--safe-bot))}
 .form input:not([type=checkbox]),.form select,.form textarea{display:block;width:100%;margin-top:4px;height:48px;border-radius:10px;border:1px solid var(--line);
   background:#0d1530;color:var(--text);font-size:17px;padding:0 10px}
 .form textarea{height:auto;padding:8px 10px}
+/* v1.3.2: visible dropdown arrow (theme accent chevron) on selects + the platform field */
+.form select,.form .combo input{-webkit-appearance:none;appearance:none;color-scheme:dark;padding-right:40px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'%3E%3Cpath d='M1.5 1.5l5.5 5.5 5.5-5.5' fill='none' stroke='%23e94560' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 14px center;background-size:14px 9px;cursor:pointer}
+.form select option{background:#0d1530;color:var(--text)}
+.form .combo{position:relative;display:block}
+.form .combo input::-webkit-calendar-picker-indicator{display:none!important;opacity:0}
+.form .combo .comboPick{position:absolute;right:0;top:4px;width:48px;height:48px;margin:0;padding:0;opacity:0;
+  border:0;background:none;cursor:pointer;font-size:16px;z-index:1}
 .form .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .form .check{display:flex;align-items:center;gap:10px;font-size:17px;color:var(--text);font-weight:600;min-height:44px}
 .form .check input{width:24px;height:24px;accent-color:var(--accent)}
@@ -228,3 +237,16 @@ body{padding-bottom:calc(120px + var(--safe-bot))}
 .dym .b.lt{background:#37474f}.dym .b.lt.own{background:#2e7d32}.dym .b.lt.wish{background:#8e24aa}.dym .b.lt.done{background:#00838f}.dym .b.pct{background:transparent;border:1px solid var(--line)}
 .dym-wrap{text-align:left;margin-top:14px}
 .spin.sm{display:inline-block;width:12px;height:12px;border-width:2px;vertical-align:-2px}
+
+/* v1.3.2: phone header 360-430px - title first, compact pill + buttons */
+@media (max-width:430px){
+  .topbar{gap:6px;padding-left:8px;padding-right:8px}
+  .logo{width:30px;height:30px}
+  .iconbtn{width:40px;height:44px;font-size:20px}
+  .pill{padding:3px 8px;font-size:10.5px}
+  .pill b{font-size:11px}
+  .brand{flex:none;letter-spacing:.05em}
+}
+@media (max-width:400px){
+  .brand{white-space:normal;width:min-content;text-overflow:clip}  /* MY / LIBRARY on two lines */
+}

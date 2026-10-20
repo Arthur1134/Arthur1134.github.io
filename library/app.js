@@ -4,12 +4,14 @@
    v1.1: barcode scanning + adding / editing on the phone. Changes are queued on the phone and uploaded as
    NEW files MyLibrary/phone-changes-<stamp>.json (never editing the export); the launcher applies them and
    lists their ids in the next export (applied_changes), which clears them from the phone's queue.
+   v1.3.3: "Where I own it" - storefront chips, detail list + notes, store filter, stores searchable (read-only;
+   edited in the launcher, which has no phone change type for it yet).
    v1.3: "Photo / Read label" (on-device OCR with Tesseract.js, lazy-loaded) + "Did you mean?" close matches. */
 (() => {
 "use strict";
 const CFG = Object.assign({exportName: "collection-export.json", thumbsName: "collection-thumbs.json",
   folderName: "MyLibrary", clientId: "", loginHint: ""}, window.LIBRARY_CONFIG || {});
-const APP_VERSION = "1.3.2";
+const APP_VERSION = "1.3.3";
 const TESS_SRC = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";   // free OCR, loaded only when used
 const SCOPE_FILE = "https://www.googleapis.com/auth/drive.file";
 const SCOPE_RO = "https://www.googleapis.com/auth/drive.readonly";
@@ -58,7 +60,46 @@ const norm = (s) => String(s == null ? "" : s).normalize("NFD").replace(/[\u0300
 const rid = () => Math.random().toString(36).slice(2, 8);
 const stamp = () => new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14);
 
-const ui = {scope: "all", cat: "", plat: "", q: "", sort: "title", limit: PAGE};
+const ui = {scope: "all", cat: "", plat: "", store: "", q: "", sort: "title", limit: PAGE};
+/* v1.3.3: "Where I own it" - same names / chips as the launcher (v1.9.26) */
+const STORE_SHORT = {"Movies Anywhere": ["MA", "#2b6cb0"], "Apple TV / iTunes": ["APPLE", "#555b66"],
+  "Amazon Prime Video": ["PRIME", "#00a8e1"], "Fandango at Home (Vudu)": ["VUDU", "#3b5bdb"],
+  "Google Play / YouTube": ["GOOGLE", "#d93025"], "Microsoft Store": ["MS STORE", "#107c10"],
+  "Plex": ["PLEX", "#c48a00"], "Disney+": ["DISNEY+", "#113ccf"], "Netflix": ["NETFLIX", "#b20710"],
+  "Max": ["MAX", "#5a2ea6"], "Crunchyroll": ["CRUNCHY", "#f47521"], "Steam": ["STEAM", "#1b2838"]};
+const STORE_ALIAS = {ma: "Movies Anywhere", moviesanywhere: "Movies Anywhere", apple: "Apple TV / iTunes", itunes: "Apple TV / iTunes",
+  appletv: "Apple TV / iTunes", "apple tv": "Apple TV / iTunes", amazon: "Amazon Prime Video", prime: "Amazon Prime Video",
+  "prime video": "Amazon Prime Video", "amazon prime": "Amazon Prime Video", "amazon video": "Amazon Prime Video",
+  vudu: "Fandango at Home (Vudu)", "fandango at home": "Fandango at Home (Vudu)", fandango: "Fandango at Home (Vudu)",
+  "google play": "Google Play / YouTube", youtube: "Google Play / YouTube", google: "Google Play / YouTube",
+  "google tv": "Google Play / YouTube", microsoft: "Microsoft Store", "xbox store": "Microsoft Store", "ms store": "Microsoft Store",
+  "disney plus": "Disney+", disney: "Disney+", "hbo max": "Max", hbo: "Max"};
+const STORE_ANY = "", STORE_SOME = "__some", STORE_NONE = "__none";
+function storeCanon(name) {
+  const n = String(name || "").replace(/\s+/g, " ").trim(); if (!n) return "";
+  const low = n.toLowerCase();
+  for (const d of Object.keys(STORE_SHORT)) if (d.toLowerCase() === low) return d;
+  return STORE_ALIAS[low] || STORE_ALIAS[low.replace(/ /g, "")] || n.slice(0, 40);
+}
+function storesOf(it) {   // older items / exports without the field -> []
+  const v = it.storefronts, parts = typeof v === "string" ? v.split(/[;|\n]/) : Array.isArray(v) ? v : [];
+  const out = [];
+  for (const p of parts) { const c = storeCanon(p); if (c && !out.some((x) => x.toLowerCase() === c.toLowerCase())) out.push(c); }
+  return out;
+}
+function storeNotes(it) {  // string (shown as-is) or {store: note}
+  const v = it.storefront_notes;
+  if (!v) return {text: "", per: {}};
+  if (typeof v === "object" && !Array.isArray(v)) { const per = {}; for (const [k, x] of Object.entries(v)) if (x) per[storeCanon(k)] = String(x); return {text: "", per}; }
+  return {text: String(v).trim(), per: {}};
+}
+function storeChip(name) { return STORE_SHORT[name] || [name.toUpperCase().slice(0, 12), "#4a5568"]; }
+function storeChipsHTML(stores, limit) {
+  const tip = esc("Where I own it: " + stores.join(", "));
+  const b = stores.slice(0, limit).map((n) => { const [t, c] = storeChip(n); return `<span class="b store" style="background:${c}" title="${tip}">${esc(t)}</span>`; });
+  if (stores.length > limit) b.push(`<span class="b store" style="background:#4a5568" title="${tip}">+${stores.length - limit}</span>`);
+  return b.join("");
+}
 let DATA = null;          // export document (from the PC)
 let THUMBS = {};          // id -> data URL
 let META = {};            // misc persisted state
@@ -188,11 +229,13 @@ function rebuild() {
   for (const s of items) for (const w of new Set(sortTitle(s.title).split(" "))) DF.set(w, (DF.get(w) || 0) + 1);
   ITEMS = items.map((s) => {
     s.done = isDone(s);
+    s._stores = storesOf(s); s._snotes = storeNotes(s);
     s._t = norm(s.title); s._st = sortTitle(s.title);
     s._k = norm([s.title, s.platform, s.category, catInfo(s.category)[0], FORMATS[s.format] || s.format,
       s.genre, (s.tags || []).join(" "), s.region, s.release_year, s.owned === "wishlist" ? "wishlist" : "",
-      s.owned === "rom" ? "rom" : "", s.where_bought, (s.barcodes || []).join(" ")].join(" "));
-    s._notes = norm(s.notes);
+      s.owned === "rom" ? "rom" : "", s.where_bought, (s.barcodes || []).join(" "),
+      s._stores.join(" "), s._stores.map((n) => storeChip(n)[0]).join(" "), s._stores.length ? "digital store" : ""].join(" "));
+    s._notes = norm([s.notes, s._snotes.text, Object.values(s._snotes.per).join(" ")].join(" "));
     for (const c of s.barcodes || []) BC.set(c, s);
     return s;
   });
@@ -247,6 +290,9 @@ function currentResults() {
   let r = search(base, ui.q);
   if (ui.cat) r = r.filter(([it]) => (it.category || "Video Game") === ui.cat);
   if (ui.plat) r = r.filter(([it]) => (it.platform || "") === ui.plat);
+  if (ui.store === STORE_SOME) r = r.filter(([it]) => it._stores.length);
+  else if (ui.store === STORE_NONE) r = r.filter(([it]) => !it._stores.length);
+  else if (ui.store) r = r.filter(([it]) => it._stores.includes(ui.store));
   const byTitle = (a, b) => a[0]._st.localeCompare(b[0]._st);
   if (ui.sort === "recent") r.sort((a, b) => String(b[0].updated || b[0].added || "").localeCompare(String(a[0].updated || a[0].added || "")));
   else if (ui.q) r.sort((a, b) => (b[1] - a[1]) || byTitle(a, b));
@@ -356,6 +402,7 @@ function badgesHTML(it) {
   const s = seasonInfo(it);
   if (s) b.push(`<span class="b seas ${s.watched.length >= s.total ? "full" : ""}">S ${s.watched.length}/${s.total}${s.ongoing ? " \u00b7 ONGOING" : ""}</span>`);
   if (it.format && FORMATS[it.format]) b.push(`<span class="b">${FORMATS[it.format].toUpperCase()}</span>`);
+  if (it._stores && it._stores.length) b.push(storeChipsHTML(it._stores, 2));
   return b.join("");
 }
 function subline(it) {
@@ -384,8 +431,21 @@ function renderChips(base) {
   $("#catChips").innerHTML = order.length > 1 || ui.cat ? `<button class="chip" data-cat="" aria-pressed="${!ui.cat}">All types</button>` +
     order.map((k) => `<button class="chip" data-cat="${esc(k)}" aria-pressed="${ui.cat === k}"><i style="background:${catInfo(k)[1]}"></i>${esc(k)} <small>${cats[k]}</small></button>`).join("") : "";
   const pk = Object.keys(plats).sort((a, b) => plats[b] - plats[a] || a.localeCompare(b));
+  renderStoreFilter();
   $("#platChips").innerHTML = pk.length > 1 || ui.plat ? `<button class="chip" data-plat="" aria-pressed="${!ui.plat}">All platforms</button>` +
     pk.map((k) => `<button class="chip" data-plat="${esc(k)}" aria-pressed="${ui.plat === k}">${esc(k)} <small>${plats[k]}</small></button>`).join("") : "";
+}
+function renderStoreFilter() {
+  const cnt = {}; let some = 0;
+  for (const it of ITEMS) { if (it._stores.length) some++; for (const n of it._stores) cnt[n] = (cnt[n] || 0) + 1; }
+  const names = Object.keys(STORE_SHORT).filter((k) => cnt[k]).concat(Object.keys(cnt).filter((k) => !STORE_SHORT[k]).sort((a, b) => a.localeCompare(b)));
+  if (ui.store && ![STORE_SOME, STORE_NONE].includes(ui.store) && !cnt[ui.store]) ui.store = "";
+  const sel = $("#storeSel"), wrap = $("#storeWrap");
+  wrap.hidden = !some && !ui.store;
+  sel.innerHTML = `<option value="">Any store</option><option value="${STORE_SOME}">Any digital store (${some})</option>` +
+    `<option value="${STORE_NONE}">No store listed (${ITEMS.length - some})</option>` +
+    names.map((n) => `<option value="${esc(n)}">${esc(n)} (${cnt[n]})</option>`).join("");
+  sel.value = ui.store; sel.classList.toggle("on", !!ui.store);
 }
 function render() {
   if (!DATA) return;
@@ -461,6 +521,9 @@ function openDetail(id, push = true) {
   if (it.price_paid != null) add("Paid", "$" + Number(it.price_paid).toFixed(2));
   if (it.est_value != null) add("Value", "$" + Number(it.est_value).toFixed(2));
   add("Bought", esc([it.purchase_date, it.where_bought].filter(Boolean).join(" \u00b7 ")));
+  if (it._stores.length || it._snotes.text) add("Where I own it", `<div class="stores">${it._stores.map((n) => { const [t, c] = storeChip(n), note = it._snotes.per[n];
+      return `<div class="storeline"><span class="b store" style="background:${c}">${esc(t)}</span> ${esc(n)}${note ? ` <span class="dim">\u2014 ${esc(note)}</span>` : ""}</div>`; }).join("")}</div>` +
+    (it._snotes.text ? `<div class="small dim storenotes">${esc(it._snotes.text)}</div>` : ""));
   add("Added", esc(String(it.added || "").slice(0, 10)));
   const flags = [it._pending ? `<span class="b pend">\u23f3 PENDING SYNC TO PC</span>` : "",
     it.favorite ? `<span class="b" style="background:#e94560;color:#fff">\u2665 FAVORITE</span>` : "",
@@ -1161,6 +1224,7 @@ function bind() {
     if (e.target.id === "addThis") openEditor({title: ui.q, owned: ui.scope === "wishlist" ? "wishlist" : "yes"});
   };
   $("#more").onclick = () => { ui.limit += PAGE; render(); };
+  $("#storeSel").onchange = (e) => { ui.store = e.target.value; ui.limit = PAGE; render(); window.scrollTo({top: 0}); };
   $("#sortBtn").onclick = () => { ui.sort = ui.sort === "recent" ? "title" : "recent"; render(); };
   $("#syncBtn").onclick = () => sync(true);
   $("#syncPill").onclick = () => sync(true);

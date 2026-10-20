@@ -1,5 +1,5 @@
 /* My Library service worker: app shell offline (data lives in IndexedDB, never in this cache). */
-const CACHE = "mylibrary-shell-v1.3.2";
+const CACHE = "mylibrary-shell-v1.3.3";
 const SHELL = ["./", "index.html", "styles.css", "app.js", "config.js", "manifest.webmanifest",
   "icons/icon-192.png", "icons/icon-512.png", "icons/maskable-512.png", "icons/apple-touch-icon.png", "icons/favicon-32.png",
   "vendor/zxing-library-0.23.0.min.js"];

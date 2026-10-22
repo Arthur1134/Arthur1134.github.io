@@ -252,11 +252,17 @@ function tone(midi, when, dur, type, vol) {
   const o = audio.ctx.createOscillator();
   const g = audio.ctx.createGain();
   o.type = type;
-  o.frequency.value = 440 * Math.pow(2, (midi - 69) / 12);
+  const hz = 440 * Math.pow(2, (midi - 69) / 12);
+  if (!isFinite(hz) || hz < 20 || hz > 20000) return;
+  o.frequency.value = hz;
   g.gain.setValueAtTime(Math.max(0.0001, vol), when);
   g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
   o.connect(g); g.connect(audio.master);
   o.start(when); o.stop(when + dur + 0.02);
+}
+function toneHz(hz, when, dur, type, vol) {
+  if (!(hz > 0)) return;
+  tone(69 + 12 * Math.log2(hz / 440), when, dur, type, vol);
 }
 function noise(when, dur, vol, freq) {
   if (!audio.ctx || !audio.noise || muted) return;
@@ -274,21 +280,21 @@ function sfx(name) {
   ensureAudio();
   if (!audio.ctx || muted) return;
   const t = audio.ctx.currentTime;
-  if (name === "ui") tone(700, t, 0.05, "square", 0.04);
-  else if (name === "no") tone(150, t, 0.08, "square", 0.04);
-  else if (name === "drop") tone(520, t, 0.07, "square", 0.045);
-  else if (name === "score") { tone(784, t, 0.08, "square", 0.05); tone(988, t + 0.07, 0.1, "square", 0.04); }
-  else if (name === "perfect") { tone(880, t, 0.07, "square", 0.05); tone(1175, t + 0.07, 0.08, "square", 0.045); tone(1568, t + 0.14, 0.12, "triangle", 0.04); noise(t, 0.08, 0.03, 1800); }
-  else if (name === "hoho") { tone(392, t, 0.1, "square", 0.05); tone(523, t + 0.1, 0.1, "square", 0.05); tone(659, t + 0.2, 0.16, "square", 0.05); }
-  else if (name === "miss") { tone(220, t, 0.1, "square", 0.05); tone(146, t + 0.1, 0.16, "triangle", 0.05); }
-  else if (name === "hit") { noise(t, 0.18, 0.08, 400); tone(110, t, 0.2, "triangle", 0.07); }
-  else if (name === "bell") { tone(1318, t, 0.07, "square", 0.04); tone(1568, t + 0.06, 0.1, "triangle", 0.04); }
-  else if (name === "buy") { tone(660, t, 0.06, "square", 0.045); tone(880, t + 0.06, 0.1, "square", 0.04); }
-  else if (name === "empty") tone(140, t, 0.07, "square", 0.04);
+  if (name === "ui") toneHz(700, t, 0.05, "square", 0.04);
+  else if (name === "no") toneHz(150, t, 0.08, "square", 0.04);
+  else if (name === "drop") toneHz(520, t, 0.07, "square", 0.045);
+  else if (name === "score") { toneHz(784, t, 0.08, "square", 0.05); toneHz(988, t + 0.07, 0.1, "square", 0.04); }
+  else if (name === "perfect") { toneHz(880, t, 0.07, "square", 0.05); toneHz(1175, t + 0.07, 0.08, "square", 0.045); toneHz(1568, t + 0.14, 0.12, "triangle", 0.04); noise(t, 0.08, 0.03, 1800); }
+  else if (name === "hoho") { toneHz(392, t, 0.1, "square", 0.05); toneHz(523, t + 0.1, 0.1, "square", 0.05); toneHz(659, t + 0.2, 0.16, "square", 0.05); }
+  else if (name === "miss") { toneHz(220, t, 0.1, "square", 0.05); toneHz(146, t + 0.1, 0.16, "triangle", 0.05); }
+  else if (name === "hit") { noise(t, 0.18, 0.08, 400); toneHz(110, t, 0.2, "triangle", 0.07); }
+  else if (name === "bell") { toneHz(1318, t, 0.07, "square", 0.04); toneHz(1568, t + 0.06, 0.1, "triangle", 0.04); }
+  else if (name === "buy") { toneHz(660, t, 0.06, "square", 0.045); toneHz(880, t + 0.06, 0.1, "square", 0.04); }
+  else if (name === "empty") toneHz(140, t, 0.07, "square", 0.04);
   else if (name === "splat") noise(t, 0.08, 0.04, 700);
-  else if (name === "night") { tone(523, t, 0.1, "square", 0.05); tone(659, t + 0.1, 0.1, "square", 0.05); tone(784, t + 0.2, 0.16, "square", 0.05); }
-  else if (name === "over") { tone(392, t, 0.14, "triangle", 0.06); tone(330, t + 0.12, 0.14, "triangle", 0.05); tone(262, t + 0.24, 0.22, "triangle", 0.05); }
-  else if (name === "cocoa") { tone(523, t, 0.08, "square", 0.05); tone(659, t + 0.08, 0.08, "square", 0.05); tone(784, t + 0.16, 0.12, "square", 0.05); }
+  else if (name === "night") { toneHz(523, t, 0.1, "square", 0.05); toneHz(659, t + 0.1, 0.1, "square", 0.05); toneHz(784, t + 0.2, 0.16, "square", 0.05); }
+  else if (name === "over") { toneHz(392, t, 0.14, "triangle", 0.06); toneHz(330, t + 0.12, 0.14, "triangle", 0.05); toneHz(262, t + 0.24, 0.22, "triangle", 0.05); }
+  else if (name === "cocoa") { toneHz(523, t, 0.08, "square", 0.05); toneHz(659, t + 0.08, 0.08, "square", 0.05); toneHz(784, t + 0.16, 0.12, "square", 0.05); }
 }
 function musicTick() {
   if (!audio.ctx || muted || hostPaused || hidden || audio.ctx.state !== "running") return;
@@ -370,10 +376,33 @@ function withTimeout(promise, ms) {
   });
 }
 function toast(msg) { toasts.push({ msg, t: 2.2 }); }
+let rewardedOk = false;
+function bridge() {
+  try { const a = window.SleighAds; return a && a.available && typeof a.isRunHost === "function" ? a : null; } catch (e) { return null; }
+}
+async function checkRewarded() {
+  rewardedOk = false;
+  try {
+    const b = bridge();
+    if (b) { rewardedOk = b.isRunHost() && (await withTimeout(b.isRewardedReady(), 4000)).value === true; return; }
+    const api = Run.api;
+    if (!api || !api.ads || Run.adsCapable === false || typeof api.ads.isRewardedAdReadyAsync !== "function") return;
+    const r = await withTimeout(api.ads.isRewardedAdReadyAsync(), 4000);
+    rewardedOk = r.value === true;
+  } catch (e) { rewardedOk = false; }
+}
 function rewardOk(v) {
   return v === true || (!!v && (v.rewarded === true || v.success === true));
 }
 async function showRewarded(id, name) {
+  const b = bridge();
+  if (b) {
+    if (!b.isRunHost()) { toast("NO AD AVAILABLE"); return false; }
+    const r = await withTimeout(b.showRewarded({ adDisplayId: id, adDisplayName: name }), 90000);
+    if (r.value === true) return true;
+    toast(r.timeout ? "AD TIMED OUT" : "NO REWARD");
+    return false;
+  }
   const api = Run.api;
   if (!api || !api.ads || Run.adsCapable === false) { toast("NO AD AVAILABLE"); return false; }
   try {
@@ -389,6 +418,11 @@ async function showRewarded(id, name) {
   }
 }
 async function runInterstitial(n) {
+  const b = bridge();
+  if (b) {
+    if (b.isRunHost()) await withTimeout(b.showInterstitial({ adDisplayId: "night_" + n, adDisplayName: "Between Nights" }), 60000);
+    return;
+  }
   const api = Run.api;
   if (!api || !api.ads || Run.adsCapable === false) return;
   try {
@@ -664,7 +698,9 @@ async function endNight() {
   if (state !== "between") return;
   doubled = false;
   ensureBackdrop();
+  rewardedOk = false;
   state = "shop";
+  checkRewarded();
 }
 function endRun() {
   if (state === "gameover") return;
@@ -674,29 +710,36 @@ function endRun() {
   commitScore();
   sfx("over");
   shake = 6;
+  rewardedOk = false;
+  checkRewarded();
 }
 async function revive() {
-  if (revived || adBusy || state !== "gameover") return;
+  if (revived || adBusy || !rewardedOk || state !== "gameover") return;
   adBusy = true;
   const ok = await showRewarded("extra_cocoa", "Extra Cocoa");
   adBusy = false;
-  if (!ok || state !== "gameover") return;
+  if (!ok || state !== "gameover") { checkRewarded(); return; }
   revived = true;
   mugs = 2;
   grace = 2.3;
   iframes = 2.3;
   metrics();
   sleigh.vy = -20;
-  hazards = hazards.filter((h) => h.type === "bell" || h.x > sleigh.x + 70);
+  for (let i = hazards.length - 1; i >= 0; i--) {
+    const h = hazards[i];
+    if (!(h.type === "bell" || h.x > sleigh.x + 70)) hazards.splice(i, 1);
+  }
+  presents.length = 0;
+  pointerHolding = false;
   state = "playing";
   sfx("cocoa");
 }
 async function doubleBells() {
-  if (doubled || adBusy || state !== "shop" || earned <= 0) return;
+  if (doubled || adBusy || !rewardedOk || state !== "shop" || earned <= 0) return;
   adBusy = true;
   const ok = await showRewarded("double_bells", "Double Bells");
   adBusy = false;
-  if (!ok || state !== "shop") return;
+  if (!ok || state !== "shop") { checkRewarded(); return; }
   doubled = true;
   bells += earned;
   sfx("bell");
@@ -1278,8 +1321,18 @@ function drawHud() {
       ctx.fillRect(pipX + i * 7 + 2, y1 + 2, 1, 5);
     }
   }
-  drawText((gw >= 180 ? "BELLS " : "B") + bells, gw - safeG.right - 4, y1 + 1, "#f0c14a", 1, "right");
+  drawText((gw >= 180 ? "BELLS " : "B") + bells, gw - safeG.right - 4, y0 + 20, "#f0c14a", 1, "right");
   if (combo > 1) drawText("X" + combo, gw / 2, y1 + 1, "#fffaf3", 1, "center");
+}
+function drawSnowHint() {
+  if (gh - groundY < 70 || state !== "playing") return;
+  ctx.save();
+  ctx.font = "8px ui-monospace, 'Courier New', monospace";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = "rgba(60,90,130,0.55)";
+  ctx.fillText("TAP: DROP / HOLD: RISE", gw / 2, Math.round((groundY + gh - safeG.bottom) / 2) + 4);
+  ctx.restore();
 }
 function drawFloaters() {
   for (const f of floaters) drawText(f.text, f.x, f.y, f.col, 1, "center");
@@ -1305,7 +1358,7 @@ function drawTitle() {
   const by = expressY + sz * 7 + (compact ? 5 : 8);
   const bw = compact ? Math.min(96, Math.floor((gw - 36) / 2)) : Math.min(120, gw - 48);
   const blockW = compact ? Math.min(gw - 16, bw * 2 + 28) : Math.min(gw - 16, sz === 3 ? 210 : 160);
-  const blockBottom = compact ? by + 36 : by + 62;
+  const blockBottom = compact ? by + 40 : by + 78;
   panel((gw - blockW) / 2, titleY - 6, blockW, blockBottom - titleY + 8);
   drawText("SLEIGH DROP", gw / 2, titleY, "#fffaf3", sz, "center");
   drawText("EXPRESS", gw / 2, expressY, "#f0c14a", sz, "center");
@@ -1319,6 +1372,13 @@ function drawTitle() {
     drawText("BEST " + best, gw / 2, by + 48, "#d5e4f6", 1, "center");
     drawText("NIGHT " + bestNight, gw / 2, by + 58, "#f0c14a", 1, "center");
   }
+  ctx.save();
+  ctx.font = "8px ui-monospace, 'Courier New', monospace";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = "#9fb4d0";
+  ctx.fillText("v1.0.0", gw / 2, blockBottom);
+  ctx.restore();
   const bsz = 18;
   iconButton("mute", gw - safeG.right - bsz - 3, safeG.top + 2, bsz, bsz, muted ? "muted" : "mute");
   ctx.save();
@@ -1375,7 +1435,8 @@ function drawShop() {
   const avail = Math.max(80, bottom - top);
   let rowH = 32;
   const head = 26;
-  const buttonsH = earned > 0 && !doubled ? 44 : 24;
+  const showDouble = earned > 0 && !doubled && rewardedOk;
+  const buttonsH = showDouble ? 44 : 24;
   let ph = head + 4 * rowH + buttonsH;
   if (ph > avail) {
     rowH = Math.max(20, Math.floor((avail - head - buttonsH) / 4));
@@ -1403,7 +1464,7 @@ function drawShop() {
     drawText(r.c == null ? "MAX" : String(r.c), px + pw - 12, y + 3, r.c != null && bells < r.c ? "#ff8a8a" : "#f0c14a", 1, "right");
   });
   let by = py + head + 4 * rowH + 2;
-  if (earned > 0 && !doubled) {
+  if (showDouble) {
     button("double", px + 6, by, pw - 12, 16, adBusy ? "PLEASE WAIT" : "DOUBLE BELLS", true);
     by += 18;
   }
@@ -1411,7 +1472,8 @@ function drawShop() {
 }
 function drawOver() {
   const pw = Math.min(gw - 12, 200);
-  const ph = revived ? 118 : 140;
+  const showCocoa = !revived && rewardedOk;
+  const ph = showCocoa ? 140 : 118;
   const px = (gw - pw) / 2;
   const py = Math.max(safeG.top + 8, (gh - ph) / 2);
   panel(px, py, pw, ph);
@@ -1421,7 +1483,7 @@ function drawOver() {
   drawText("NIGHT " + night, gw / 2, py + 40, "#fffaf3", 1, "center");
   drawText("FURTHEST " + bestNight, gw / 2, py + 50, "#9fb4d0", 1, "center");
   let by = py + 62;
-  if (!revived) {
+  if (showCocoa) {
     button("cocoa", px + 8, by, pw - 16, 18, adBusy ? "PLEASE WAIT" : "EXTRA COCOA", true);
     by += 22;
   }
@@ -1440,6 +1502,7 @@ function render() {
   ctx.translate(sx, sy);
   drawWorld();
   ctx.restore();
+  drawSnowHint();
   if (state === "playing" || state === "pause") drawHud();
   drawFloaters();
   if (state === "playing") drawBanner();

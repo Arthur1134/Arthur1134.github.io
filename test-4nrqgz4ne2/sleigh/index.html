@@ -78,8 +78,9 @@ const SKINS = [
 ];
 const HOW = [
   "SLEIGH FLIES BY ITSELF",
-  "TAP DROPS A PRESENT",
-  "HOLD CLIMBS RELEASE DIVES",
+  "HOLD FLY TO RISE",
+  "LET GO TO GLIDE DOWN",
+  "PRESS DROP FOR A PRESENT",
   "LINE UP THE CHIMNEY",
   "CENTER HITS SCORE DOUBLE",
   "PERFECTS BUILD COMBOS",
@@ -89,7 +90,7 @@ const HOW = [
   "KRAMPUS KITE COSTS A MUG",
   "BELLS BUY UPGRADES"
 ];
-const WATCH = ["Space", "ArrowUp", "KeyW", "KeyP", "Escape", "KeyM", "Enter"];
+const WATCH = ["Space", "ArrowUp", "KeyW", "ArrowDown", "KeyS", "KeyX", "KeyP", "Escape", "KeyM", "Enter"];
 const LEAD = [76,79,84,79, 76,72,74,76, 74,72,67,72, 76,79,76,74, 72,76,79,84, 86,84,79,76, 74,79,76,72, 67,72,76,0];
 const BASS = [48, 43, 45, 41];
 
@@ -110,6 +111,10 @@ let grace = 0, iframes = 0, bannerT = 0, hintT = 0, hohoT = 0, flash = 0, shake 
 let blizzT = 0, blizzCd = 10, planeT = 4, kiteT = 6, bellT = 3;
 let bag = 2, refill = 0, dropCd = 0;
 let pointerHolding = false, pointerId = null;
+const ptrs = new Map(); // pointerId -> "fly" | "drop" | "canvas"
+let ctrlFly = null, ctrlDrop = null;
+function flyHeld() { for (const r of ptrs.values()) if (r === "fly" || r === "canvas") return true; return false; }
+function dropHeld() { for (const r of ptrs.values()) if (r === "drop") return true; return false; }
 let hidden = false, hostPaused = false;
 let qaKeys = null;
 const keys = new Set();
@@ -655,7 +660,7 @@ function tryDrop() {
 
 function goTitle() {
   state = "title";
-  pointerHolding = false;
+  pointerHolding = false; ptrs.clear();
   presents.length = 0;
   hazards.length = 0;
   houses.length = 0;
@@ -684,14 +689,14 @@ function nextNight() {
   metrics();
   sleigh.y = groundY - 96;
   sleigh.vy = 0;
-  pointerHolding = false;
+  pointerHolding = false; ptrs.clear();
   state = "playing";
   sfx("night");
 }
 async function endNight() {
   if (state !== "playing") return;
   state = "between";
-  pointerHolding = false;
+  pointerHolding = false; ptrs.clear();
   commitScore();
   sfx("night");
   await runInterstitial(night);
@@ -705,7 +710,7 @@ async function endNight() {
 function endRun() {
   if (state === "gameover") return;
   state = "gameover";
-  pointerHolding = false;
+  pointerHolding = false; ptrs.clear();
   mugs = 0;
   commitScore();
   sfx("over");
@@ -730,7 +735,7 @@ async function revive() {
     if (!(h.type === "bell" || h.x > sleigh.x + 70)) hazards.splice(i, 1);
   }
   presents.length = 0;
-  pointerHolding = false;
+  pointerHolding = false; ptrs.clear();
   state = "playing";
   sfx("cocoa");
 }
@@ -804,11 +809,11 @@ function play(dt) {
   }
   if (hitStop > 0) { hitStop -= dt; return; }
 
-  const rise = pointerHolding || held("Space") || held("ArrowUp") || held("KeyW");
-  if (rise) sleigh.vy -= 180 * dt;
-  else sleigh.vy += 96 * dt;
-  if (blizzT > 0) sleigh.vy += 34 * dt;
-  sleigh.vy = clamp(sleigh.vy, -76, 112);
+  const rise = pointerHolding || flyHeld() || held("Space") || held("ArrowUp") || held("KeyW");
+  if (rise) sleigh.vy -= (sleigh.vy > 0 ? 260 : 190) * dt;
+  else sleigh.vy += (sleigh.vy < 0 ? 150 : 84) * dt;
+  if (blizzT > 0) sleigh.vy += 30 * dt;
+  sleigh.vy = clamp(sleigh.vy, -80, blizzT > 0 ? 84 : 70);
   sleigh.y += sleigh.vy * dt;
   const minY = 14 + safeG.top;
   const maxY = groundY - 36;
@@ -1324,6 +1329,35 @@ function drawHud() {
   drawText((gw >= 180 ? "BELLS " : "B") + bells, gw - safeG.right - 4, y0 + 20, "#f0c14a", 1, "right");
   if (combo > 1) drawText("X" + combo, gw / 2, y1 + 1, "#fffaf3", 1, "center");
 }
+function controlRects() {
+  const sz = clamp(Math.round(88 / scale), 30, 56);
+  const m = 6;
+  const y = Math.round(gh - safeG.bottom - sz - m);
+  return {
+    fly: { x: Math.round(safeG.left + m), y, w: sz, h: sz },
+    drop: { x: Math.round(gw - safeG.right - sz - m), y, w: sz, h: sz }
+  };
+}
+function drawControls() {
+  const r = controlRects();
+  ctrlFly = r.fly; ctrlDrop = r.drop;
+  const fOn = flyHeld() || held("Space") || held("ArrowUp") || held("KeyW");
+  const dOn = dropHeld();
+  const one = (b, on, label, col) => {
+    ctx.globalAlpha = on ? 0.85 : 0.5;
+    ctx.fillStyle = on ? col : "#0c1f3a";
+    ctx.fillRect(b.x, b.y, b.w, b.h);
+    ctx.globalAlpha = 0.9;
+    ctx.fillStyle = "#f0c14a";
+    ctx.fillRect(b.x, b.y, b.w, 1); ctx.fillRect(b.x, b.y + b.h - 1, b.w, 1);
+    ctx.fillRect(b.x, b.y, 1, b.h); ctx.fillRect(b.x + b.w - 1, b.y, 1, b.h);
+    ctx.globalAlpha = 1;
+    drawText(label, b.x + b.w / 2, b.y + Math.floor((b.h - 7) / 2), "#fffaf3", 1, "center");
+  };
+  one(r.fly, fOn, "FLY", "#2a6db0");
+  one(r.drop, dOn, "DROP", "#8e1424");
+}
+function inRect(p, b) { return b && p.x >= b.x && p.y >= b.y && p.x <= b.x + b.w && p.y <= b.y + b.h; }
 function drawSnowHint() {
   if (gh - groundY < 70 || state !== "playing") return;
   ctx.save();
@@ -1331,7 +1365,7 @@ function drawSnowHint() {
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
   ctx.fillStyle = "rgba(60,90,130,0.55)";
-  ctx.fillText("TAP: DROP / HOLD: RISE", gw / 2, Math.round((groundY + gh - safeG.bottom) / 2) + 4);
+  ctx.fillText("HOLD FLY: RISE / DROP: GIFT", gw / 2, Math.round((groundY + gh - safeG.bottom) / 2) + 4);
   ctx.restore();
 }
 function drawFloaters() {
@@ -1343,7 +1377,7 @@ function drawFloaters() {
 }
 function drawBanner() {
   if (bannerT > 0) drawText("NIGHT " + night, gw / 2, safeG.top + 40, "#f0c14a", gw < 210 ? 1 : 2, "center");
-  if (hintT > 0 && night === 1) drawText("TAP WHEN IT GLOWS", gw / 2, safeG.top + 56, "#fffaf3", 1, "center");
+  if (hintT > 0 && night === 1) drawText("PRESS DROP WHEN IT GLOWS", gw / 2, safeG.top + 56, "#fffaf3", 1, "center");
   if (blizzT > 0) drawText("BLIZZARD", gw / 2, safeG.top + 68, "#d5e4f6", 1, "center");
   if (hohoT > 0) {
     const sz = gw >= 210 && hohoT > 0.72 ? 2 : 1;
@@ -1377,7 +1411,7 @@ function drawTitle() {
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
   ctx.fillStyle = "#9fb4d0";
-  ctx.fillText("v1.0.0", gw / 2, blockBottom);
+  ctx.fillText("v1.1.0", gw / 2, blockBottom);
   ctx.restore();
   const bsz = 18;
   iconButton("mute", gw - safeG.right - bsz - 3, safeG.top + 2, bsz, bsz, muted ? "muted" : "mute");
@@ -1504,6 +1538,7 @@ function render() {
   ctx.restore();
   drawSnowHint();
   if (state === "playing" || state === "pause") drawHud();
+  if (state === "playing") drawControls(); else { ctrlFly = null; ctrlDrop = null; }
   drawFloaters();
   if (state === "playing") drawBanner();
   if (state === "title") drawTitle();
@@ -1522,7 +1557,7 @@ function render() {
 function handleEdges() {
   if (edges.has("KeyM")) toggleMute();
   if (edges.has("KeyP") || edges.has("Escape")) {
-    if (state === "playing") { state = "pause"; pointerHolding = false; sfx("ui"); }
+    if (state === "playing") { state = "pause"; pointerHolding = false; ptrs.clear(); sfx("ui"); }
     else if (state === "pause") { state = "playing"; sfx("ui"); }
   }
   const was = state;
@@ -1533,7 +1568,6 @@ function handleEdges() {
     else if (state === "shop") nextNight();
     else if (state === "pause") state = "playing";
   }
-  if (was === "playing" && state === "playing" && (edges.has("Space") || edges.has("ArrowUp") || edges.has("KeyW"))) tryDrop();
 }
 function activate(id) {
   ensureAudio();
@@ -1541,7 +1575,7 @@ function activate(id) {
   if (id === "play") { startRun(); return; }
   if (id === "how") { state = "how"; sfx("ui"); return; }
   if (id === "back") { state = "title"; sfx("ui"); return; }
-  if (id === "pause") { if (state === "playing") { state = "pause"; pointerHolding = false; sfx("ui"); } return; }
+  if (id === "pause") { if (state === "playing") { state = "pause"; pointerHolding = false; ptrs.clear(); sfx("ui"); } return; }
   if (id === "resume") { if (state === "pause") state = "playing"; sfx("ui"); return; }
   if (id === "quit") { commitScore(); goTitle(); sfx("ui"); return; }
   if (id === "next") { nextNight(); return; }
@@ -1559,30 +1593,33 @@ function activate(id) {
 }
 
 view.addEventListener("pointerdown", (e) => {
-  if (pointerId != null) return;
-  pointerId = e.pointerId;
+  e.preventDefault();
   try { view.setPointerCapture(e.pointerId); } catch (err) {}
   view.focus();
   ensureAudio();
   const p = toGame(e);
+  if (state === "playing") {
+    if (inRect(p, ctrlDrop)) { ptrs.set(e.pointerId, "drop"); tryDrop(); return; }
+    if (inRect(p, ctrlFly)) { ptrs.set(e.pointerId, "fly"); return; }
+  }
   const id = hitUI(p.x, p.y);
   if (id) { activate(id); return; }
-  if (state === "playing") { pointerHolding = true; tryDrop(); }
+  // Holding anywhere else on the play area also flies (mouse/touch convenience).
+  if (state === "playing") ptrs.set(e.pointerId, "canvas");
 });
-view.addEventListener("pointerup", (e) => {
-  if (e.pointerId !== pointerId) return;
-  pointerId = null;
-  pointerHolding = false;
-});
-view.addEventListener("pointercancel", () => { pointerId = null; pointerHolding = false; });
+function releasePtr(e) { ptrs.delete(e.pointerId); }
+view.addEventListener("pointerup", releasePtr);
+view.addEventListener("pointercancel", releasePtr);
+view.addEventListener("lostpointercapture", releasePtr);
 view.addEventListener("contextmenu", (e) => e.preventDefault());
 window.addEventListener("keydown", (e) => {
   if (e.repeat) return;
   if (e.code === "Space" || e.code === "ArrowUp" || e.code === "ArrowDown") e.preventDefault();
+  if (state === "playing" && !qaKeys && (e.code === "ArrowDown" || e.code === "KeyS" || e.code === "KeyX" || e.code === "Enter")) { e.preventDefault(); tryDrop(); }
   keys.add(e.code);
 });
 window.addEventListener("keyup", (e) => keys.delete(e.code));
-window.addEventListener("blur", () => { keys.clear(); pointerHolding = false; });
+window.addEventListener("blur", () => { keys.clear(); ptrs.clear(); pointerHolding = false; ptrs.clear(); });
 window.addEventListener("message", (e) => {
   const d = e.data;
   if (!d || d.type !== "sde-key" || typeof d.code !== "string") return;

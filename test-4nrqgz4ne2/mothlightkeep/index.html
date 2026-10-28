@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Mothlight Keep v0.1.0 - Retro Gaming Dad</title>
+<style>
+html,body{margin:0;height:100%;background:#120a22;overflow:hidden;touch-action:none;font-family:'Courier New',monospace}
+canvas{display:block;margin:0 auto;image-rendering:pixelated;background:#120a22}
+</style></head><body>
+<canvas id="c"></canvas>
+<script>
+/* ===== RUN Ads SDK stubs (wire to real RUN SDK at deploy time) ===== */
+const RunAds={
+  sdk(){return window.RundotGameAPI&&window.RundotGameAPI.ads?window.RundotGameAPI.ads:null},
+  async showInterstitial(){const s=this.sdk();console.log('[RunAds] interstitial');
+    if(s&&s.showInterstitialAd){try{await s.showInterstitialAd()}catch(e){console.warn(e)}}return true},
+  async showRewarded(){const s=this.sdk();console.log('[RunAds] rewarded');
+    if(s&&s.showRewardedAdAsync){try{return !!(await s.showRewardedAdAsync())}catch(e){console.warn(e);return false}}
+    return true /* stub: grant reward locally */}
+};
+/* ===== Mothlight Keep ===== */
+const VERSION='0.1.0',W=360,H=640,N=5,CS=64,OX=20,OY=96,cv=document.getElementById('c'),g=cv.getContext('2d');
+cv.width=W;cv.height=H;
+function fit(){const s=Math.min(innerWidth/W,innerHeight/H);cv.style.width=W*s+'px';cv.style.height=H*s+'px'}
+addEventListener('resize',fit);fit();
+const AC=new (window.AudioContext||window.webkitAudioContext)();
+function beep(f,d=.08,t='square',v=.05){try{const o=AC.createOscillator(),a=AC.createGain();o.type=t;o.frequency.value=f;a.gain.value=v;a.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+d);o.connect(a).connect(AC.destination);o.start();o.stop(AC.currentTime+d)}catch(e){}}
+const MOTHS=[{k:'scout',n:'SCOUT',c:'#7cf4ff',r:2},{k:'burn',n:'BURN',c:'#ff8a3d',r:1},{k:'block',n:'BLOCK',c:'#c58bff',r:1}];
+let state='title',level=1,turn,maxTurn,oil,lit,shadows,moths,sel,cur,acted,msg,best=+localStorage.mkBest||0,adUsed,levels=0,score=0,fx=[];
+const H0=[2,2];
+function key(x,y){return y*N+x}
+function startLevel(){lit=new Set([key(2,2)]);shadows=[];turn=1;maxTurn=8+level*2;oil=4;adUsed=false;
+ moths=[{t:0,x:2,y:1},{t:1,x:1,y:2},{t:2,x:3,y:2}].map(m=>({...m,x:2,y:2}));moths[0].x=2;moths[0].y=2;
+ for(const m of moths){m.x=2;m.y=2}sel=0;cur=[2,2];acted=new Set();msg='Light rooms. Moths follow the glow.';spawnPlan();state='play'}
+let plan=[];
+function edges(){const e=[];for(let i=0;i<N;i++){e.push([i,0],[i,N-1]);if(i>0&&i<N-1)e.push([0,i],[N-1,i])}return e}
+function spawnPlan(){plan=[];const c=Math.min(1+Math.floor((turn+level)/3),5),e=edges().filter(([x,y])=>!lit.has(key(x,y)));for(let i=0;i<c&&e.length;i++)plan.push(e.splice(Math.random()*e.length|0,1)[0])}
+const dist=(a,b,c,d)=>Math.abs(a-c)+Math.abs(b-d);
+function mothAt(x,y,t){return moths.find(m=>m.x==x&&m.y==y&&(t==null||m.t==t))}
+function canMove(m,x,y){if(acted.has(m.t))return false;const d=dist(m.x,m.y,x,y);return d>0&&d<=MOTHS[m.t].r&&lit.has(key(x,y))}
+function canLight(x,y){if(oil<1||lit.has(key(x,y)))return false;return [[1,0],[-1,0],[0,1],[0,-1]].some(([a,b])=>lit.has(key(x+a,y+b))&&x+a>=0&&x+a<N&&y+b>=0&&y+b<N)}
+function act(x,y){if(state!='play')return;cur=[x,y];const m=moths[sel];
+ const om=moths.find(q=>q.x==x&&q.y==y&&q!==m&&!acted.has(q.t));
+ if(canMove(m,x,y)){m.x=x;m.y=y;acted.add(m.t);beep(660);burnCheck();msg=MOTHS[m.t].n+' moth flutters over.';nextSel();return}
+ if(canLight(x,y)){oil--;lit.add(key(x,y));beep(880,.15,'triangle');msg='Lantern lit! Oil '+oil;return}
+ if(om){sel=om.t;beep(440);return}
+ msg=lit.has(key(x,y))?'Too far for '+MOTHS[m.t].n+'.':'Light next to a glowing room (1 oil).'}
+function nextSel(){for(let i=1;i<=3;i++){const t=(sel+i)%3;if(!acted.has(t)){sel=t;return}}}
+function burnCheck(){for(const m of moths)if(m.t==1){const before=shadows.length;shadows=shadows.filter(s=>!(dist(s.x,s.y,m.x,m.y)==0));const k=before-shadows.length;if(k){score+=k*10;beep(220,.2,'sawtooth');fx.push({x:m.x,y:m.y,t:20});}}}
+function endTurn(){if(state!='play')return;
+ // shadows move toward nearest lantern
+ for(const s of shadows){let tg=null,bd=99;for(const k of lit){const x=k%N,y=k/N|0,d=dist(s.x,s.y,x,y);if(d<bd){bd=d;tg=[x,y]}}
+  if(!tg||bd==0)continue;const opts=[[1,0],[-1,0],[0,1],[0,-1]].map(([a,b])=>[s.x+a,s.y+b]).filter(([x,y])=>x>=0&&y>=0&&x<N&&y<N&&!mothAt(x,y,2)&&dist(x,y,tg[0],tg[1])<bd);
+  if(opts.length){const o=opts[Math.random()*opts.length|0];s.x=o[0];s.y=o[1]}}
+ burnCheck();
+ // shadows eat lanterns
+ for(const s of shadows){const k=key(s.x,s.y);if(lit.has(k)&&!mothAt(s.x,s.y,1)){if(s.x==2&&s.y==2){lose();return}lit.delete(k);s.dead=true;beep(110,.3,'sawtooth');msg='A shadow snuffed a lantern!'}}
+ shadows=shadows.filter(s=>!s.dead);
+ for(const m of moths)if(!lit.has(key(m.x,m.y))){m.x=2;m.y=2}
+ for(const[x,y]of plan)if(!mothAt(x,y,2))shadows.push({x,y});
+ turn++;if(turn%2==0)oil++;acted.clear();sel=0;
+ if(turn>maxTurn){win();return}spawnPlan();beep(330)}
+async function win(){score+=50+lit.size*5;levels++;state='win';beep(523,.2);setTimeout(()=>beep(784,.3),150);if(score>best){best=score;localStorage.mkBest=best}}
+function lose(){state='over';if(score>best){best=score;localStorage.mkBest=best}beep(90,.6,'sawtooth')}
+async function nextLevel(){level++;if(levels%2==0)await RunAds.showInterstitial();startLevel()}
+async function adOil(){if(adUsed||state!='play')return;const ok=await RunAds.showRewarded();if(ok){oil+=3;adUsed=true;msg='Reward: +3 oil!'}}
+async function restart(){await RunAds.showInterstitial();level=1;score=0;levels=0;startLevel()}
+// buttons
+const BTN=[{x:20,y:440,w:100,h:44,l:'SCOUT',f:()=>sel=0,m:0},{x:130,y:440,w:100,h:44,l:'BURN',f:()=>sel=1,m:1},{x:240,y:440,w:100,h:44,l:'BLOCK',f:()=>sel=2,m:2},
+ {x:20,y:496,w:155,h:48,l:'END TURN (E)',f:endTurn},{x:185,y:496,w:155,h:48,l:'AD: +3 OIL',f:adOil}];
+function tap(px,py){AC.resume();if(state=='title'){startLevel();return}if(state=='win'){nextLevel();return}if(state=='over'){if(py>330&&py<380)restart();else if(py>390&&py<440&&false);else restart();return}
+ for(const b of BTN)if(px>b.x&&px<b.x+b.w&&py>b.y&&py<b.y+b.h){b.f();beep(500,.04);return}
+ const x=Math.floor((px-OX)/CS),y=Math.floor((py-OY)/CS);if(x>=0&&y>=0&&x<N&&y<N)act(x,y)}
+cv.addEventListener('pointerdown',e=>{const r=cv.getBoundingClientRect();tap((e.clientX-r.left)*W/r.width,(e.clientY-r.top)*H/r.height)});
+addEventListener('keydown',e=>{AC.resume();const k=e.key;if(state!='play'){if(k==' '||k=='Enter')tap(180,350);return}
+ if(k=='1')sel=0;if(k=='2')sel=1;if(k=='3')sel=2;if(k=='Tab'){e.preventDefault();nextSel()}
+ const d={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1],a:[-1,0],d:[1,0],w:[0,-1],s:[0,1]}[k];
+ if(d){e.preventDefault();cur=[Math.max(0,Math.min(N-1,cur[0]+d[0])),Math.max(0,Math.min(N-1,cur[1]+d[1]))]}
+ if(k==' '||k=='Enter'){e.preventDefault();act(cur[0],cur[1])}if(k=='e'||k=='E')endTurn();if(k=='r'||k=='R')adOil()});
+let tick=0;
+function txt(s,x,y,c='#fff',sz=14,al='center'){g.fillStyle=c;g.font='bold '+sz+'px Courier New';g.textAlign=al;g.fillText(s,x,y)}
+function draw(){tick++;g.fillStyle='#120a22';g.fillRect(0,0,W,H);
+ for(let i=0;i<40;i++){g.fillStyle=`hsl(${(i*37+tick)%360},70%,60%)`;g.fillRect((i*97)%W,(i*53+tick*.2)%H,2,2)}
+ if(state=='title'){txt('MOTHLIGHT',180,170,'#ffd85e',38);txt('KEEP',180,215,'#7cf4ff',38);
+  const lines=['Light rooms in a crumbling keep.','Moths follow the glow:','SCOUT moves 2 & sees spawns','BURN eats shadows in its room','BLOCK walls shadows out','Shadows snuff lanterns -','protect the HEART lantern!','Survive the turns to win.','','Tap a room / Arrows+Space','1-3 pick moth, E end turn'];
+  lines.forEach((l,i)=>txt(l,180,270+i*20,i<1?'#fff':'#c9b8ff',13));txt(Math.sin(tick/15)>0?'TAP OR PRESS SPACE':'',180,520,'#ffd85e',16);
+  txt('Best '+best+'  v'+VERSION,180,560,'#888',12);txt('Made by Arthur McConnell / Retro Gaming Dad',180,610,'#ff8ad8',11);requestAnimationFrame(draw);return}
+ txt('KEEP '+level+'   TURN '+Math.min(turn,maxTurn)+'/'+maxTurn,180,30,'#ffd85e',16);txt('OIL '+oil+'   SCORE '+score,180,54,'#7cf4ff',14);
+ txt(msg||'',180,82,'#fff',11);
+ const sc=moths[0];
+ for(let y=0;y<N;y++)for(let x=0;x<N;x++){const px=OX+x*CS,py=OY+y*CS,L=lit.has(key(x,y));
+  g.fillStyle=L?`hsl(${40+Math.sin(tick/20+x+y)*8},90%,${45+Math.sin(tick/9+x*y)*4}%)`:'#2a1d3f';g.fillRect(px+2,py+2,CS-4,CS-4);
+  if(!L){g.fillStyle='#1c1230';g.fillRect(px+8,py+10,10,6);g.fillRect(px+40,py+44,14,6)}
+  if(L){g.fillStyle='#fff6c8';g.fillRect(px+28,py+22,8,14);g.fillStyle='#5a3a10';g.fillRect(px+26,py+18,12,4)}
+  if(x==2&&y==2){g.strokeStyle='#ff4f6d';g.lineWidth=3;g.strokeRect(px+5,py+5,CS-10,CS-10);txt('♥',px+CS/2,py+58,'#ff4f6d',12)}
+  if(state=='play'){const m=moths[sel];if(canMove(m,x,y)){g.fillStyle='rgba(255,255,255,.25)';g.fillRect(px+2,py+2,CS-4,CS-4)}else if(canLight(x,y)){g.strokeStyle='#ffd85e88';g.setLineDash([4,4]);g.lineWidth=2;g.strokeRect(px+6,py+6,CS-12,CS-12);g.setLineDash([])}}
+  if(plan.some(([a,b])=>a==x&&b==y)&&dist(sc.x,sc.y,x,y)<=3)txt('!',px+54,py+18,'#ff4f6d',16)}
+ for(const s of shadows){const px=OX+s.x*CS+CS/2,py=OY+s.y*CS+CS/2+Math.sin(tick/8+s.x)*3;g.fillStyle='#000';g.beginPath();g.arc(px,py,16,0,7);g.fill();g.fillStyle='#ff2050';g.fillRect(px-8,py-4,4,4);g.fillRect(px+4,py-4,4,4)}
+ moths.forEach((m,i)=>{const off=[[-16,-14],[16,-14],[0,16]][i],px=OX+m.x*CS+CS/2+off[0],py=OY+m.y*CS+CS/2+off[1]+Math.sin(tick/5+i)*2,w=Math.abs(Math.sin(tick/4+i))*9+3;
+  g.fillStyle=MOTHS[m.t].c;g.globalAlpha=acted.has(m.t)?.45:1;g.fillRect(px-w,py-5,w,8);g.fillRect(px+2,py-5,w,8);g.fillStyle='#fff';g.fillRect(px-1,py-6,3,12);g.globalAlpha=1;
+  if(i==sel&&state=='play'){g.strokeStyle='#fff';g.lineWidth=1;g.strokeRect(px-14,py-10,28,20)}});
+ fx=fx.filter(f=>{f.t--;g.fillStyle=`rgba(255,${100+f.t*7},0,${f.t/20})`;g.beginPath();g.arc(OX+f.x*CS+CS/2,OY+f.y*CS+CS/2,30-f.t,0,7);g.fill();return f.t>0});
+ g.strokeStyle='#fff';g.lineWidth=2;g.strokeRect(OX+cur[0]*CS+1,OY+cur[1]*CS+1,CS-2,CS-2);
+ for(const b of BTN){const on=b.m===sel,dis=(b.m!=null&&acted.has(b.m))||(b.f===adOil&&adUsed);g.fillStyle=on?MOTHS[b.m].c:dis?'#2a2240':'#3a2a66';g.fillRect(b.x,b.y,b.w,b.h);txt(b.l,b.x+b.w/2,b.y+b.h/2+5,on?'#120a22':'#fff',13)}
+ txt('Tap glowing room = move · dashed = light (1 oil)',180,566,'#c9b8ff',10);txt('Made by Arthur McConnell / Retro Gaming Dad',180,620,'#ff8ad8',10);
+ if(state=='win'||state=='over'){g.fillStyle='rgba(10,5,20,.85)';g.fillRect(30,220,300,200);txt(state=='win'?'KEEP HELD!':'THE HEART WENT DARK',180,270,state=='win'?'#ffd85e':'#ff4f6d',20);
+  txt('Score '+score+'  Best '+best,180,310,'#fff',14);txt(state=='win'?'Tap / Space: next keep':'Tap / Space: try again',180,360,'#7cf4ff',14)}
+ requestAnimationFrame(draw)}
+draw();
+</script></body></html>

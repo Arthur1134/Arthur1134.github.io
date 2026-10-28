@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Tape Deck Drift v0.1.0 - Retro Gaming Dad</title>
+<style>
+html,body{margin:0;height:100%;background:#1b0b2e;overflow:hidden;touch-action:none;font-family:'Courier New',monospace}
+canvas{display:block;margin:0 auto;image-rendering:pixelated;background:#1b0b2e}
+</style></head><body>
+<canvas id="c"></canvas>
+<script>
+/* ===== RUN Ads SDK stubs (wire to real RUN SDK at deploy time) ===== */
+const RunAds={
+  sdk(){return window.RundotGameAPI&&window.RundotGameAPI.ads?window.RundotGameAPI.ads:null},
+  async showInterstitial(){const s=this.sdk();console.log('[RunAds] interstitial');
+    if(s&&s.showInterstitialAd){try{await s.showInterstitialAd()}catch(e){console.warn(e)}}return true},
+  async showRewarded(){const s=this.sdk();console.log('[RunAds] rewarded');
+    if(s&&s.showRewardedAdAsync){try{return !!(await s.showRewardedAdAsync())}catch(e){console.warn(e);return false}}
+    return true /* stub: grant reward locally */}
+};
+/* ===== Tape Deck Drift ===== */
+const VERSION='0.1.0',W=360,H=640,LN=3,LX=[90,180,270],CY=540,cv=document.getElementById('c'),g=cv.getContext('2d');
+cv.width=W;cv.height=H;
+function fit(){const s=Math.min(innerWidth/W,innerHeight/H);cv.style.width=W*s+'px';cv.style.height=H*s+'px'}
+addEventListener('resize',fit);fit();
+const AC=new (window.AudioContext||window.webkitAudioContext)();
+function tone(f,d=.1,t='square',v=.05){try{const o=AC.createOscillator(),a=AC.createGain();o.type=t;o.frequency.value=f;a.gain.value=v;a.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+d);o.connect(a).connect(AC.destination);o.start();o.stop(AC.currentTime+d)}catch(e){}}
+const DECKS=[{n:'BOOMBOX 84',bpm:96,c:'#ff4fa3',c2:'#3de0ff'},{n:'WALKMAN XR',bpm:112,c:'#ffd23d',c2:'#7b5cff'},{n:'CHROME ZX-9',bpm:128,c:'#4dff9b',c2:'#ff6a3d'}];
+const SCALE=[0,3,5,7,10,12,15];
+let save=JSON.parse(localStorage.tddSave||'{"unlocked":1,"best":0}');
+let state='title',deck=0,side='A',lane=1,notes,beat,songT,stretch,score,combo,hits,misses,len,lastBeat,rewound,tracks=0,menuSel=0,shiftFlash=0,particles=[];
+function startTrack(d,s){deck=d;side=s;const D=DECKS[d];len=s=='A'?48:64;notes=[];let l=1;
+ for(let b=4;b<len;b++){const dens=s=='A'?.7:.9;if(Math.random()<dens){l=Math.max(0,Math.min(2,l+(Math.random()*3|0)-1));notes.push({b,l,k:Math.random()<(s=='B'?.18:.1)?'tangle':'note',p:SCALE[Math.random()*SCALE.length|0]})}
+  if(s=='B'&&Math.random()<.25&&b+.5<len){notes.push({b:b+.5,l:Math.max(0,Math.min(2,l+(Math.random()<.5?-1:1))),k:'note',p:SCALE[Math.random()*7|0]})}}
+ notes=notes.filter((n,i,a)=>!(n.k=='tangle'&&a.some(m=>m!==n&&m.b==n.b&&m.k=='note'&&m.l==n.l)));
+ beat=-2;songT=0;stretch=0;score=0;combo=0;hits=0;misses=0;lastBeat=-3;rewound=false;lane=1;state='play'}
+function rate(){return 1-stretch*.55}
+function shift(dl){if(state!='play')return;const nl=lane+dl;if(nl<0||nl>2)return;lane=nl;
+ const ph=Math.abs(beat*2-Math.round(beat*2));if(ph<.18){shiftFlash=10;score+=5}tone(300+lane*80,.04,'triangle',.03)}
+let last=0;
+function update(dt){if(state!='play')return;const D=DECKS[deck],bps=D.bpm/60;beat+=dt*bps*rate();
+ const wb=Math.floor(beat);if(wb>lastBeat){lastBeat=wb;tone(60,.12,'sine',.25*rate()+.05);if(wb%2)tone(2000,.03,'square',.01)}
+ for(const n of notes){if(n.done)continue;const d=n.b-beat;
+  if(Math.abs(d)<.18&&n.l==lane){n.done=true;if(n.k=='note'){hits++;combo++;score+=10*(1+Math.floor(combo/8));stretch=Math.max(0,stretch-.02);tone(440*Math.pow(2,n.p/12)*(1-stretch*.25),.15,'square',.05);for(let i=0;i<8;i++)particles.push({x:180+(LX[lane]-180)*.81,y:CY,vx:Math.random()*4-2,vy:-Math.random()*4,t:25,c:D.c})}
+   else{miss(.12);tone(90,.25,'sawtooth',.08)}}
+  else if(d<-.18){n.done=true;if(n.k=='note'){miss(.07)}}}
+ if(stretch>=1){if(!rewound)state='rewind';else end(false);return}
+ if(beat>len+1)end(true)}
+function miss(a){misses++;combo=0;stretch=Math.min(1,stretch+a);tone(120*(1-stretch*.3),.2,'sawtooth',.04)}
+function end(ok){state=ok?'clear':'over';const total=notes.filter(n=>n.k=='note').length;
+ if(ok&&side=='B'&&deck+1<DECKS.length&&save.unlocked<deck+2)save.unlocked=deck+2;if(score>save.best)save.best=score;localStorage.tddSave=JSON.stringify(save);tracks++;window._acc=Math.round(hits/Math.max(1,total)*100)}
+async function rewind(take){if(take){const ok=await RunAds.showRewarded();if(ok){stretch=.3;rewound=true;state='play';return}}rewound=true;end(false)}
+async function toMenu(){if(tracks%2==0)await RunAds.showInterstitial();state='menu'}
+function menuItems(){const it=[];for(let d=0;d<DECKS.length;d++){it.push({d,s:'A',lock:d>=save.unlocked});it.push({d,s:'B',lock:d>=save.unlocked})}return it}
+function menuPick(i){const m=menuItems()[i];if(!m||m.lock){tone(100,.1);return}startTrack(m.d,m.s)}
+// input
+addEventListener('keydown',e=>{AC.resume();const k=e.key;
+ if(state=='play'){if(k=='ArrowLeft'||k=='a'||k=='A')shift(-1);if(k=='ArrowRight'||k=='d'||k=='D')shift(1);if(k=='Escape')state='menu';return}
+ if(state=='title'&&(k==' '||k=='Enter'))state='menu';
+ else if(state=='menu'){if(k=='ArrowUp'||k=='w')menuSel=(menuSel+5)%6;if(k=='ArrowDown'||k=='s')menuSel=(menuSel+1)%6;if(k=='ArrowLeft'||k=='ArrowRight')menuSel^=1;if(k==' '||k=='Enter')menuPick(menuSel)}
+ else if(state=='rewind'){if(k=='y'||k=='Enter'||k==' ')rewind(true);if(k=='n'||k=='Escape')rewind(false)}
+ else if((state=='clear'||state=='over')&&(k==' '||k=='Enter'))toMenu();
+ if([' ','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(k))e.preventDefault()});
+let tx0=null;
+cv.addEventListener('pointerdown',e=>{AC.resume();const r=cv.getBoundingClientRect(),x=(e.clientX-r.left)*W/r.width,y=(e.clientY-r.top)*H/r.height;
+ if(state=='play'){shift(x<W/2?-1:1);return}
+ if(state=='title'){state='menu';return}
+ if(state=='menu'){for(let i=0;i<6;i++){const bx=i%2?190:30,by=170+(i>>1)*110;if(x>bx&&x<bx+140&&y>by&&y<by+90){menuSel=i;menuPick(i)}}return}
+ if(state=='rewind'){rewind(y<360);return}
+ if(state=='clear'||state=='over')toMenu()});
+function txt(s,x,y,c='#fff',sz=14){g.fillStyle=c;g.font='bold '+sz+'px Courier New';g.textAlign='center';g.fillText(s,x,y)}
+function cassette(x,y,w,c,c2,lock,t){g.fillStyle=lock?'#333':c;g.fillRect(x,y,w,w*.62);g.fillStyle='#111';g.fillRect(x+w*.12,y+w*.2,w*.76,w*.26);g.fillStyle=lock?'#555':c2;
+ for(const cx of[x+w*.3,x+w*.7]){g.beginPath();g.arc(cx,y+w*.33,w*.09,0,7);g.fill();g.strokeStyle='#111';g.beginPath();g.moveTo(cx,y+w*.33);g.lineTo(cx+Math.cos(t)*w*.08,y+w*.33+Math.sin(t)*w*.08);g.stroke()}}
+let tk=0;
+function draw(ts){const dt=Math.min(.05,(ts-last)/1000||0);last=ts;tk++;update(dt);const D=DECKS[deck];
+ g.fillStyle='#1b0b2e';g.fillRect(0,0,W,H);
+ // sunset
+ const gr=g.createLinearGradient(0,0,0,220);gr.addColorStop(0,'#2a0a4a');gr.addColorStop(1,D.c);g.fillStyle=gr;g.fillRect(0,0,W,220);
+ g.fillStyle='#ffd23d';g.beginPath();g.arc(180,200,60,Math.PI,0);g.fill();g.fillStyle='#1b0b2e';for(let i=0;i<5;i++)g.fillRect(120,150+i*12,120,3+i);
+ if(state=='title'){cassette(80,250,200,D.c,D.c2,false,tk/10);txt('TAPE DECK',180,90,'#fff',38);txt('DRIFT',180,135,'#3de0ff',38);
+  ['Race the cassette highway.','Shift lanes on the beat to grab notes.','Miss one and the tape STRETCHES.','Avoid tangles. Clear B-sides to unlock decks.','','Arrows/A-D or tap left/right'].forEach((l,i)=>txt(l,180,410+i*20,'#ffe6ff',12));
+  if(Math.sin(tk/15)>0)txt('TAP OR PRESS SPACE',180,550,'#ffd23d',16);txt('v'+VERSION+'  Best '+save.best,180,580,'#bbb',12);txt('Made by Arthur McConnell / Retro Gaming Dad',180,620,'#ff4fa3',11);return requestAnimationFrame(draw)}
+ if(state=='menu'){g.fillStyle='rgba(20,5,40,.85)';g.fillRect(0,0,W,H);txt('PICK A TAPE',180,70,'#fff',26);txt('Clear a B-side to unlock the next deck',180,100,'#ffd23d',11);
+  menuItems().forEach((m,i)=>{const bx=i%2?190:30,by=170+(i>>1)*110,d=DECKS[m.d];if(i==menuSel){g.strokeStyle='#fff';g.lineWidth=3;g.strokeRect(bx-4,by-20,148,112)}
+   txt(d.n+' '+m.s+'-SIDE',bx+70,by-4,m.lock?'#666':'#fff',12);cassette(bx+10,by+5,120,d.c,d.c2,m.lock,tk/10*(i==menuSel));txt(m.lock?'LOCKED':d.bpm+' BPM',bx+70,by+90,m.lock?'#666':d.c2,11)});
+  txt('Made by Arthur McConnell / Retro Gaming Dad',180,620,'#ff4fa3',11);return requestAnimationFrame(draw)}
+ // road (tape ribbon)
+ const wob=Math.sin(tk/6)*stretch*14;
+ g.fillStyle='#4a2a1a';g.beginPath();g.moveTo(150+wob,220);g.lineTo(210+wob,220);g.lineTo(340,H);g.lineTo(20,H);g.fill();
+ g.fillStyle='#6b3b22';for(let i=0;i<12;i++){const yy=220+((i*40+beat*40)%440);g.fillRect(20,yy,320,2)}
+ const proj=(l,b)=>{const d=b-beat,y=CY-d*90;const t=Math.max(0,(y-220)/(H-220));return{x:180+wob*(1-t)+(LX[l]-180)*(.2+.8*t),y,s:.3+.7*t}};
+ for(let l=0;l<LN;l++){g.strokeStyle=D.c2+'66';g.lineWidth=2;const a=proj(l,beat+3.5),b=proj(l,beat-1);}
+ for(const n of notes){if(n.done)continue;const d=n.b-beat;if(d>3.6||d<-.5)continue;const p=proj(n.l,n.b);
+  if(n.k=='note'){g.fillStyle=n.b%1?D.c2:D.c;g.beginPath();g.arc(p.x,p.y,14*p.s,0,7);g.fill();g.fillRect(p.x+10*p.s,p.y-30*p.s,4*p.s,30*p.s)}
+  else{g.strokeStyle='#ddd';g.lineWidth=3*p.s;g.beginPath();for(let i=0;i<10;i++)g.lineTo(p.x-20*p.s+i*4*p.s,p.y+Math.sin(i*1.7+tk/3)*10*p.s);g.stroke()}}
+ // car = mini cassette
+ const cx=proj(lane,beat).x;cassette(cx-30,CY-18,60,shiftFlash>0?'#fff':D.c,D.c2,false,beat*Math.PI);if(shiftFlash>0){shiftFlash--;txt('ON BEAT!',cx,CY-30,'#ffd23d',12)}
+ particles=particles.filter(p=>{p.x+=p.vx;p.y+=p.vy;p.t--;g.fillStyle=p.c;g.fillRect(p.x,p.y,4,4);return p.t>0});
+ // HUD
+ txt(D.n+' '+side+'-SIDE',180,26,'#fff',14);txt('SCORE '+score+'  x'+(1+Math.floor(combo/8)),180,48,'#ffd23d',14);
+ g.fillStyle='#000a';g.fillRect(30,58,300,12);g.fillStyle=stretch>.7?'#ff3d3d':'#3de0ff';g.fillRect(30,58,300*stretch,12);txt('TAPE STRETCH',180,84,'#fff',10);
+ g.fillStyle='#fff3';g.fillRect(30,90,300*Math.max(0,beat)/len,3);
+ if(beat<0)txt(beat<-1?'READY':'GO!',180,320,'#fff',30);
+ txt('Made by Arthur McConnell / Retro Gaming Dad',180,630,'#ff4fa3',10);
+ if(state=='rewind'){g.fillStyle='rgba(10,0,20,.9)';g.fillRect(30,220,300,260);txt('TAPE SNAPPED!',180,260,'#ff3d3d',22);g.fillStyle='#3de0ff';g.fillRect(60,290,240,60);txt('WATCH AD: REWIND',180,326,'#111',15);g.fillStyle='#555';g.fillRect(60,380,240,60);txt('GIVE UP',180,416,'#fff',15);txt('Y / N',180,465,'#aaa',11)}
+ if(state=='clear'||state=='over'){g.fillStyle='rgba(10,0,20,.9)';g.fillRect(30,220,300,220);txt(state=='clear'?side+'-SIDE CLEARED!':'TAPE EATEN',180,265,state=='clear'?'#4dff9b':'#ff3d3d',22);
+  txt('Score '+score+'   Hits '+(window._acc||0)+'%',180,305,'#fff',14);txt('Best '+save.best,180,330,'#ffd23d',13);
+  if(state=='clear'&&side=='B'&&deck+1<DECKS.length)txt('NEW DECK UNLOCKED: '+DECKS[deck+1].n,180,360,'#3de0ff',12);txt('Tap / Space: tape menu',180,405,'#fff',13)}
+ requestAnimationFrame(draw)}
+requestAnimationFrame(draw);
+</script></body></html>

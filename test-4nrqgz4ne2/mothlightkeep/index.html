@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Mothlight Keep v0.1.0 - Retro Gaming Dad</title>
+<title>Mothlight Keep v0.1.1 - Retro Gaming Dad</title>
 <style>
 html,body{margin:0;height:100%;background:#120a22;overflow:hidden;touch-action:none;font-family:'Courier New',monospace}
-canvas{display:block;margin:0 auto;image-rendering:pixelated;background:#120a22}
+canvas{display:block;margin:0 auto;background:#120a22;image-rendering:auto}
 </style></head><body>
 <canvas id="c"></canvas>
 <script>
@@ -18,7 +18,7 @@ const RunAds={
     return true /* stub: grant reward locally */}
 };
 /* ===== Mothlight Keep ===== */
-const VERSION='0.1.0',W=360,H=640,N=5,CS=64,OX=20,OY=96,cv=document.getElementById('c'),g=cv.getContext('2d');
+const VERSION='0.1.1',W=360,H=640,N=5,CS=64,OX=20,OY=96,cv=document.getElementById('c'),g=cv.getContext('2d');
 cv.width=W;cv.height=H;
 function fit(){const s=Math.min(innerWidth/W,innerHeight/H);cv.style.width=W*s+'px';cv.style.height=H*s+'px'}
 addEventListener('resize',fit);fit();
@@ -77,33 +77,68 @@ addEventListener('keydown',e=>{AC.resume();const k=e.key;if(state!='play'){if(k=
  if(d){e.preventDefault();cur=[Math.max(0,Math.min(N-1,cur[0]+d[0])),Math.max(0,Math.min(N-1,cur[1]+d[1]))]}
  if(k==' '||k=='Enter'){e.preventDefault();act(cur[0],cur[1])}if(k=='e'||k=='E')endTurn();if(k=='r'||k=='R')adOil()});
 let tick=0;
-function txt(s,x,y,c='#fff',sz=14,al='center'){g.fillStyle=c;g.font='bold '+sz+'px Courier New';g.textAlign=al;g.fillText(s,x,y)}
-function draw(){tick++;g.fillStyle='#120a22';g.fillRect(0,0,W,H);
- for(let i=0;i<40;i++){g.fillStyle=`hsl(${(i*37+tick)%360},70%,60%)`;g.fillRect((i*97)%W,(i*53+tick*.2)%H,2,2)}
- if(state=='title'){txt('MOTHLIGHT',180,170,'#ffd85e',38);txt('KEEP',180,215,'#7cf4ff',38);
+function txt(s,x,y,c='#fff',sz=14,al='center',glow=0){g.fillStyle=c;g.font='bold '+sz+'px Courier New';g.textAlign=al;if(glow){g.shadowColor=c;g.shadowBlur=glow}g.fillText(s,x,y);g.shadowBlur=0}
+function rr(x,y,w,h,r){g.beginPath();g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+h,r);g.arcTo(x+w,y+h,x,y+h,r);g.arcTo(x,y+h,x,y,r);g.arcTo(x,y,x+w,y,r);g.closePath()}
+const DUST=Array.from({length:60},(_,i)=>({x:(i*97.3)%W,y:(i*53.7)%H,s:.2+(i%5)*.12,p:i}));
+const STONE=Array.from({length:N*N},(_,i)=>{let r=Math.sin(i*91.7)*1e4;r-=Math.floor(r);return {c:r,v:(r*7|0)%3}});
+function bg(){const gr=g.createLinearGradient(0,0,0,H);gr.addColorStop(0,'#0d0620');gr.addColorStop(.5,'#1b0f36');gr.addColorStop(1,'#0a0518');g.fillStyle=gr;g.fillRect(0,0,W,H);
+ // castle silhouette
+ g.fillStyle='#160c2c';for(let i=0;i<9;i++){const x=i*44-8,h=40+((i*37)%5)*14;g.fillRect(x,H-h,40,h);for(let k=0;k<4;k++)g.fillRect(x+k*11,H-h-7,6,7)}
+ g.fillStyle='#ffd85e';g.globalAlpha=.4;for(let i=0;i<9;i++)if(i%2)g.fillRect(i*44+12,H-28-((i*37)%5)*8,4,7);g.globalAlpha=1;
+ for(const d of DUST){const y=(d.y-tick*d.s+H*4)%H,x=d.x+Math.sin(tick/40+d.p)*10;g.fillStyle=`rgba(255,${200+(d.p%3)*20},150,${.25+.25*Math.sin(tick/20+d.p)})`;g.fillRect(x,y,2,2)}}
+function lamp(cx,cy,f){const gl=g.createRadialGradient(cx,cy,2,cx,cy,30);gl.addColorStop(0,`rgba(255,240,170,${.9*f})`);gl.addColorStop(1,'rgba(255,180,60,0)');g.fillStyle=gl;g.fillRect(cx-30,cy-30,60,60);
+ g.fillStyle='#4a2c10';g.fillRect(cx-6,cy-12,12,3);g.fillRect(cx-1,cy-16,2,4);g.fillStyle='#ffe9a0';rr(cx-5,cy-9,10,15,3);g.fill();g.fillStyle='#fff';g.fillRect(cx-1,cy-5+Math.sin(tick/4)*1,2,5);g.fillStyle='#4a2c10';g.fillRect(cx-6,cy+6,12,3)}
+function drawMoth(px,py,c,w,dim){g.globalAlpha=dim?.45:1;g.shadowColor=c;g.shadowBlur=dim?0:10;g.fillStyle=c;
+ g.beginPath();g.ellipse(px-w/2-1,py-2,w/2+1,5,-.3,0,7);g.ellipse(px+w/2+1,py-2,w/2+1,5,.3,0,7);g.fill();
+ g.globalAlpha*=.75;g.beginPath();g.ellipse(px-w/3,py+4,w/3+1,3,.4,0,7);g.ellipse(px+w/3,py+4,w/3+1,3,-.4,0,7);g.fill();g.globalAlpha=dim?.45:1;g.shadowBlur=0;
+ g.fillStyle='#fff';rr(px-1.5,py-6,3,12,1.5);g.fill();g.strokeStyle='#fff';g.lineWidth=1;g.beginPath();g.moveTo(px,py-6);g.lineTo(px-3,py-10);g.moveTo(px,py-6);g.lineTo(px+3,py-10);g.stroke();g.globalAlpha=1}
+function panel(x,y,w,h,col){g.fillStyle='rgba(18,10,34,.88)';rr(x,y,w,h,12);g.fill();g.strokeStyle=col;g.lineWidth=2;g.shadowColor=col;g.shadowBlur=12;g.stroke();g.shadowBlur=0}
+function draw(){tick++;bg();
+ if(state=='title'){panel(22,110,316,480,'#ffd85e88');lamp(180,90,1+Math.sin(tick/10)*.1);
+  txt('MOTHLIGHT',180,170,'#ffd85e',38,'center',16);txt('KEEP',180,215,'#7cf4ff',38,'center',16);
+  for(let i=0;i<3;i++)drawMoth(110+i*70,240+Math.sin(tick/8+i)*4,MOTHS[i].c,Math.abs(Math.sin(tick/4+i))*9+5,false);
   const lines=['Light rooms in a crumbling keep.','Moths follow the glow:','SCOUT moves 2 & sees spawns','BURN eats shadows in its room','BLOCK walls shadows out','Shadows snuff lanterns -','protect the HEART lantern!','Survive the turns to win.','','Tap a room / Arrows+Space','1-3 pick moth, E end turn'];
-  lines.forEach((l,i)=>txt(l,180,270+i*20,i<1?'#fff':'#c9b8ff',13));txt(Math.sin(tick/15)>0?'TAP OR PRESS SPACE':'',180,520,'#ffd85e',16);
-  txt('Best '+best+'  v'+VERSION,180,560,'#888',12);txt('Made by Arthur McConnell / Retro Gaming Dad',180,610,'#ff8ad8',11);requestAnimationFrame(draw);return}
- txt('KEEP '+level+'   TURN '+Math.min(turn,maxTurn)+'/'+maxTurn,180,30,'#ffd85e',16);txt('OIL '+oil+'   SCORE '+score,180,54,'#7cf4ff',14);
+  lines.forEach((l,i)=>txt(l,180,280+i*20,i<1?'#fff':'#c9b8ff',13));txt(Math.sin(tick/15)>0?'TAP OR PRESS SPACE':'',180,520,'#ffd85e',16,'center',10);
+  txt('Best '+best+'  v'+VERSION,180,550,'#aaa',12);txt('Made by Arthur McConnell / Retro Gaming Dad',180,610,'#ff8ad8',11);requestAnimationFrame(draw);return}
+ // HUD
+ const hg=g.createLinearGradient(0,0,0,92);hg.addColorStop(0,'rgba(40,20,70,.95)');hg.addColorStop(1,'rgba(18,10,34,.7)');g.fillStyle=hg;g.fillRect(0,0,W,90);g.fillStyle='#ffd85e55';g.fillRect(0,89,W,1);
+ txt('KEEP '+level+'   TURN '+Math.min(turn,maxTurn)+'/'+maxTurn,180,28,'#ffd85e',16,'center',8);
+ g.fillStyle='#2a1d3f';rr(40,36,280,8,4);g.fill();g.fillStyle='#ffd85e';rr(40,36,280*Math.min(1,(turn-1)/maxTurn),8,4);g.fill();
+ for(let i=0;i<Math.min(oil,12);i++){const ox=24+i*13;g.fillStyle='#ffb347';g.beginPath();g.moveTo(ox,52);g.quadraticCurveTo(ox+5,60,ox,64);g.quadraticCurveTo(ox-5,60,ox,52);g.fill()}
+ txt('OIL '+oil,oil>0?Math.min(oil,12)*13+28:24,63,'#ffb347',12,'left');txt('SCORE '+score,340,63,'#7cf4ff',14,'right');
  txt(msg||'',180,82,'#fff',11);
+ // keep wall frame
+ g.fillStyle='#3b2a52';rr(OX-8,OY-8,N*CS+16,N*CS+16,8);g.fill();g.fillStyle='#2a1d3f';for(let i=0;i<N*CS+16;i+=16){g.fillRect(OX-8+i,OY-8,8,4);g.fillRect(OX-8+i,OY+N*CS+4,8,4)}
  const sc=moths[0];
- for(let y=0;y<N;y++)for(let x=0;x<N;x++){const px=OX+x*CS,py=OY+y*CS,L=lit.has(key(x,y));
-  g.fillStyle=L?`hsl(${40+Math.sin(tick/20+x+y)*8},90%,${45+Math.sin(tick/9+x*y)*4}%)`:'#2a1d3f';g.fillRect(px+2,py+2,CS-4,CS-4);
-  if(!L){g.fillStyle='#1c1230';g.fillRect(px+8,py+10,10,6);g.fillRect(px+40,py+44,14,6)}
-  if(L){g.fillStyle='#fff6c8';g.fillRect(px+28,py+22,8,14);g.fillStyle='#5a3a10';g.fillRect(px+26,py+18,12,4)}
-  if(x==2&&y==2){g.strokeStyle='#ff4f6d';g.lineWidth=3;g.strokeRect(px+5,py+5,CS-10,CS-10);txt('♥',px+CS/2,py+58,'#ff4f6d',12)}
-  if(state=='play'){const m=moths[sel];if(canMove(m,x,y)){g.fillStyle='rgba(255,255,255,.25)';g.fillRect(px+2,py+2,CS-4,CS-4)}else if(canLight(x,y)){g.strokeStyle='#ffd85e88';g.setLineDash([4,4]);g.lineWidth=2;g.strokeRect(px+6,py+6,CS-12,CS-12);g.setLineDash([])}}
-  if(plan.some(([a,b])=>a==x&&b==y)&&dist(sc.x,sc.y,x,y)<=3)txt('!',px+54,py+18,'#ff4f6d',16)}
- for(const s of shadows){const px=OX+s.x*CS+CS/2,py=OY+s.y*CS+CS/2+Math.sin(tick/8+s.x)*3;g.fillStyle='#000';g.beginPath();g.arc(px,py,16,0,7);g.fill();g.fillStyle='#ff2050';g.fillRect(px-8,py-4,4,4);g.fillRect(px+4,py-4,4,4)}
- moths.forEach((m,i)=>{const off=[[-16,-14],[16,-14],[0,16]][i],px=OX+m.x*CS+CS/2+off[0],py=OY+m.y*CS+CS/2+off[1]+Math.sin(tick/5+i)*2,w=Math.abs(Math.sin(tick/4+i))*9+3;
-  g.fillStyle=MOTHS[m.t].c;g.globalAlpha=acted.has(m.t)?.45:1;g.fillRect(px-w,py-5,w,8);g.fillRect(px+2,py-5,w,8);g.fillStyle='#fff';g.fillRect(px-1,py-6,3,12);g.globalAlpha=1;
-  if(i==sel&&state=='play'){g.strokeStyle='#fff';g.lineWidth=1;g.strokeRect(px-14,py-10,28,20)}});
- fx=fx.filter(f=>{f.t--;g.fillStyle=`rgba(255,${100+f.t*7},0,${f.t/20})`;g.beginPath();g.arc(OX+f.x*CS+CS/2,OY+f.y*CS+CS/2,30-f.t,0,7);g.fill();return f.t>0});
- g.strokeStyle='#fff';g.lineWidth=2;g.strokeRect(OX+cur[0]*CS+1,OY+cur[1]*CS+1,CS-2,CS-2);
- for(const b of BTN){const on=b.m===sel,dis=(b.m!=null&&acted.has(b.m))||(b.f===adOil&&adUsed);g.fillStyle=on?MOTHS[b.m].c:dis?'#2a2240':'#3a2a66';g.fillRect(b.x,b.y,b.w,b.h);txt(b.l,b.x+b.w/2,b.y+b.h/2+5,on?'#120a22':'#fff',13)}
- txt('Tap glowing room = move · dashed = light (1 oil)',180,566,'#c9b8ff',10);txt('Made by Arthur McConnell / Retro Gaming Dad',180,620,'#ff8ad8',10);
- if(state=='win'||state=='over'){g.fillStyle='rgba(10,5,20,.85)';g.fillRect(30,220,300,200);txt(state=='win'?'KEEP HELD!':'THE HEART WENT DARK',180,270,state=='win'?'#ffd85e':'#ff4f6d',20);
-  txt('Score '+score+'  Best '+best,180,310,'#fff',14);txt(state=='win'?'Tap / Space: next keep':'Tap / Space: try again',180,360,'#7cf4ff',14)}
+ for(let y=0;y<N;y++)for(let x=0;x<N;x++){const px=OX+x*CS,py=OY+y*CS,L=lit.has(key(x,y)),S=STONE[key(x,y)];
+  if(L){const f=.9+Math.sin(tick/9+x*y)*.08;const fg=g.createRadialGradient(px+32,py+30,4,px+32,py+32,46);fg.addColorStop(0,`hsl(45,95%,${68*f}%)`);fg.addColorStop(.6,`hsl(35,85%,${42*f}%)`);fg.addColorStop(1,'#5a2e14');g.fillStyle=fg;g.fillRect(px+2,py+2,CS-4,CS-4)}
+  else{g.fillStyle=['#261a3a','#2a1d3f','#231636'][S.v];g.fillRect(px+2,py+2,CS-4,CS-4)}
+  g.strokeStyle=L?'rgba(90,40,10,.35)':'rgba(10,5,20,.6)';g.lineWidth=1;g.beginPath();
+  for(let r=1;r<4;r++){g.moveTo(px+2,py+r*16);g.lineTo(px+CS-2,py+r*16)}for(let r=0;r<4;r++){const o=r%2?16:0;for(let c=o;c<CS;c+=32){g.moveTo(px+c+8,py+r*16+2);g.lineTo(px+c+8,py+r*16+14)}}g.stroke();
+  if(!L){g.fillStyle='rgba(0,0,0,.35)';g.fillRect(px+8,py+10,10,6);g.fillRect(px+40,py+44,14,6);g.fillStyle='rgba(120,90,170,.12)';g.fillRect(px+2,py+2,CS-4,2)}
+  if(L)lamp(px+32,py+30,.9+Math.sin(tick/7+x+y)*.1);
+  if(x==2&&y==2){const p=1+Math.sin(tick/10)*.15;g.strokeStyle='#ff4f6d';g.lineWidth=3;g.shadowColor='#ff4f6d';g.shadowBlur=12*p;g.strokeRect(px+5,py+5,CS-10,CS-10);g.shadowBlur=0;txt('♥',px+CS/2,py+58,'#ff4f6d',12*p,'center',8)}
+  if(state=='play'){const m=moths[sel];if(canMove(m,x,y)){g.fillStyle=`rgba(255,255,255,${.18+.08*Math.sin(tick/8)})`;g.fillRect(px+2,py+2,CS-4,CS-4)}else if(canLight(x,y)){g.strokeStyle='#ffd85e';g.globalAlpha=.55+.3*Math.sin(tick/10);g.setLineDash([4,4]);g.lineDashOffset=-tick/3;g.lineWidth=2;g.strokeRect(px+6,py+6,CS-12,CS-12);g.setLineDash([]);g.globalAlpha=1}}
+  if(plan.some(([a,b])=>a==x&&b==y)&&dist(sc.x,sc.y,x,y)<=3){g.fillStyle='rgba(255,40,80,.18)';g.fillRect(px+2,py+2,CS-4,CS-4);txt('!',px+54,py+18,'#ff4f6d',16,'center',8)}}
+ // vignette darkness over unlit
+ for(const s of shadows){const px=OX+s.x*CS+CS/2,py=OY+s.y*CS+CS/2+Math.sin(tick/8+s.x)*3;
+  const sg=g.createRadialGradient(px,py,4,px,py,26);sg.addColorStop(0,'rgba(0,0,0,.95)');sg.addColorStop(.7,'rgba(10,0,20,.8)');sg.addColorStop(1,'rgba(20,0,40,0)');g.fillStyle=sg;g.fillRect(px-26,py-26,52,52);
+  g.fillStyle='#05000a';g.beginPath();g.moveTo(px-14,py+14);for(let k=0;k<=6;k++)g.lineTo(px-14+k*28/6,py+14+((k+(tick>>3))%2?5:0));g.arc(px,py,14,0,Math.PI,true);g.fill();
+  g.fillStyle='#ff2050';g.shadowColor='#ff2050';g.shadowBlur=8;g.fillRect(px-7,py-4,4,3);g.fillRect(px+3,py-4,4,3);g.shadowBlur=0}
+ moths.forEach((m,i)=>{const off=[[-16,-14],[16,-14],[0,16]][i],px=OX+m.x*CS+CS/2+off[0],py=OY+m.y*CS+CS/2+off[1]+Math.sin(tick/5+i)*2,w=Math.abs(Math.sin(tick/4+i))*9+4;
+  drawMoth(px,py,MOTHS[m.t].c,w,acted.has(m.t));
+  if(i==sel&&state=='play'){g.strokeStyle='#fff';g.lineWidth=1;g.globalAlpha=.6+.4*Math.sin(tick/6);rr(px-15,py-12,30,24,6);g.stroke();g.globalAlpha=1}});
+ fx=fx.filter(f=>{f.t--;const cx=OX+f.x*CS+CS/2,cy=OY+f.y*CS+CS/2;g.fillStyle=`rgba(255,${100+f.t*7},0,${f.t/20})`;g.beginPath();g.arc(cx,cy,30-f.t,0,7);g.fill();
+  for(let k=0;k<8;k++){const a=k*.785+f.x,r=(20-f.t)*1.6;g.fillStyle=`rgba(255,220,120,${f.t/20})`;g.fillRect(cx+Math.cos(a)*r,cy+Math.sin(a)*r,3,3)}return f.t>0});
+ g.strokeStyle='#fff';g.lineWidth=2;g.shadowColor='#fff';g.shadowBlur=6;rr(OX+cur[0]*CS+1,OY+cur[1]*CS+1,CS-2,CS-2,6);g.stroke();g.shadowBlur=0;
+ for(const b of BTN){const on=b.m===sel,dis=(b.m!=null&&acted.has(b.m))||(b.f===adOil&&adUsed);const c=on?MOTHS[b.m].c:dis?'#2a2240':b.f===adOil?'#5a2a66':'#3a2a66';
+  const bg2=g.createLinearGradient(0,b.y,0,b.y+b.h);bg2.addColorStop(0,c);bg2.addColorStop(1,dis?'#1e1830':'#1d1238');g.fillStyle=on?c:bg2;rr(b.x,b.y,b.w,b.h,10);g.fill();
+  g.strokeStyle=on?'#fff':'rgba(255,255,255,.18)';g.lineWidth=on?2:1;if(on){g.shadowColor=c;g.shadowBlur=14}g.stroke();g.shadowBlur=0;
+  if(b.m!=null)drawMoth(b.x+16,b.y+b.h/2,on?'#120a22':MOTHS[b.m].c,7,dis);txt(b.l,b.x+b.w/2+(b.m!=null?8:0),b.y+b.h/2+5,on?'#120a22':dis?'#777':'#fff',13)}
+ txt('Tap glowing room = move · dashed = light (1 oil)',180,566,'#c9b8ff',10);txt('Made by Arthur McConnell / Retro Gaming Dad  v'+VERSION,180,620,'#ff8ad8',10);
+ if(state=='win'||state=='over'){g.fillStyle='rgba(5,2,12,.55)';g.fillRect(0,0,W,H);const c=state=='win'?'#ffd85e':'#ff4f6d';panel(30,220,300,200,c);
+  if(state=='win')lamp(180,250,1);txt(state=='win'?'KEEP HELD!':'THE HEART WENT DARK',180,state=='win'?295:280,c,20,'center',12);
+  txt('Score '+score+'  Best '+best,180,330,'#fff',14);txt(state=='win'?'Tap / Space: next keep':'Tap / Space: try again',180,375,'#7cf4ff',14,'center',Math.sin(tick/10)>0?8:0)}
  requestAnimationFrame(draw)}
 draw();
 </script></body></html>

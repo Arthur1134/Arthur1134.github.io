@@ -1,0 +1,9 @@
+HOW TO PLAY BAKERY CASES  (Retro Gaming Dad)
+- Tap a stand, then another: the top run of matching sweets moves if the target is empty or has the same flavor on top, with room (4 per stand).
+- Win: every stand empty or holding 4 of one flavor ("SOLD").
+- TURN STANDS (purple ↻, from Case 4): tap TURN, then the stand - its stack flips upside-down. Limited turns per case; some cases (11+) need a turn.
+- CLOSED stands (from Case 7) open once you sell out any flavor.
+- COOLING ❄ (from Case 11): chilled sweets can't move or be stacked on; move sweets in/out of a neighbouring stand to thaw them.
+- Undo, Hint, Restart. 3 stars at or under par, 2 stars within 35%.
+- Daily Special on the title screen: one new case per day.
+- Bakery Radio (Settings): 5 original WebAudio tracks - Morning Bake, Sugar Rush (start), Window Display (8 cases), Sprinkle Disco (20), Golden Crust (all 44). Separate SFX and music volume.

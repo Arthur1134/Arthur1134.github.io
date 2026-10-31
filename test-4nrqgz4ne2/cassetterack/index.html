@@ -42,11 +42,20 @@ h1{font-size:44px;margin:30px 0 4px;letter-spacing:2px;color:#ff4fb8;text-shadow
 .panel{max-width:420px;background:rgba(20,10,30,.85);border:2px solid #ff4fb8;border-radius:12px;padding:14px;line-height:1.45}
 #modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:9}
 #modal.on{display:flex}#modal .panel{text-align:center}
+#tlist{display:flex;flex-direction:column;gap:8px;width:100%;max-width:380px;margin:8px 0}
+.tape{position:relative;min-height:70px;border-radius:8px;background:linear-gradient(135deg,var(--tc),#1a1020 170%);border:2px solid rgba(0,0,0,.55);display:flex;align-items:center;cursor:pointer;padding-left:20px;box-shadow:0 4px 0 #0008}
+.tape .spine{position:absolute;left:0;top:0;bottom:0;width:13px;background:var(--tc);filter:brightness(.55);border-radius:6px 0 0 6px}
+.tape .lab{flex:1;background:#f4e9d8;color:#20152c;border-radius:4px;padding:4px 8px;margin:6px 8px 6px 0;border-top:4px solid var(--tc)}
+.lab b{display:block;font-size:16px}.lab small{font-size:11px;opacity:.75}
+.reels{display:flex;gap:6px;margin-right:10px}.reels i{width:20px;height:20px;border-radius:50%;background:radial-gradient(#222 30%,#eee 32% 45%,#333 47%);border:1px dashed #000}
+.tape.on{box-shadow:0 0 0 3px #ffd23f,0 0 18px #ffd23f}.tape.on .reels i{animation:spin 1.2s linear infinite}
+.tape.lock{background:#2a2230;filter:grayscale(1) brightness(.7);cursor:not-allowed}.tape.lock .lab{background:#3a3340;color:#bbb;border-top-color:#555}
+.vol{width:240px;margin:8px auto;text-align:center}.vol input{width:100%}
 .stars{font-size:40px;color:#ffd23f;text-shadow:0 0 10px #ffd23f}
 </style></head><body><div id="bg"></div>
 <div id="title" class="scr on"><h1>CASSETTE<br>RACK</h1><div class="sub">★ Mixtape Sort Puzzle ★</div>
 <div class="credit">by Retro Gaming Dad (Arthur McConnell) · @Retrogamingdad</div>
-<button class="btn" id="bCont">Continue</button><button class="btn" id="bNew">New Game</button><button class="btn" id="bSel">Level Select</button>
+<button class="btn" id="bCont">Continue</button><button class="btn" id="bNew">New Game</button><button class="btn" id="bSel">Level Select</button><button class="btn" id="bTape">📼 Tape Deck</button>
 <button class="btn" id="bDaily">Daily Mixtape</button><button class="btn" id="bHow">How to Play</button><button class="btn" id="bSet">Settings</button><button class="btn" id="bQuit">Quit</button></div>
 <div id="levels" class="scr"><h2>Level Select</h2><div class="grid" id="grid"></div><button class="btn" data-back>Back</button></div>
 <div id="how" class="scr"><h2>How to Play</h2><div class="panel">
@@ -55,12 +64,13 @@ h1{font-size:44px;margin:30px 0 4px;letter-spacing:2px;color:#ff4fb8;text-shadow
 <p>🔄 <b>Side A/B:</b> pink <b>A/B</b> trays can be flipped. Tap <b>FLIP</b>, then the tray: the stack turns over (top ↔ bottom). Flips are limited per level and cost a move.</p>
 <p>🔒 Locked trays open when you complete any color.</p><p>❄ Iced tapes can't move or be stacked on. Pour into or out of a <b>neighbouring</b> tray to thaw them.</p>
 <p>⭐ Finish at or under par for 3 stars.</p></div><button class="btn" data-back>Back</button></div>
-<div id="set" class="scr"><h2>Settings</h2><button class="btn" id="bSnd"></button><button class="btn" id="bReset">Reset Progress</button><button class="btn" data-back>Back</button></div>
+<div id="tapes" class="scr"><h2>📼 Tape Deck</h2><div class="sub" id="tNow"></div><div class="vol">Music volume<input type="range" min="0" max="100" class="mv"></div><div id="tlist"></div><button class="btn" id="tBack">Back</button></div>
+<div id="set" class="scr"><h2>Settings</h2><div class="vol">Music volume<input type="range" min="0" max="100" class="mv"></div><button class="btn" id="bSnd"></button><button class="btn" id="bTape2">📼 Change Tape</button><button class="btn" id="bReset">Reset Progress</button><button class="btn" data-back>Back</button></div>
 <div id="game" class="scr"><div id="hud"><span id="hLv"></span><span>Moves <b id="hMv">0</b> / par <b id="hPar"></b></span><span>Flips <b id="hFl"></b></span></div>
 <div id="msg"></div><div id="rack"></div>
-<div id="tools"><button class="tb" id="tFlip">FLIP</button><button class="tb" id="tUndo">UNDO</button><button class="tb" id="tHint">HINT</button><button class="tb" id="tRe">RESTART</button><button class="tb" id="tMenu">MENU</button></div></div>
+<div id="tools"><button class="tb" id="tFlip">FLIP</button><button class="tb" id="tUndo">UNDO</button><button class="tb" id="tHint">HINT</button><button class="tb" id="tRe">RESTART</button><button class="tb" id="tTape">📼 TAPE</button><button class="tb" id="tMenu">MENU</button></div></div>
 <div id="modal"><div class="panel"><h2 id="mT">Rack Complete!</h2><div class="stars" id="mS"></div><p id="mP"></p><button class="btn" id="mNext">Next</button><button class="btn" id="mMenu">Menu</button></div></div>
-<div class="ver">v1.0.0</div>
+<div class="ver">v1.1.0</div>
 <script>// ==== Cassette Rack core rules (shared by game + smoke test) ====
 var CR=(function(){
 function clone(s){return {cap:s.cap,flips:s.flips,t:s.t.map(function(x){return {lock:x.lock,flip:x.flip,b:x.b.map(function(k){return {c:k.c,ice:k.ice,id:k.id}})}})}}
@@ -98,6 +108,7 @@ var Ads={interstitial:function(cb){cb&&cb()},rewarded:function(cb){cb&&cb(false)
 var COLORS=['#ff3b5c','#3bd1ff','#ffd23f','#7cff5e','#b45eff','#ff8a2b','#ff6fd8','#f4f4f4','#2b5bff'];
 var NAMES=['HOT ROD','SYNTH','GOLD','ACID','PURPLE','SUNSET','BUBBLEGUM','CHROME','BLUE MON'];
 var save=JSON.parse(localStorage.getItem('cassetteRack')||'{"stars":{},"cur":0,"snd":true}');
+if(save.mus==null)save.mus=.6;if(!save.tape)save.tape='lofi';
 function store(){localStorage.setItem('cassetteRack',JSON.stringify(save))}
 var $=function(i){return document.getElementById(i)};
 function show(id){document.querySelectorAll('.scr').forEach(function(s){s.classList.toggle('on',s.id===id)})}
@@ -107,6 +118,113 @@ var SFX={click:function(){tone(900,.04,'square',.05)},clack:function(){tone(180,
  spool:function(){for(var i=0;i<5;i++)tone(300+i*60,.05,'sawtooth',.03,i*.04)},bad:function(){tone(140,.15,'sawtooth',.06,0,90)},
  done:function(){tone(660,.08,'square',.07);tone(990,.12,'square',.07,.08)},flip:function(){tone(300,.25,'triangle',.1,0,900)},
  win:function(){[523,659,784,1047,784,1047].forEach(function(f,i){tone(f,.16,'square',.07,i*.11)})}};
+// ---- Tape Deck music engine (original WebAudio compositions, Retro Gaming Dad) ----
+var TAPES=[
+{id:'lofi',name:'Lo-Fi Hiss',genre:'lo-fi beats',col:'#c9a27a',need:0,bpm:76,swing:.18,hiss:1,dl:3,
+ prog:[[53,57,60,64],[52,55,59,62],[50,53,57,60],[48,52,55,59]],
+ k:'x......x..x.....',s:'....x.......x...',h:'x.x.x.x.x.x.x.xx',dv:.7,
+ parts:[{p:'x...............',w:'triangle',cut:1100,v:.05,len:16,det:7,a:.4,rel:1.2,rev:.3},
+  {p:'..x.....x..x....',w:'sine',cut:3000,v:.035,len:2,oct:1,rev:.2},
+  {p:'0.....0...2..0..',w:'sine',cut:600,v:.22,len:3,oct:-1},
+  {p:'....4...5.6.....4.......2...3...........6...5.4.....3...2.......',w:'triangle',cut:2200,v:.05,len:2,oct:1,dly:.35,vib:4}]},
+{id:'neon',name:'Neon Drive',genre:'outrun synth',col:'#ff4fb8',need:0,bpm:112,dl:3,
+ prog:[[57,60,64],[53,57,60],[55,60,64],[55,59,62]],
+ k:'x...x...x...x...',s:'....x.......x...',h:'..x...x...x...x.',
+ parts:[{p:'0.3.0.3.0.3.0.3.',w:'sawtooth',cut:900,v:.13,len:1,oct:-1,q:6},
+  {p:'0124012401240124',w:'square',cut:2600,v:.025,len:.6,oct:1,dly:.3},
+  {p:'x...............',w:'sawtooth',cut:1500,v:.035,len:16,det:12,a:.3,rel:.8,rev:.3},
+  {p:'4.....3.4.5.....4.......3...2...4.....3.4.6.....5.......4.......',w:'sawtooth',cut:2400,v:.045,len:2,oct:1,dly:.3,vib:5,det:6}]},
+{id:'synthwave',name:'Soft Synthwave',genre:'dreamy synthwave',col:'#8f6bff',need:0,bpm:92,dl:3,
+ prog:[[50,53,57,60],[46,50,53,57],[53,57,60,64],[48,52,55,59]],
+ k:'x.......x.......',s:'....x.......x...',h:'x.x.x.x.x.x.x.x.',dv:.8,
+ parts:[{p:'0..0..0.0..0..0.',w:'triangle',cut:700,v:.2,len:2,oct:-1},
+  {p:'x...............',w:'sawtooth',cut:1700,v:.04,len:16,det:14,a:.7,rel:1.5,rev:.5},
+  {p:'..2...3...2...1.',w:'sine',cut:4000,v:.03,len:1,oct:2,dly:.4},
+  {p:'5.......4...3...6.......5...4...3.......2...4...5...............',w:'sine',cut:3000,v:.06,len:3,oct:1,vib:5,rev:.4,dly:.3}]},
+{id:'chip',name:'Chip Beat',genre:'8-bit chiptune',col:'#7cff5e',need:5,bpm:140,dl:2,
+ prog:[[48,52,55],[47,50,55],[45,48,52],[45,48,53]],
+ k:'x.....x.x.....x.',s:'....x.......x...',h:'xxxxxxxxxxxxxxxx',dv:.6,chip:1,
+ parts:[{p:'0.0.3.0.0.0.3.0.',w:'square',cut:3000,v:.08,len:.8,oct:-1},
+  {p:'0120120120120120',w:'square',cut:5000,v:.022,len:.5,oct:1},
+  {p:'3.4.5.3.6...5.4.3...4.5.4...2...5.4.3.5.6...7...6.5.4...3.......',w:'square',cut:5000,v:.04,len:1.5,oct:1,vib:6,dly:.15}]},
+{id:'disco',name:'Disco Spool',genre:'funky disco',col:'#ffd23f',need:10,bpm:118,dl:3,
+ prog:[[45,48,52,55],[50,53,57,60],[43,47,50,53],[48,52,55,59]],
+ k:'x...x...x...x...',s:'....x.......x...',h:'x.o.x.o.x.o.x.o.',
+ parts:[{p:'0o0o0o0o0o0o0o0o',w:'sawtooth',cut:1100,v:.12,len:.7,oct:-1,q:5},
+  {p:'..x..x....x..x..',w:'square',cut:2600,v:.025,len:1,rev:.2},
+  {p:'x...............',w:'sawtooth',cut:2400,v:.03,len:16,det:15,a:.4,rel:.6,oct:1,rev:.4},
+  {p:'..4.5.6.....5.4...2.3.4.....3...',w:'triangle',cut:3500,v:.04,len:1,oct:1,dly:.25}]},
+{id:'ambient',name:'Chill Ambient',genre:'floaty ambient',col:'#5ef0ff',need:15,bpm:66,dl:4,
+ prog:[[48,55,59,64],[45,52,55,60],[41,48,55,57],[43,50,55,59]],
+ k:'',s:'',h:'....x.......x..x',dv:.35,
+ parts:[{p:'x...............',w:'triangle',cut:1400,v:.06,len:16,det:9,a:1.6,rel:3,rev:.7},
+  {p:'0...............',w:'sine',cut:500,v:.13,len:14,oct:-1,a:.5,rel:2},
+  {p:'6.......5...........7.......4...........6.......3...............',w:'sine',cut:5000,v:.045,len:2,oct:1,dly:.5,rev:.6}]},
+{id:'jazz',name:'Late-Night Jazz-ish',genre:'smoky lounge',col:'#ff8a2b',need:20,bpm:96,swing:.28,dl:3,
+ prog:[[50,53,57,60,64],[43,53,57,59,64],[48,52,55,59,62],[45,49,52,55,58]],
+ k:'x.......x.......',s:'g...x..g....x..g',h:'x...x.x.x...x.x.',dv:.45,
+ parts:[{p:'0...2...1...3...',w:'triangle',cut:800,v:.22,len:3.5,oct:-1},
+  {p:'x.....x...x.....',w:'sine',cut:2400,v:.03,len:3,det:4,rev:.3},
+  {p:'....6.5.4...2...........7.6.5...3.4.5.........2.......4.........',w:'triangle',cut:1800,v:.06,len:1.5,oct:1,vib:5,rev:.35}]},
+{id:'metal',name:'Metal Mixtape',genre:'shred metal',col:'#e8e8e8',need:30,bpm:150,dl:2,
+ prog:[[40,47,52],[36,43,48],[38,45,50],[35,42,47]],
+ k:'x.x.x.x.x.x.x.x.',s:'....x.......x...',h:'x.x.x.x.x.x.x.x.',dv:.8,
+ parts:[{p:'x.x.xx.xx.x.xx.x',w:'sawtooth',cut:2600,v:.045,len:.8,dist:1,det:8},
+  {p:'0.0.000.0.0.000.',w:'sawtooth',cut:600,v:.1,len:.7,oct:-1},
+  {p:'5.4.5.6.8.6.5.4.5.......4.5.6.5.8.6.8.9.8.6.5.4.5.......3.4.5...',w:'square',cut:3200,v:.03,len:1,oct:1,dist:1,vib:6,dly:.2}]},
+{id:'boombox',name:'Boss Boombox',genre:'boom-bap hip hop',col:'#ff3b5c',need:40,bpm:90,swing:.14,hiss:1,dl:3,
+ prog:[[48,51,55],[44,48,51],[46,50,53],[43,46,50]],
+ k:'x.....x...x.....',s:'....x.......x...',h:'x.x.x.x.x.x.xxx.',
+ parts:[{p:'0.....0...0..0..',w:'sine',cut:400,v:.3,len:3,oct:-1},
+  {p:'x.....x.........',w:'sawtooth',cut:1500,v:.045,len:1.5,det:10,rev:.3},
+  {p:'........4.3.2.......3...4.......',w:'square',cut:2000,v:.03,len:1,oct:1,dly:.35,vib:5}]},
+{id:'golden',name:'Golden Reel',genre:'victory anthem',col:'#ffb800',need:45,bpm:124,dl:3,
+ prog:[[53,57,60],[55,59,62],[52,55,59],[57,60,64]],
+ k:'x...x...x...x...',s:'....x.......x...',h:'..x...x...x...xx',
+ parts:[{p:'0.0o0.0o0.0o0.0o',w:'sawtooth',cut:1000,v:.11,len:.8,oct:-1,q:4},
+  {p:'0124201240124201',w:'square',cut:3000,v:.02,len:.6,oct:1,dly:.25},
+  {p:'x...............',w:'sawtooth',cut:2200,v:.035,len:16,det:14,a:.3,rel:.8,rev:.4},
+  {p:'3...4...5...4.3.2.......3.4.5...6.......5...4.3.4...............',w:'sawtooth',cut:3000,v:.045,len:3.5,oct:1,det:8,vib:5,dly:.3}]}
+];
+var MUS=(function(){
+ var ac,master,dIn,dNode,rIn,nb,bus=null,T=null,timer=null,step=0,nt=0,vol=.6,hissN=null;
+ function mtof(m){return 440*Math.pow(2,(m-69)/12)}
+ function init(){if(ac)return true;try{ac=AC=AC||new (window.AudioContext||window.webkitAudioContext)()}catch(e){return false}
+  master=ac.createGain();var comp=ac.createDynamicsCompressor();comp.threshold.value=-14;comp.ratio.value=4;master.connect(comp);comp.connect(ac.destination);
+  nb=ac.createBuffer(1,ac.sampleRate*2,ac.sampleRate);var d=nb.getChannelData(0);for(var i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+  dIn=ac.createGain();dNode=ac.createDelay(2);var fb=ac.createGain();fb.gain.value=.38;var dlp=ac.createBiquadFilter();dlp.frequency.value=2600;
+  dIn.connect(dNode);dNode.connect(dlp);dlp.connect(fb);fb.connect(dNode);dlp.connect(master);
+  var cv=ac.createConvolver(),L=ac.sampleRate*2.2,ir=ac.createBuffer(2,L,ac.sampleRate);for(var c=0;c<2;c++){var x=ir.getChannelData(c);for(i=0;i<L;i++)x[i]=(Math.random()*2-1)*Math.pow(1-i/L,3)}
+  cv.buffer=ir;rIn=ac.createGain();rIn.connect(cv);var rOut=ac.createGain();rOut.gain.value=.5;cv.connect(rOut);rOut.connect(master);setVol(vol);return true}
+ var shp=null;function dist(){if(shp)return shp;var n=1024,c=new Float32Array(n);for(var i=0;i<n;i++){var x=i*2/n-1;c[i]=Math.tanh(x*6)}shp=c;return c}
+ function voice(t,f,o,dur,b){var g=ac.createGain(),fl=ac.createBiquadFilter();fl.type='lowpass';fl.frequency.value=o.cut||2000;fl.Q.value=o.q||1;
+  if(o.q){fl.frequency.setValueAtTime((o.cut||2000)*2.5,t);fl.frequency.exponentialRampToValueAtTime(o.cut,t+.15)}
+  var a=o.a||.008,rel=o.rel||.12,pk=o.v,end=t+dur+rel;g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(pk,t+a);g.gain.setValueAtTime(pk,t+Math.max(a,dur*.6));g.gain.exponentialRampToValueAtTime(pk*.5,t+Math.max(a+.01,dur));g.gain.exponentialRampToValueAtTime(.0001,end);
+  var src=fl;if(o.dist){var ws=ac.createWaveShaper();ws.curve=dist();ws.connect(fl);src=ws}
+  var n=o.det?2:1;for(var k=0;k<n;k++){var os=ac.createOscillator();os.type=o.w;os.frequency.value=f;if(o.det)os.detune.value=k?o.det:-o.det;
+   if(o.vib){var lf=ac.createOscillator(),lg=ac.createGain();lf.frequency.value=o.vib;lg.gain.setValueAtTime(0,t);lg.gain.linearRampToValueAtTime(f*.008,t+.25);lf.connect(lg);lg.connect(os.frequency);lf.start(t);lf.stop(end)}
+   os.connect(src);os.start(t);os.stop(end+.05)}
+  fl.connect(g);g.connect(b);if(o.dly){var s=ac.createGain();s.gain.value=o.dly;g.connect(s);s.connect(dIn)}if(o.rev){var r=ac.createGain();r.gain.value=o.rev;g.connect(r);r.connect(rIn)}}
+ function noise(t,b,type,fq,q,v,dec,rv){var s=ac.createBufferSource();s.buffer=nb;s.playbackRate.value=.8+Math.random()*.4;var f=ac.createBiquadFilter();f.type=type;f.frequency.value=fq;f.Q.value=q;var g=ac.createGain();
+  g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.0001,t+dec);s.connect(f);f.connect(g);g.connect(b);if(rv){var r=ac.createGain();r.gain.value=rv;g.connect(r);r.connect(rIn)}s.start(t,Math.random()*1.5);s.stop(t+dec+.02)}
+ function kick(t,b,v){var o=ac.createOscillator(),g=ac.createGain();o.frequency.setValueAtTime(T.chip?120:155,t);o.frequency.exponentialRampToValueAtTime(42,t+.13);g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.0001,t+.38);o.connect(g);g.connect(b);o.start(t);o.stop(t+.4);noise(t,b,'highpass',3000,1,v*.12,.012)}
+ function snare(t,b,v){noise(t,b,'bandpass',T.chip?3000:1800,.8,v*.55,T.chip?.08:.18,.25);var o=ac.createOscillator(),g=ac.createGain();o.type='triangle';o.frequency.setValueAtTime(200,t);o.frequency.exponentialRampToValueAtTime(140,t+.08);g.gain.setValueAtTime(v*.35,t);g.gain.exponentialRampToValueAtTime(.0001,t+.1);o.connect(g);g.connect(b);o.start(t);o.stop(t+.12)}
+ function note(ch,c,oct){var n=ch.length;if(c==='o')return ch[0]+12+oct*12;var i=+c;return ch[i%n]+12*Math.floor(i/n)+oct*12}
+ function tick(){var sd=60/T.bpm/4;while(nt<ac.currentTime+.15){var s=step%16,bar=Math.floor(step/16)%4,ch=T.prog[bar],t=nt+((step%2)?(T.swing||0)*sd:0),dv=T.dv||1;
+   if(T.k[s]==='x')kick(t,bus,.9*dv);if(T.s[s]==='x')snare(t,bus,.5*dv);if(T.s[s]==='g')snare(t,bus,.12*dv);
+   if(T.h[s]==='x')noise(t,bus,'highpass',T.chip?9000:7500,1,.07*dv*(s%4?.6:1),T.chip?.03:.045);if(T.h[s]==='o')noise(t,bus,'highpass',7000,1,.07*dv,.25);
+   T.parts.forEach(function(p){var c=p.p[step%p.p.length];if(!c||c==='.')return;var dur=sd*p.len,oc=p.oct||0;
+    if(c==='x')ch.forEach(function(m){voice(t,mtof(m+oc*12),p,dur,bus)});else voice(t,mtof(note(ch,c,oc)),p,dur,bus)});
+   nt+=sd;step++}}
+ function setVol(v){vol=v;if(master)master.gain.setTargetAtTime(v*.7,ac.currentTime,.05)}
+ function stop(){clearInterval(timer);timer=null;if(bus){var b=bus,h=hissN;b.gain.setTargetAtTime(.0001,ac.currentTime,.25);setTimeout(function(){b.disconnect();if(h)try{h.stop()}catch(e){}},1500)}bus=null;hissN=null}
+ function play(id){if(!init())return;if(ac.state==='suspended')ac.resume();var nT=TAPES.filter(function(x){return x.id===id})[0]||TAPES[0];stop();if(vol<=0)return;T=nT;
+  bus=ac.createGain();bus.gain.setValueAtTime(.0001,ac.currentTime);bus.gain.exponentialRampToValueAtTime(1,ac.currentTime+.8);bus.connect(master);
+  dNode.delayTime.setValueAtTime(60/T.bpm/4*(T.dl||3),ac.currentTime);
+  if(T.hiss){hissN=ac.createBufferSource();hissN.buffer=nb;hissN.loop=true;var hf=ac.createBiquadFilter();hf.type='bandpass';hf.frequency.value=5000;hf.Q.value=.6;var hg=ac.createGain();hg.gain.value=.018;hissN.connect(hf);hf.connect(hg);hg.connect(bus);hissN.start()}
+  step=0;nt=ac.currentTime+.1;timer=setInterval(tick,25);tick()}
+ return {play:play,stop:stop,setVol:setVol,playing:function(){return !!timer},cur:function(){return T}}})();
+
 // ---- game ----
 var G=null;
 function dailyLevel(){var d=new Date(),sd=d.getFullYear()*372+d.getMonth()*31+d.getDate();var pool=LEVELS.slice(10);return pool[sd%pool.length]}
@@ -135,9 +253,9 @@ function tap(ti){var s=G.s;
  if(G.sel===ti){G.sel=-1;render();return}
  var ns=CR.pour(s,G.sel,ti);if(!ns){SFX.bad();if(s.t[ti].b.length&&!s.t[ti].lock){G.sel=ti}else G.sel=-1;render();return}
  ns.t.forEach(function(t,i){t.side=s.t[i].side});SFX.spool();commit(ns)}
-function win(){SFX.win();var p=G.L.par,m=G.moves;var st=m<=p?3:m<=Math.ceil(p*1.35)?2:1;
+function win(){SFX.win();var _u0=unlockedIds();var p=G.L.par,m=G.moves;var st=m<=p?3:m<=Math.ceil(p*1.35)?2:1;
  if(!G.daily){var k=G.i;save.stars[k]=Math.max(save.stars[k]||0,st);save.cur=Math.min(LEVELS.length-1,Math.max(save.cur,k+1));store()}
- $('mS').textContent='★'.repeat(st)+'☆'.repeat(3-st);$('mP').textContent=m+' moves (par '+p+')';$('mNext').style.display=(G.daily||G.i>=LEVELS.length-1)?'none':'';$('mT').textContent=G.daily?'Daily Mixtape Done!':(G.i>=LEVELS.length-1?'You beat the whole rack!':'Rack Complete!');$('modal').classList.add('on')}
+ $('mS').textContent='★'.repeat(st)+'☆'.repeat(3-st);$('mP').textContent=m+' moves (par '+p+')';tapeNews(_u0);$('mNext').style.display=(G.daily||G.i>=LEVELS.length-1)?'none':'';$('mT').textContent=G.daily?'Daily Mixtape Done!':(G.i>=LEVELS.length-1?'You beat the whole rack!':'Rack Complete!');$('modal').classList.add('on')}
 $('mNext').onclick=function(){$('modal').classList.remove('on');Ads.interstitial(function(){start(G.i+1)})};
 $('mMenu').onclick=function(){$('modal').classList.remove('on');title()};
 $('tFlip').onclick=function(){if(!G.s.flips){SFX.bad();msg('No flips left!');return}G.flipMode=!G.flipMode;G.sel=-1;msg(G.flipMode?'Tap a pink A/B tray to flip it.':'');SFX.click();render()};
@@ -149,10 +267,11 @@ $('tHint').onclick=function(){var sol=CR.solve(G.s,60000);document.querySelector
 function title(){show('title');$('bCont').disabled=!(save.cur>0);}
 function grid(){var g=$('grid');g.innerHTML='';LEVELS.forEach(function(L,i){var b=document.createElement('button');b.className='lv';var st=save.stars[i]||0;b.innerHTML=(i+1)+'<small>'+(st?'★'.repeat(st):(L.tut?'NEW':''))+'</small>';b.disabled=i>save.cur;b.onclick=function(){start(i)};g.appendChild(b)});show('levels')}
 $('bCont').onclick=function(){start(save.cur)};$('bNew').onclick=function(){start(0)};$('bSel').onclick=grid;$('bDaily').onclick=function(){start(0,true)};
-$('bHow').onclick=function(){show('how')};$('bSet').onclick=function(){sndLbl();show('set')};
-function sndLbl(){$('bSnd').textContent='Sound: '+(save.snd?'ON':'OFF')}
+$('bTape').onclick=function(){tapes('title')};$('bTape2').onclick=function(){tapes('set')};$('tTape').onclick=function(){tapes('game')};
+$('bHow').onclick=function(){show('how')};$('bSet').onclick=function(){sndLbl();syncVol();show('set')};
+function sndLbl(){$('bSnd').textContent='SFX: '+(save.snd?'ON':'OFF')}
 $('bSnd').onclick=function(){save.snd=!save.snd;store();sndLbl();SFX.click()};
-$('bReset').onclick=function(){if(confirm('Reset all progress?')){save={stars:{},cur:0,snd:save.snd};store()}};
+$('bReset').onclick=function(){if(confirm('Reset all progress?')){save={stars:{},cur:0,snd:save.snd,mus:save.mus,tape:'lofi'};store();MUS.play('lofi')}};
 $('bQuit').onclick=function(){try{window.close()}catch(e){}document.body.innerHTML='<div style="padding:40px;text-align:center;font-size:22px">Thanks for playing Cassette Rack!<br>— Retro Gaming Dad<br><br><a style="color:#5ef0ff" href="">Play again</a></div>'};
 document.querySelectorAll('[data-back]').forEach(function(b){b.onclick=title});
 document.addEventListener('pointermove',function(e){document.getElementById('bg').style.setProperty('--lx',(e.clientX/innerWidth*60+20)+'%')});
@@ -160,6 +279,25 @@ document.addEventListener('pointermove',function(e){document.getElementById('bg'
 (function(){var ok=true;function t(c,n){if(!c){ok=false;console.warn('SELF-CHECK FAIL',n)}}
  var s={cap:4,flips:1,t:[{b:[{c:0},{c:1}],flip:true},{b:[{c:1}]},{b:[]}]};var r=CR.pour(s,0,1);t(r&&r.t[1].b.length===2,'pour');t(!CR.pour(r,1,0),"mismatch");
  var f=CR.flip(s,0);t(f&&f.t[0].b[1].c===0&&f.flips===0,'flip');t(!CR.flip(f,0),'flip limit');
- t(CR.won({cap:4,t:[{b:[{c:0},{c:0},{c:0},{c:0}]},{b:[]}]}),'win');console.log('Cassette Rack v1.0.0 self-check:',ok?'PASS':'FAIL',LEVELS.length+' levels')})();
+ t(CR.won({cap:4,t:[{b:[{c:0},{c:0},{c:0},{c:0}]},{b:[]}]}),'win');console.log('Cassette Rack v1.1.0 self-check:',ok?'PASS':'FAIL',LEVELS.length+' levels')})();
+// ---- Tape Deck (music changer + unlocks) ----
+var tapeBack='title';
+function cleared(){return Object.keys(save.stars).length}
+function unlocked(t){return cleared()>=t.need}
+function unlockedIds(){return TAPES.filter(unlocked).map(function(t){return t.id})}
+function tapeHint(t){return t.need>=LEVELS.length?'Clear all '+LEVELS.length+' levels':'Clear '+t.need+' levels'}
+function tapeNews(u0){var n=TAPES.filter(function(t){return unlocked(t)&&u0.indexOf(t.id)<0});if(n.length)$('mP').innerHTML+='<br><b style="color:#ffd23f">📼 New tape unlocked: '+n.map(function(t){return t.name}).join(', ')+'!</b><br><small>Pop it in from the Tape Deck.</small>'}
+function syncVol(){document.querySelectorAll('.mv').forEach(function(i){i.value=Math.round(save.mus*100)})}
+function tapes(from){tapeBack=from||tapeBack;var w=$('tlist');w.innerHTML='';var n=cleared();
+ TAPES.forEach(function(t){var u=unlocked(t),d=document.createElement('div');d.className='tape'+(u?'':' lock')+(save.tape===t.id?' on':'');d.style.setProperty('--tc',t.col);
+  d.innerHTML='<div class="spine"></div><div class="lab"><b>'+(u?t.name:'🔒 ???')+'</b><small>'+(u?t.genre+' · '+t.bpm+' BPM':tapeHint(t)+' ('+Math.min(n,t.need)+'/'+t.need+')')+'</small></div><div class="reels"><i></i><i></i></div>';
+  d.onclick=function(){if(!unlocked(t)){SFX.bad();return}save.tape=t.id;store();if(save.mus<=0){save.mus=.6;store()}MUS.setVol(save.mus);MUS.play(t.id);SFX.click();tapes()};w.appendChild(d)});
+ var c=TAPES.filter(function(t){return t.id===save.tape})[0];$('tNow').textContent='Now playing: '+(c?c.name:'')+' · '+unlockedIds().length+'/'+TAPES.length+' tapes';syncVol();show('tapes')}
+$('tBack').onclick=function(){if(tapeBack==='game'&&G)show('game');else if(tapeBack==='set'){sndLbl();show('set')}else title()};
+document.querySelectorAll('.mv').forEach(function(i){i.oninput=function(){save.mus=i.value/100;store();syncVol();MUS.setVol(save.mus);if(save.mus<=0)MUS.stop();else if(!MUS.playing())MUS.play(save.tape)}});
+if(!unlocked(TAPES.filter(function(t){return t.id===save.tape})[0]||{need:999})){save.tape='lofi';store()}
+MUS.setVol(save.mus);
+document.addEventListener('pointerdown',function(){if(!MUS.playing()&&save.mus>0)MUS.play(save.tape)},{once:true});
+document.addEventListener('visibilitychange',function(){if(!AC)return;if(document.hidden)AC.suspend();else AC.resume()});
 title();
 </script></body></html>

@@ -4,7 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="author" content="Arthur McConnell">
-<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <title>Cosmic Crystal Drop</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -267,7 +269,7 @@
   </div>
   <div id="ad-status" style="font-size:0.75em;color:#ffd400;min-height:14px;z-index:1;"></div>
   <div id="credit">Arthur McConnell · Made by Retrogamingdad</div>
-  <div id="version-badge">v0.3.0</div>
+  <div id="version-badge">v0.3.1</div>
 
   <!-- Level cleared / failed transition -->
   <div id="lvlModal" class="modal">
@@ -339,7 +341,7 @@ window.CosmicAds = window.CosmicAds || {
 try { await import('./rundot-ads.js'); } catch (_) { /* SDK bundle missing - keep no-op CosmicAds */ }
 </script>
 <script>
-const GAME_VERSION = '0.3.0';
+const GAME_VERSION = '0.3.1';
 const BLITZ_TIME=90, BLITZ_BONUS_CAP=20;
 let blitz={on:false,left:BLITZ_TIME,paused:false,over:false,bonus:0,adUsed:false,last:0,lastBeep:99};
 let blitzBest=parseInt(localStorage.getItem('cosmicBlitzBest')||'0');

@@ -1,0 +1,102 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dice War v0.1.0 — Retro Gaming Dad</title>
+<style>
+body{margin:0;background:#16161e;color:#eee;font:16px/1.4 system-ui,Segoe UI,sans-serif}
+main{max-width:900px;margin:auto;padding:12px}
+h1{margin:4px 0;color:#ffcc33;font-family:monospace;letter-spacing:2px}
+.small{font-size:13px;color:#aaa}
+.card{background:#24243a;border-radius:8px;padding:10px;margin:8px 0}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button{background:#3b5bdb;color:#fff;border:0;border-radius:6px;padding:9px 14px;font-size:15px;cursor:pointer}
+button:disabled{background:#555;cursor:default}button:focus{outline:3px solid #ffcc33}
+button.ab{background:#2b8a3e}button.red{background:#c92a2a}
+.die{width:46px;height:46px;border-radius:8px;background:#fff;color:#111;font:bold 26px monospace;display:inline-flex;align-items:center;justify-content:center;margin:3px}
+.die.boss{background:#ff8787}.roll{animation:sh .35s}
+@keyframes sh{0%{transform:rotate(0)}30%{transform:rotate(25deg)}60%{transform:rotate(-20deg)}100%{transform:rotate(0)}}
+.bar{height:16px;background:#333;border-radius:8px;overflow:hidden}.bar>div{height:100%;background:#e03131}
+.p{flex:1;min-width:180px}.active{outline:2px solid #ffcc33}.dead{opacity:.4}
+#log{max-height:200px;overflow:auto;font-size:13px;font-family:monospace;white-space:pre-wrap}
+select{font-size:15px;padding:4px}
+</style></head><body><main>
+<h1>DICE WAR</h1><div class="small">Battle for Dominance · v0.1.0 playtest prototype · by <b>Retro Gaming Dad</b> · keys: 3/4/5 commit, B basic, 1–5 ability, Enter continue</div>
+<div id="app"></div>
+<div class="card"><b>Log</b><div id="log"></div></div>
+</main><script>
+const CLASSES={
+Fighter:[["Mighty Strike","3-of-a-kind","Deal sum + 5"],["Shield Bash","pair of odds","Boss deals half damage next Boss turn"],["Rallying Cry","three consecutive","Each ally (you if solo) returns 1 die"],["Iron Defense","equal odd & even","You take 0 from Boss this round"],["Battle Fury","three odds","Deal sum, then roll 2 more army dice and add"]],
+Wizard:[["Arcane Blast","3-of-a-kind","Deal sum + 3"],["Mana Shield","pair of evens","You take 0 from Boss this round"],["Frost Nova","three consecutive","Boss rolls 1 fewer die next turn (min 1)"],["Fireball","pair of odds","Deal sum"],["Time Warp","full house","Deal sum + extra Basic Attack with 3 new dice"]],
+Druid:[["Nature's Embrace","three evens","Return 2 dice to army"],["Entangling Vines","pair of odds","Boss deals half damage next Boss turn"],["Wild Growth","three consecutive","Return 1 die and deal 5"],["Shapeshifter","4-of-a-kind","Deal sum x 2"],["Stormcaller","three odds","Deal sum + 4"]]};
+const BOSS=[["Cripple","Player with most dice loses 1 before damage"],["Barrier","Boss gains 5 temp HP this round"],["Rage","+3 to Boss sum"],["Sweep","+1 damage to each living player"],["Focus","All damage hits the top damage dealer this round"],["Recover","Boss heals 5 (max start HP)"]];
+const d6=()=>1+Math.floor(Math.random()*6),sum=a=>a.reduce((x,y)=>x+y,0);
+function counts(a){const c={};a.forEach(v=>c[v]=(c[v]||0)+1);return c}
+const PAT={
+"3-of-a-kind":a=>Object.values(counts(a)).some(n=>n>=3),
+"4-of-a-kind":a=>Object.values(counts(a)).some(n=>n>=4),
+"pair of odds":a=>Object.entries(counts(a)).some(([v,n])=>v%2&&n>=2),
+"pair of evens":a=>Object.entries(counts(a)).some(([v,n])=>v%2==0&&n>=2),
+"three consecutive":a=>[1,2,3,4].some(s=>a.includes(s)&&a.includes(s+1)&&a.includes(s+2)),
+"three odds":a=>a.filter(v=>v%2).length>=3,
+"three evens":a=>a.filter(v=>v%2==0).length>=3,
+"equal odd & even":a=>a.filter(v=>v%2).length*2==a.length,
+"full house":a=>{const n=Object.values(counts(a)).sort();return n.length==2&&n[0]==2&&n[1]==3}};
+let G,app=document.getElementById('app'),logEl=document.getElementById('log');
+function log(s){logEl.textContent=s+"\n"+logEl.textContent}
+function dice(a,cls=''){return a.map(v=>`<span class="die roll ${cls}">${v}</span>`).join('')}
+function setup(){let n=+(G&&G.n||1);let h=`<div class="card"><b>Setup</b><div class="row">Players: <select id="np">${[1,2,3,4].map(i=>`<option ${i==n?'selected':''}>${i}</option>`).join('')}</select>
+Boss HP: <select id="hpm"><option value="s">Scaled (60 +20/extra)</option><option value="f">Fixed 80 (2–4p)</option></select></div><div class="row" id="cls"></div><br><button id="go">Start battle</button></div>
+<div class="card small">Each die in your army = 1 HP (start 20). Commit 3–5 dice, roll, then Basic Attack (sum) or a matching Class Ability. Boss then rolls and splits damage among living players. Drop the Boss to 0 to win.</div>`;
+app.innerHTML=h;const draw=()=>{n=+np.value;cls.innerHTML=[...Array(n)].map((_,i)=>`P${i+1}: <select id="c${i}">${Object.keys(CLASSES).map((c,j)=>`<option ${j==i%3?'selected':''}>${c}</option>`).join('')}</select>`).join(' ')};
+np.onchange=draw;draw();go.onclick=()=>start(n);go.focus()}
+function start(n){const ps=[...Array(n)].map((_,i)=>({name:'P'+(i+1),cls:document.getElementById('c'+i).value,army:20,lost:0,dmg:0,shield:false}));
+const hp=hpm.value=='f'&&n>1?80:60+20*(n-1);G={n,ps,max:hp,hp,pool:2,enrage:false,q:false,round:0,half:false,frost:false};logEl.textContent='';log(`Battle starts. Boss HP ${hp}.`);newRound()}
+function alive(){return G.ps.filter(p=>p.army>0)}
+function newRound(){G.round++;G.temp=0;G.halfDmg=false;G.frostNow=G.frost;G.frost=false;G.ps.forEach(p=>{p.dmg=0;p.shield=false});
+G.act=d6();const a=BOSS[G.act-1];log(`— Round ${G.round}: Boss intent ${G.act} ${a[0]}: ${a[1]}`);if(a[0]=='Barrier')G.temp=5;
+G.turn=G.ps.findIndex(p=>p.army>0);G.stage='commit';render()}
+function hit(p,amt,why){let a=amt;if(G.temp>0){const t=Math.min(G.temp,a);G.temp-=t;a-=t;if(t)log(`  Barrier absorbs ${t}.`)}G.hp=Math.max(0,G.hp-a);p.dmg+=amt;log(`  ${p.name} ${why}: ${amt} damage → Boss ${G.hp}/${G.max}`);phase()}
+function phase(){if(!G.half&&G.hp<=G.max/2&&G.hp>0){G.half=true;G.pool=Math.max(G.pool,3);G.enrage=true;log('  BOSS PHASE 2: pool 3d6 + Enrage (+2 damage).')}
+if(!G.q&&G.hp<=G.max/4&&G.hp>0){G.q=true;G.pool=4;log('  BOSS PHASE 3: pool 4d6.')}}
+function ret(p,k){const r=Math.min(k,p.lost,20-p.army);p.army+=r;p.lost-=r;log(`  ${p.name} returns ${r} die/dice to army.`)}
+function commit(k){const p=G.ps[G.turn];if(k>p.army)k=p.army;G.roll=[...Array(k)].map(d6);G.stage='choose';log(`${p.name} (${p.cls}) commits ${k}: ${G.roll.join(' ')}`);render()}
+function useAbility(i){const p=G.ps[G.turn],[nm]=CLASSES[p.cls][i],s=sum(G.roll);log(`  ${p.name} uses ${nm}!`);
+switch(nm){case"Mighty Strike":hit(p,s+5,nm);break;case"Arcane Blast":hit(p,s+3,nm);break;case"Fireball":hit(p,s,nm);break;
+case"Stormcaller":hit(p,s+4,nm);break;case"Shapeshifter":hit(p,s*2,nm);break;
+case"Shield Bash":case"Entangling Vines":G.halfDmg=true;log('  Boss will deal half damage this round.');break;
+case"Iron Defense":case"Mana Shield":p.shield=true;log(`  ${p.name} takes 0 from the Boss this round.`);break;
+case"Frost Nova":G.frost=true;G.frostNow=true;log('  Boss rolls 1 fewer die this round.');break;
+case"Rallying Cry":{const al=alive().filter(q=>q!==p);(al.length?al:[p]).forEach(q=>ret(q,1));break}
+case"Nature's Embrace":ret(p,2);break;case"Wild Growth":ret(p,1);hit(p,5,nm);break;
+case"Battle Fury":{hit(p,s,nm);const x=[d6(),d6()];if(p.army>=2){log(`  Fury bonus roll: ${x.join(' ')}`);hit(p,sum(x),'Fury bonus')}break}
+case"Time Warp":{hit(p,s,nm);if(p.army>=3){const x=[d6(),d6(),d6()];log(`  Extra Basic Attack: ${x.join(' ')}`);hit(p,sum(x),'extra Basic Attack')}break}}
+next()}
+function basic(){const p=G.ps[G.turn];hit(p,sum(G.roll),'Basic Attack');next()}
+function next(){if(G.hp<=0)return end(true);let i=G.turn+1;while(i<G.n&&G.ps[i].army<=0)i++;if(i<G.n){G.turn=i;G.stage='commit';render()}else{G.stage='boss';render()}}
+function bossTurn(){const a=BOSS[G.act-1][0];let al=alive();
+if(a=='Cripple'){const t=al.reduce((m,p)=>p.army>m.army?p:m);t.army--;t.lost++;log(`  Cripple: ${t.name} loses 1 die.`)}
+if(a=='Recover'){G.hp=Math.min(G.max,G.hp+5);log(`  Recover: Boss heals to ${G.hp}.`)}
+let n=G.pool-(G.frostNow?1:0);n=Math.max(1,n);G.broll=[...Array(n)].map(d6);let t=sum(G.broll);
+let msg=`Boss rolls ${n}d6: ${G.broll.join(' ')} = ${t}`;if(a=='Rage'){t+=3;msg+=' +3 Rage'}if(G.enrage){t+=2;msg+=' +2 Enrage'}
+if(G.halfDmg){t=Math.floor(t/2);msg+=' → halved'}log(msg+` → ${t} total`);
+al=alive();let share=new Map();
+if(a=='Focus'){const m=Math.max(...al.map(p=>p.dmg));const top=al.filter(p=>p.dmg==m);share.set(top[Math.floor(Math.random()*top.length)],t)}
+else{const b=Math.floor(t/al.length),r=t%al.length;al.forEach((p,i)=>share.set(p,b+(i==0?r:0)+(a=='Sweep'?1:0)))}
+share.forEach((v,p)=>{if(p.shield){log(`  ${p.name} shielded (would take ${v}).`);return}const l=Math.min(v,p.army);p.army-=l;p.lost+=l;log(`  ${p.name} takes ${v} → army ${p.army}${p.army?'':' — ELIMINATED'}`)});
+if(!alive().length)return end(false);newRound()}
+function end(win){G.stage='end';G.win=win;log(win?'VICTORY!':'DEFEAT.');render()}
+function render(){if(G.stage=='end'){app.innerHTML=`<div class="card" style="text-align:center"><h1>${G.win?'VICTORY!':'DEFEAT'}</h1><p>${G.win?'The Boss falls':'Your armies are gone'} in round ${G.round}.</p><p class="small">Dice War v0.1.0 · Retro Gaming Dad</p><button id="again">Play again</button></div>`;again.onclick=setup;again.focus();return}
+const a=BOSS[G.act-1];let h=`<div class="card"><div class="row"><b>BOSS</b> ${G.hp}/${G.max} HP ${G.temp?'(+'+G.temp+' barrier)':''} · pool ${G.pool}d6 ${G.enrage?'· ENRAGED':''} · Round ${G.round}</div><div class="bar"><div style="width:${100*G.hp/G.max}%"></div></div><div>Intent: <b>${G.act} ${a[0]}</b> — ${a[1]}${G.halfDmg?' · <i>half damage</i>':''}${G.frostNow?' · <i>frozen (-1 die)</i>':''}</div></div><div class="row">`;
+G.ps.forEach((p,i)=>h+=`<div class="card p ${i==G.turn&&G.stage!='boss'?'active':''} ${p.army?'':'dead'}"><b>${p.name} ${p.cls}</b><br>Army: <b>${p.army}</b> dice · set aside ${p.lost}<br>Dmg this round: ${p.dmg}${p.shield?' · 🛡':''}</div>`);
+h+='</div><div class="card">';const p=G.ps[G.turn];
+if(G.stage=='commit'){h+=`<b>${p.name} (${p.cls})</b> — commit dice:<div class="row">${[3,4,5].map(k=>`<button data-k="${k}" ${k>p.army&&k>3?'disabled':''}>Commit ${Math.min(k,p.army)}</button>`).join('')}</div>`}
+else if(G.stage=='choose'){h+=`<div>${dice(G.roll)} = ${sum(G.roll)}</div><div class="row"><button id="bas">[B] Basic Attack (${sum(G.roll)})</button></div><div class="row">`;
+CLASSES[p.cls].forEach((ab,i)=>{const ok=PAT[ab[1]](G.roll);h+=`<button class="ab" data-a="${i}" ${ok?'':'disabled'} title="${ab[2]}">[${i+1}] ${ab[0]} <span class="small">(${ab[1]})</span></button>`});h+='</div>'}
+else{h+=`All players acted. <button class="red" id="bt">Boss turn ▶ (Enter)</button>`}
+h+=`</div><div class="card small"><b>${p.cls} abilities</b><br>${CLASSES[p.cls].map(a=>`${a[0]} — ${a[1]}: ${a[2]}`).join('<br>')}</div>`;
+app.innerHTML=h;app.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>commit(+b.dataset.k));app.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>useAbility(+b.dataset.a));
+if(window.bas)bas.onclick=basic;if(window.bt){bt.onclick=bossTurn;bt.focus()}}
+document.onkeydown=e=>{if(!G||!G.stage)return;const k=e.key;
+if(G.stage=='commit'&&'345'.includes(k)){const b=app.querySelector(`[data-k="${k}"]`);if(b&&!b.disabled)b.click()}
+else if(G.stage=='choose'){if(k=='b'||k=='B')basic();else if('12345'.includes(k)){const b=app.querySelector(`[data-a="${k-1}"]`);if(b&&!b.disabled)b.click()}}
+else if(G.stage=='boss'&&k=='Enter'){e.preventDefault();bossTurn()}};
+setup();
+</script></body></html>

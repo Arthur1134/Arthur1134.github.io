@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Night Run</title>
+<style>
+:root{--bg:#0a0c12;--panel:#12161f;--accent:#3ecf8e;--accent2:#5b8cff;--warn:#ff6b4a;--text:#e8ecf4;--muted:#8b93a7}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;background:var(--bg);color:var(--text);font-family:"Segoe UI",system-ui,sans-serif;overflow:hidden;user-select:none}
+#wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;gap:8px}
+canvas{display:block;background:#000;image-rendering:pixelated;border:2px solid #1e2533;max-width:96vw;max-height:78vh}
+#hud{display:none;width:min(480px,96vw);font-size:13px;color:var(--muted);justify-content:space-between;gap:10px;flex-wrap:wrap}
+#hud.on{display:flex}
+#hud b{color:var(--text)}
+#hArmor{font-size:16px;letter-spacing:.02em}
+#footer{font-size:11px;color:var(--muted);text-align:center;line-height:1.4}
+#footer .brand{color:var(--accent);letter-spacing:.04em}
+.overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(6,8,14,.88);z-index:10}
+.overlay.hidden{display:none}
+.card{width:min(440px,92vw);background:var(--panel);border:1px solid #2a3344;border-radius:12px;padding:28px 24px 20px;box-shadow:0 12px 40px rgba(0,0,0,.45)}
+.card h1{font-size:42px;letter-spacing:.08em;text-align:center;background:linear-gradient(180deg,#fff,#3ecf8e);-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:4px}
+.card .tag{text-align:center;color:var(--muted);font-size:13px;margin-bottom:18px}
+.card h2{font-size:18px;margin-bottom:12px;color:var(--accent2)}
+.btn{display:block;width:100%;background:#1a2230;color:var(--text);border:1px solid #2f3a4d;border-radius:8px;padding:12px 14px;margin:8px 0;font-size:15px;cursor:pointer;text-align:left;transition:border-color .15s,background .15s}
+.btn:hover,.btn:focus{outline:none;border-color:var(--accent);background:#222b3c}
+.btn .sub{display:block;font-size:12px;color:var(--muted);margin-top:3px}
+.btn.primary{background:linear-gradient(180deg,#2a9d66,#1e7a4e);border-color:#3ecf8e;text-align:center;font-weight:600}
+.row{display:flex;gap:8px}.row .btn{flex:1;text-align:center}
+.hint{font-size:12px;color:var(--muted);text-align:center;margin-top:12px}
+.credit{font-size:12px;color:var(--muted);text-align:center;margin-top:14px}
+.bind-row{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #1e2533;font-size:13px}
+.bind-row button{background:#1a2230;color:var(--text);border:1px solid #2f3a4d;border-radius:6px;padding:6px 10px;cursor:pointer;min-width:88px}
+.bind-row button.listening{border-color:var(--warn);color:var(--warn)}
+.bind-err{color:var(--warn);font-size:12px;min-height:16px;margin:8px 0;text-align:center}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" width="480" height="640"></canvas>
+  <div id="hud">
+    <span>Score <b id="hScore">0</b></span>
+    <span>Lives <b id="hLives">3</b></span>
+    <span>Armor <b id="hArmor">—</b></span>
+    <span>Ammo <b id="hAmmo">20</b></span>
+    <span>Boost <b id="hBoost">Ready</b></span>
+    <span>Region <b id="hRegion">City Night</b></span>
+  </div>
+  <div id="footer">
+    <div>Night Run — Made by Arthur McConnell</div>
+    <div class="brand">Retro Gaming Dad</div>
+  </div>
+</div>
+
+<div id="splash" class="overlay">
+  <div class="card">
+    <h1>NIGHT RUN</h1>
+    <div class="tag">Arcade road chase · top-down</div>
+    <p class="hint">Press any key, click, or gamepad <b>A</b> to continue</p>
+    <div class="credit">Made by Arthur McConnell · Retro Gaming Dad</div>
+  </div>
+</div>
+
+<div id="menu" class="overlay hidden">
+  <div class="card">
+    <h1 style="font-size:28px">NIGHT RUN</h1>
+    <div class="tag">Choose your ride</div>
+    <button class="btn" data-car="0"><b>Shadow Dart</b><span class="sub">Fast and slippery · lighter gun</span></button>
+    <button class="btn" data-car="1"><b>Midnight Courier</b><span class="sub">Balanced handling · standard gun</span></button>
+    <button class="btn" data-car="2"><b>Harbor Tank</b><span class="sub">Slow · hard to shove · heavy ram and gun</span></button>
+    <div class="row" style="margin-top:10px">
+      <button class="btn" id="btnControls">Controls (F6)</button>
+      <button class="btn" id="btnAbout">About</button>
+    </div>
+    <p class="hint">Regions shift as you drive: City Night → Coast Highway. Same controls.</p>
+    <div class="credit">Made by Arthur McConnell · Retro Gaming Dad</div>
+  </div>
+</div>
+
+<div id="controls" class="overlay hidden">
+  <div class="card">
+    <h2>Controls</h2>
+    <div id="bindList"></div>
+    <div class="bind-err" id="bindErr"></div>
+    <div class="row">
+      <button class="btn" id="btnResetBinds">Reset defaults</button>
+      <button class="btn primary" id="btnCloseBinds">Done</button>
+    </div>
+    <p class="hint">Gamepad: stick/D-pad steer · RT gas · A fire · B boost. No shared keys.</p>
+  </div>
+</div>
+
+<div id="about" class="overlay hidden">
+  <div class="card">
+    <h2>About</h2>
+    <p style="font-size:14px;line-height:1.55;color:var(--muted)">
+      Night Run is an original top-down road-chase arcade game.
+      Avoid Street Ghost civilian traffic, take down Gridlock Raiders,
+      watch for Sky Wasp drones, and drive into a Supply Hauler to restock ammo.
+      Weapons: front gun, side ram (steer into hostiles), short boost.
+      Score from distance and hostile takedowns. Three lives.
+    </p>
+    <p class="credit" style="margin-top:16px">Made by Arthur McConnell</p>
+    <p class="credit" style="margin:4px 0 16px;color:var(--accent)">Retro Gaming Dad</p>
+    <button class="btn primary" id="btnCloseAbout">Back</button>
+  </div>
+</div>
+
+<div id="pause" class="overlay hidden">
+  <div class="card">
+    <h2 id="pauseTitle">Paused</h2>
+    <p class="hint" id="pauseMsg"></p>
+    <button class="btn primary" id="btnResume">Resume</button>
+    <button class="btn" id="btnQuitMenu">Main Menu</button>
+  </div>
+</div>
+
+<script>
+(() => {
+"use strict";
+
+const W = 480, H = 640;
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const BIND_KEY = "NightRun-binds";
+
+const ACTIONS = [
+  { id: "left",  label: "Steer Left",  def: ["ArrowLeft", "KeyA"] },
+  { id: "right", label: "Steer Right", def: ["ArrowRight", "KeyD"] },
+  { id: "accel", label: "Accelerate",  def: ["ArrowUp", "KeyW"] },
+  { id: "brake", label: "Brake",       def: ["ArrowDown", "KeyS"] },
+  { id: "fire",  label: "Fire",        def: ["Space"] },
+  { id: "boost", label: "Boost",       def: ["ShiftLeft", "ShiftRight"] },
+];
+
+const CARS = [
+  // grip: how fast lateral speed catches the wheel (low = slippery). knock: bump shove taken. 
+  { name: "Shadow Dart",      maxSpeed: 7.4, armor: 2, accel: 0.16, color: "#5b8cff", boostDur: 0.55, boostMul: 1.55, grip: 3.1, latMul: 1.18, knock: 1.35, gunDmg: 1, fireCd: 0.24, ramDmg: 1 },
+  { name: "Midnight Courier", maxSpeed: 6.0, armor: 4, accel: 0.12, color: "#3ecf8e", boostDur: 0.70, boostMul: 1.40, grip: 8.0, latMul: 1.00, knock: 1.00, gunDmg: 1, fireCd: 0.16, ramDmg: 2 },
+  { name: "Harbor Tank",      maxSpeed: 4.6, armor: 7, accel: 0.08, color: "#c9a227", boostDur: 0.95, boostMul: 1.28, grip: 5.2, latMul: 0.70, knock: 0.32, gunDmg: 2, fireCd: 0.30, ramDmg: 4 },
+];
+
+const REGIONS = [
+  { id: "city",  name: "City Night",     road: "#2a2e38", lane: "#c9a227", shoulder: "#1a1d24", grass: "#12151c", prop: "#3a4150", light: "#ffd76a", kind: "city" },
+  { id: "coast", name: "Coast Highway",  road: "#3a4652", lane: "#e8ecf4", shoulder: "#5a6a4a", grass: "#1e3a4a", prop: "#8b7355", light: "#7ec8ff", kind: "coast" },
+];
+
+function defaultBinds() {
+  const o = {};
+  ACTIONS.forEach(a => { o[a.id] = a.def.slice(); });
+  return o;
+}
+function loadBinds() {
+  try {
+    const raw = localStorage.getItem(BIND_KEY);
+    if (!raw) return defaultBinds();
+    const parsed = JSON.parse(raw);
+    const d = defaultBinds();
+    ACTIONS.forEach(a => {
+      if (Array.isArray(parsed[a.id]) && parsed[a.id].length) d[a.id] = parsed[a.id];
+    });
+    return d;
+  } catch { return defaultBinds(); }
+}
+function saveBinds() { localStorage.setItem(BIND_KEY, JSON.stringify(binds)); }
+function prettyCodes(arr) {
+  return (arr || []).map(c => {
+    if (c === "ArrowLeft") return "←";
+    if (c === "ArrowRight") return "→";
+    if (c === "ArrowUp") return "↑";
+    if (c === "ArrowDown") return "↓";
+    if (c === "Space") return "Space";
+    if (c === "ShiftLeft") return "L-Shift";
+    if (c === "ShiftRight") return "R-Shift";
+    if (c.startsWith("Key")) return c.slice(3);
+    return c;
+  }).join(" / ");
+}
+
+let binds = loadBinds();
+let listening = null;
+let screen = "splash";
+let selectedCar = 1;
+
+const keys = Object.create(null);
+const pad = { ax: 0, ay: 0, gas: 0, fire: false, fireEdge: false, boost: false, boostEdge: false, dL: false, dR: false, dD: false };
+
+function isDown(action) {
+  for (const c of (binds[action] || [])) if (keys[c]) return true;
+  if (action === "left"  && (pad.ax < -0.35 || pad.dL)) return true;
+  if (action === "right" && (pad.ax >  0.35 || pad.dR)) return true;
+  if (action === "accel" && (pad.gas > 0.15 || pad.ay < -0.4)) return true;
+  if (action === "brake" && (pad.ay > 0.4 || pad.dD)) return true;
+  if (action === "fire"  && pad.fire) return true;
+  if (action === "boost" && pad.boost) return true;
+  return false;
+}
+function consumeFireEdge() {
+  if (keys._fireEdge) { keys._fireEdge = false; return true; }
+  if (pad.fireEdge) { pad.fireEdge = false; return true; }
+  return false;
+}
+function consumeBoostEdge() {
+  if (keys._boostEdge) { keys._boostEdge = false; return true; }
+  if (pad.boostEdge) { pad.boostEdge = false; return true; }
+  return false;
+}
+
+function pollGamepad() {
+  const list = navigator.getGamepads ? navigator.getGamepads() : [];
+  let gp = null;
+  for (const p of list) if (p) { gp = p; break; }
+  if (!gp) {
+    pad.ax = pad.ay = pad.gas = 0;
+    pad.dL = pad.dR = pad.dD = false;
+    pad.fire = pad.boost = false;
+    return;
+  }
+  const ax = gp.axes[0] || 0, ay = gp.axes[1] || 0;
+  pad.ax = Math.abs(ax) > 0.2 ? ax : 0;
+  pad.ay = Math.abs(ay) > 0.2 ? ay : 0;
+  pad.dL = !!(gp.buttons[14] && gp.buttons[14].pressed);
+  pad.dR = !!(gp.buttons[15] && gp.buttons[15].pressed);
+  pad.dD = !!(gp.buttons[13] && gp.buttons[13].pressed);
+  const rt = gp.buttons[7];
+  pad.gas = rt ? (rt.value != null ? rt.value : (rt.pressed ? 1 : 0)) : 0;
+  const a = !!(gp.buttons[0] && gp.buttons[0].pressed);
+  const b = !!(gp.buttons[1] && gp.buttons[1].pressed);
+  if (a && !pad.fire) {
+    pad.fireEdge = true;
+    if (screen === "splash") goMenu();
+  }
+  pad.fire = a;
+  if (b && !pad.boost) pad.boostEdge = true;
+  pad.boost = b;
+}
+
+window.addEventListener("keydown", e => {
+  if (listening) {
+    e.preventDefault();
+    assignBind(listening, e.code);
+    return;
+  }
+  if (e.code === "F6") { e.preventDefault(); openControls(); return; }
+  if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space"].includes(e.code)) e.preventDefault();
+  const was = keys[e.code];
+  keys[e.code] = true;
+  if (!was) {
+    if ((binds.fire || []).includes(e.code)) keys._fireEdge = true;
+    if ((binds.boost || []).includes(e.code)) keys._boostEdge = true;
+  }
+  if (screen === "splash") goMenu();
+  if (screen === "play" && (e.code === "Escape" || e.code === "KeyP")) togglePause();
+}, { passive: false });
+window.addEventListener("keyup", e => { keys[e.code] = false; });
+
+function showOverlay(id) {
+  ["splash","menu","controls","about","pause"].forEach(x => {
+    document.getElementById(x).classList.toggle("hidden", x !== id);
+  });
+}
+function hideOverlays() {
+  ["splash","menu","controls","about","pause"].forEach(x => document.getElementById(x).classList.add("hidden"));
+}
+function goMenu() {
+  screen = "menu";
+  running = false;
+  showOverlay("menu");
+  document.getElementById("hud").classList.remove("on");
+}
+document.getElementById("splash").addEventListener("click", goMenu);
+document.querySelectorAll("#menu [data-car]").forEach(btn => {
+  btn.addEventListener("click", () => { selectedCar = +btn.dataset.car; startGame(); });
+});
+document.getElementById("btnControls").addEventListener("click", openControls);
+document.getElementById("btnAbout").addEventListener("click", () => { screen = "about"; showOverlay("about"); });
+document.getElementById("btnCloseAbout").addEventListener("click", goMenu);
+document.getElementById("btnCloseBinds").addEventListener("click", () => { listening = null; goMenu(); });
+document.getElementById("btnResetBinds").addEventListener("click", () => {
+  binds = defaultBinds(); saveBinds(); renderBindList();
+  document.getElementById("bindErr").textContent = "Defaults restored.";
+});
+document.getElementById("btnResume").addEventListener("click", () => {
+  if (screen === "over") { goMenu(); return; }
+  screen = "play"; hideOverlays();
+});
+document.getElementById("btnQuitMenu").addEventListener("click", goMenu);
+
+function openControls() {
+  screen = "controls";
+  showOverlay("controls");
+  renderBindList();
+  document.getElementById("bindErr").textContent = "";
+}
+function renderBindList() {
+  const list = document.getElementById("bindList");
+  list.innerHTML = "";
+  ACTIONS.forEach(a => {
+    const row = document.createElement("div");
+    row.className = "bind-row";
+    const label = document.createElement("span");
+    label.textContent = a.label;
+    const codes = document.createElement("span");
+    codes.style.color = "var(--muted)";
+    codes.textContent = prettyCodes(binds[a.id]);
+    const btn = document.createElement("button");
+    btn.textContent = listening === a.id ? "Press key…" : "Rebind";
+    if (listening === a.id) btn.classList.add("listening");
+    btn.addEventListener("click", () => {
+      listening = a.id;
+      document.getElementById("bindErr").textContent = "Press a key (Esc cancels)…";
+      renderBindList();
+    });
+    row.append(label, codes, btn);
+    list.appendChild(row);
+  });
+}
+function assignBind(actionId, code) {
+  if (code === "Escape") {
+    listening = null;
+    document.getElementById("bindErr").textContent = "Cancelled.";
+    renderBindList();
+    return;
+  }
+  if (code === "F6") {
+    document.getElementById("bindErr").textContent = "F6 opens Controls — pick another key.";
+    return;
+  }
+  for (const a of ACTIONS) {
+    if (a.id === actionId) continue;
+    if ((binds[a.id] || []).includes(code)) {
+      document.getElementById("bindErr").textContent = `Already used by ${a.label}.`;
+      listening = null;
+      renderBindList();
+      return;
+    }
+  }
+  binds[actionId] = [code];
+  saveBinds();
+  listening = null;
+  document.getElementById("bindErr").textContent = "Saved to NightRun-binds.";
+  renderBindList();
+}
+function togglePause() {
+  if (screen === "play") {
+    screen = "pause";
+    document.getElementById("pauseTitle").textContent = "Paused";
+    document.getElementById("pauseMsg").textContent = "Esc / P to resume";
+    document.getElementById("btnResume").textContent = "Resume";
+    showOverlay("pause");
+  } else if (screen === "pause") {
+    screen = "play";
+    hideOverlays();
+  }
+}
+
+/* ——— gameplay ——— */
+let running = false;
+let player, bullets, entities, particles;
+let score, lives, ammo, regionIdx = 0, regionMeters = 0;
+let roadOffset = 0, scrollSpeed = 3, distance = 0;
+let invuln, boostTimer, boostCd, boostRamp, ramCd, fireCd, fireHeld;
+let shake, hitFlash, gameTime, spawnAcc, supplyTimer, droneTimer;
+
+const ROAD_L = 70, ROAD_R = W - 70;
+
+function startGame() {
+  const spec = CARS[selectedCar];
+  player = {
+    x: W / 2, y: H * 0.72, w: 28, h: 44, vx: 0,
+    speed: 2.8, hp: spec.armor, maxHp: spec.armor,
+    color: spec.color, spec,
+  };
+  bullets = []; entities = []; particles = [];
+  score = 0; lives = 3; ammo = 24;
+  regionIdx = 0; regionMeters = 0;
+  roadOffset = 0; scrollSpeed = 3; distance = 0;
+  invuln = 1.5; boostTimer = 0; boostCd = 0; boostRamp = 0; ramCd = 0; fireCd = 0; fireHeld = false;
+  shake = 0; hitFlash = 0; gameTime = 0; spawnAcc = 0;
+  supplyTimer = 11; droneTimer = 16;
+  running = true; screen = "play";
+  hideOverlays();
+  document.getElementById("hud").classList.add("on");
+  updateHud();
+}
+
+function fmtArmor(v) {
+  const x = Math.max(0, v);
+  return (Math.abs(x - Math.round(x)) < 0.05) ? String(Math.round(x)) : x.toFixed(1);
+}
+function updateHud() {
+  document.getElementById("hScore").textContent = Math.floor(score);
+  document.getElementById("hLives").textContent = lives;
+  const armorEl = document.getElementById("hArmor");
+  if (player) {
+    armorEl.textContent = fmtArmor(player.hp) + "/" + player.maxHp;
+    armorEl.style.color = player.hp <= player.maxHp * 0.34 ? "var(--warn)" : "";
+  }
+  document.getElementById("hAmmo").textContent = ammo;
+  let boostTxt = "Ready";
+  if (boostTimer > 0) boostTxt = "BOOST";
+  else if (boostCd > 0) boostTxt = boostCd.toFixed(1) + "s";
+  document.getElementById("hBoost").textContent = boostTxt;
+  document.getElementById("hRegion").textContent = REGIONS[regionIdx].name;
+}
+
+function burst(x, y, color, n) {
+  for (let i = 0; i < n; i++) {
+    particles.push({
+      x, y,
+      vx: (Math.random() - 0.5) * 5,
+      vy: (Math.random() - 0.5) * 5,
+      life: 0.35 + Math.random() * 0.4,
+      color, size: 2 + Math.random() * 3,
+    });
+  }
+}
+function hit(a, b) {
+  return Math.abs(a.x - b.x) < (a.w + b.w) / 2 && Math.abs(a.y - b.y) < (a.h + b.h) / 2;
+}
+
+function loseLife() {
+  lives--;
+  shake = 12;
+  burst(player.x, player.y, "#ff6b4a", 20);
+  if (lives <= 0) {
+    running = false;
+    screen = "over";
+    document.getElementById("pauseTitle").textContent = "Run Over";
+    document.getElementById("pauseMsg").textContent = `Score ${Math.floor(score)} · Distance ${Math.floor(distance)} m`;
+    document.getElementById("btnResume").textContent = "Main Menu";
+    showOverlay("pause");
+    return;
+  }
+  player.hp = player.spec.armor;
+  player.x = W / 2;
+  player.vx = 0;
+  invuln = 2.2;
+  ammo = Math.max(ammo, 12);
+  updateHud();
+}
+
+function damagePlayer(amt) {
+  if (invuln > 0) return;
+  player.hp -= amt;
+  shake = 7;
+  hitFlash = 0.18;
+  invuln = 0.85;
+  burst(player.x, player.y, "#ffaa66", 8);
+  if (player.hp <= 0) loseLife();
+  updateHud();
+}
+
+function spawnTraffic(hostile) {
+  const lanes = [0.18, 0.38, 0.62, 0.82];
+  const lane = lanes[(Math.random() * lanes.length) | 0];
+  const x = ROAD_L + (ROAD_R - ROAD_L) * lane;
+  if (hostile) {
+    entities.push({
+      type: "raider", x, y: -50, w: 26, h: 40,
+      vy: 40 + Math.random() * 50, hp: 2 + (Math.random() * 2 | 0),
+      color: "#c44545", bumpCd: 0,
+    });
+  } else {
+    const cols = ["#8899aa", "#667788", "#99aabb", "#556677", "#778899"];
+    entities.push({
+      type: "civilian", x, y: -50, w: 24, h: 38,
+      vy: 50 + Math.random() * 60,
+      color: cols[(Math.random() * cols.length) | 0],
+    });
+  }
+}
+function spawnDrone() {
+  entities.push({
+    type: "drone", x: 90 + Math.random() * (W - 180), y: -40,
+    w: 38, h: 22, vx: (Math.random() < 0.5 ? -1 : 1) * (70 + Math.random() * 40),
+    vy: 55, hp: 3, cool: 1.2, color: "#a0e0ff",
+  });
+}
+function spawnSupply() {
+  entities.push({
+    type: "supply", x: W / 2 + (Math.random() - 0.5) * 100, y: -70,
+    w: 42, h: 58, vy: 45, color: "#3ecf8e",
+  });
+}
+
+function update(dt) {
+  if (screen !== "play" || !running) return;
+  gameTime += dt;
+  const spec = player.spec;
+
+  // region swap by distance driven
+  regionMeters += scrollSpeed * 16 * dt;
+  const threshold = regionIdx === 0 ? 2600 : 3000;
+  if (regionMeters >= threshold) {
+    regionIdx = (regionIdx + 1) % REGIONS.length;
+    regionMeters = 0;
+    updateHud();
+  }
+
+  // steer — lateral speed eases toward the wheel so the car has a little weight
+  let steer = 0;
+  if (isDown("left")) steer -= 1;
+  if (isDown("right")) steer += 1;
+  if (Math.abs(pad.ax) > 0.35) steer = Math.sign(pad.ax);
+  const latMax = (210 + player.speed * 8) * spec.latMul;
+  const desired = steer * latMax;
+  const grip = spec.grip * (boostTimer > 0 ? 0.72 : 1);
+  player.vx += (desired - player.vx) * grip * dt;
+  if (player.vx > latMax) player.vx = latMax;
+  if (player.vx < -latMax) player.vx = -latMax;
+  player.x += player.vx * dt;
+
+  // speed / gas / brake. Boost owns speed while it is on, then extra speed bleeds off.
+  if (boostCd > 0) boostCd -= dt;
+  if (consumeBoostEdge() && boostCd <= 0 && boostTimer <= 0) {
+    boostTimer = spec.boostDur;
+    boostCd = 3.0;
+    boostRamp = 0.22;
+    player.speed += spec.maxSpeed * 0.14;
+    burst(player.x, player.y + 18, "#7ec8ff", 14);
+  }
+  if (boostTimer > 0) {
+    boostTimer -= dt;
+    boostRamp = Math.min(1, boostRamp + dt / 0.16);
+    const mul = 1 + (spec.boostMul - 1) * (0.35 + 0.65 * boostRamp);
+    const target = spec.maxSpeed * mul;
+    player.speed += (target - player.speed) * 7 * dt;
+  } else {
+    boostRamp = 0;
+    const gas = isDown("accel") || pad.gas > 0.15;
+    if (gas) {
+      if (player.speed < spec.maxSpeed) {
+        player.speed = Math.min(spec.maxSpeed, player.speed + spec.accel * 55 * dt);
+      } else {
+        player.speed += (spec.maxSpeed - player.speed) * 2.2 * dt;
+      }
+    } else if (isDown("brake")) {
+      player.speed = Math.max(1.1, player.speed - spec.accel * 70 * dt);
+    } else {
+      const cruise = spec.maxSpeed * 0.55;
+      player.speed += (cruise - player.speed) * 1.8 * dt;
+    }
+  }
+
+  scrollSpeed = 2.0 + player.speed * 0.6;
+  roadOffset = (roadOffset + scrollSpeed * 55 * dt) % 80;
+  distance += scrollSpeed * 16 * dt;
+  score += scrollSpeed * 3.5 * dt;
+
+  const half = player.w / 2 + 2;
+  if (player.x < ROAD_L + half) { player.x = ROAD_L + half; player.vx = Math.min(0, player.vx); damagePlayer(0.35); }
+  if (player.x > ROAD_R - half) { player.x = ROAD_R - half; player.vx = Math.max(0, player.vx); damagePlayer(0.35); }
+
+  if (invuln > 0) invuln -= dt;
+  if (hitFlash > 0) hitFlash -= dt;
+  if (ramCd > 0) ramCd -= dt;
+  if (fireCd > 0) fireCd -= dt;
+
+  // front gun (hold or tap)
+  const wantFire = isDown("fire") || consumeFireEdge();
+  if (wantFire && fireCd <= 0 && ammo > 0) {
+    ammo--;
+    fireCd = spec.fireCd;
+    bullets.push({
+      x: player.x, y: player.y - player.h / 2 - 4, vy: -560,
+      w: spec.gunDmg > 1 ? 6 : (spec.fireCd > 0.2 ? 3 : 4), h: 12,
+      from: "player", dmg: spec.gunDmg,
+    });
+    updateHud();
+  }
+
+  // bullets
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    const b = bullets[i];
+    b.y += b.vy * dt;
+    if (b.y < -30 || b.y > H + 30) { bullets.splice(i, 1); continue; }
+    if (b.from === "enemy") {
+      if (hit(b, player)) { bullets.splice(i, 1); damagePlayer(1); }
+      continue;
+    }
+    for (let j = entities.length - 1; j >= 0; j--) {
+      const e = entities[j];
+      if (e.type === "civilian" || e.type === "supply") continue;
+      if (hit(b, e)) {
+        bullets.splice(i, 1);
+        e.hp -= b.dmg || 1;
+        burst(e.x, e.y, "#ffe08a", 5);
+        if (e.hp <= 0) {
+          score += e.type === "drone" ? 250 : 100;
+          burst(e.x, e.y, e.color, 16);
+          entities.splice(j, 1);
+          updateHud();
+        }
+        break;
+      }
+    }
+  }
+
+  // spawn — one traffic car per beat, and never a fresh wall on the same frame
+  spawnAcc += dt;
+  const spawnRate = Math.max(0.35, 1.1 - gameTime * 0.008);
+  let didSpawn = false;
+  if (spawnAcc >= spawnRate) {
+    spawnAcc = 0;
+    let raiders = 0;
+    let mouthBusy = false;
+    for (const e of entities) {
+      if (e.type === "raider") raiders++;
+      if (e.type !== "drone" && e.y < 36) mouthBusy = true;
+    }
+    if (mouthBusy) {
+      spawnAcc = spawnRate * 0.7;
+    } else {
+      let hostile = Math.random() < 0.4 && raiders < 3;
+      spawnTraffic(hostile);
+      didSpawn = true;
+    }
+  }
+  supplyTimer -= dt;
+  droneTimer -= dt;
+  if (supplyTimer <= 0) {
+    if (didSpawn) supplyTimer = 0.45;
+    else { spawnSupply(); supplyTimer = 13 + Math.random() * 9; didSpawn = true; }
+  }
+  if (droneTimer <= 0) {
+    let drones = 0;
+    for (const e of entities) if (e.type === "drone") drones++;
+    if (didSpawn || drones >= 2) droneTimer = drones >= 2 ? 1.5 : 0.45;
+    else { spawnDrone(); droneTimer = 15 + Math.random() * 12; }
+  }
+
+  // entities — scroll down the screen (player drives "up" the road)
+  for (let i = entities.length - 1; i >= 0; i--) {
+    const e = entities[i];
+    // road scroll carries everything downward relative to camera
+    e.y += scrollSpeed * 48 * dt;
+    // own velocity (also downward-ish for slower traffic, or their approach)
+    // Traffic ahead approaches: their world speed is less than player, so they move down on screen.
+    // We already use scrollSpeed; vy is extra approach rate.
+    e.y += e.vy * dt * 0.15;
+
+    if (e.type === "drone") {
+      e.x += e.vx * dt;
+      if (e.x < 55 || e.x > W - 55) e.vx *= -1;
+      e.cool -= dt;
+      if (e.cool <= 0) {
+        e.cool = 1.7;
+        bullets.push({ x: e.x, y: e.y + 12, vy: 260, w: 5, h: 9, from: "enemy" });
+      }
+    }
+    if (e.type === "raider") {
+      e.x += Math.sign(player.x - e.x) * 28 * dt;
+      if (e.bumpCd > 0) e.bumpCd -= dt;
+    }
+
+    if (e.y > H + 90 || e.y < -140) { entities.splice(i, 1); continue; }
+
+    if (!hit(e, player)) continue;
+
+    if (e.type === "supply") {
+      ammo = Math.min(40, ammo + 16);
+      score += 50;
+      burst(e.x, e.y, "#3ecf8e", 14);
+      entities.splice(i, 1);
+      updateHud();
+      continue;
+    }
+    if (e.type === "civilian") {
+      damagePlayer(2);
+      score = Math.max(0, score - 80);
+      burst(e.x, e.y, e.color, 12);
+      entities.splice(i, 1);
+      updateHud();
+      continue;
+    }
+    // hostile: side ram if steering into them with cooldown
+    const lateral = Math.abs(e.x - player.x);
+    const steeringIn = (e.x > player.x && isDown("right")) || (e.x < player.x && isDown("left")) || Math.abs(steer) > 0;
+    if (ramCd <= 0 && lateral > 4 && steeringIn) {
+      e.hp -= spec.ramDmg;
+      ramCd = 0.75;
+      burst((e.x + player.x) / 2, (e.y + player.y) / 2, "#ffd76a", 14);
+      e.x += Math.sign(e.x - player.x) * (22 + spec.ramDmg * 4);
+      player.vx += Math.sign(player.x - e.x) * 90 * spec.knock;
+      if (e.hp <= 0) {
+        score += e.type === "drone" ? 250 : 120;
+        burst(e.x, e.y, e.color, 18);
+        entities.splice(i, 1);
+      }
+      updateHud();
+    } else if (!e.bumpCd || e.bumpCd <= 0) {
+      damagePlayer(e.type === "drone" ? 1.5 : 1);
+      if (e.type === "raider") e.bumpCd = 0.7;
+      e.x += Math.sign(e.x - player.x) * 16;
+      player.x += Math.sign(player.x - e.x) * 12 * spec.knock;
+      player.vx += Math.sign(player.x - e.x) * 180 * spec.knock;
+    }
+  }
+
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.life -= dt; p.x += p.vx; p.y += p.vy; p.vy += 10 * dt;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+  if (shake > 0) shake *= 0.82;
+  updateHud();
+}
+
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function drawRoad() {
+  const r = REGIONS[regionIdx];
+  ctx.fillStyle = r.grass;
+  ctx.fillRect(0, 0, W, H);
+
+  if (r.kind === "city") {
+    for (let side = 0; side < 2; side++) {
+      for (let i = 0; i < 9; i++) {
+        const y = ((i * 88 - roadOffset * 1.15) % (H + 88)) - 50;
+        const x = side === 0 ? 6 : W - 56;
+        const bh = 36 + ((i * 19 + 3) % 54);
+        ctx.fillStyle = r.prop;
+        ctx.fillRect(x, y, 46, bh);
+        ctx.fillStyle = r.light;
+        for (let wy = 8; wy < bh - 8; wy += 14) {
+          ctx.globalAlpha = 0.3 + ((i + wy) % 3) * 0.2;
+          ctx.fillRect(x + 8, y + wy, 5, 5);
+          ctx.fillRect(x + 20, y + wy, 5, 5);
+          ctx.fillRect(x + 32, y + wy, 5, 5);
+        }
+        ctx.globalAlpha = 1;
+      }
+    }
+  } else {
+    ctx.fillStyle = "#163040";
+    ctx.fillRect(0, 0, 54, H);
+    ctx.fillStyle = "#c2b280";
+    ctx.fillRect(W - 60, 0, 60, H);
+    for (let i = 0; i < 10; i++) {
+      const y = ((i * 72 - roadOffset) % (H + 72)) - 24;
+      ctx.fillStyle = r.prop;
+      ctx.fillRect(W - 38, y, 5, 26);
+      ctx.fillStyle = "#e8ecf4";
+      ctx.beginPath();
+      ctx.moveTo(W - 35, y);
+      ctx.lineTo(W - 18, y - 7);
+      ctx.lineTo(W - 35, y + 5);
+      ctx.fill();
+    }
+    for (let i = 0; i < 6; i++) {
+      const y = ((i * 112 - roadOffset * 0.85) % (H + 112)) - 28;
+      ctx.fillStyle = "#4a3a28";
+      ctx.fillRect(16, y, 8, 34);
+    }
+  }
+
+  ctx.fillStyle = r.shoulder;
+  ctx.fillRect(ROAD_L - 14, 0, (ROAD_R - ROAD_L) + 28, H);
+  ctx.fillStyle = r.road;
+  ctx.fillRect(ROAD_L, 0, ROAD_R - ROAD_L, H);
+  ctx.fillStyle = r.lane;
+  for (let y = -80; y < H + 80; y += 40) {
+    ctx.fillRect(W / 2 - 3, y + (roadOffset % 40), 6, 18);
+  }
+  ctx.fillRect(ROAD_L + 4, 0, 3, H);
+  ctx.fillRect(ROAD_R - 7, 0, 3, H);
+}
+
+function drawCar(x, y, w, h, color, hostile) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.fillStyle = color;
+  roundRect(-w / 2, -h / 2, w, h, 5);
+  ctx.fill();
+  ctx.fillStyle = hostile ? "#311018" : "#a8d4ff";
+  ctx.fillRect(-w / 2 + 4, -h / 2 + 6, w - 8, 10);
+  ctx.fillStyle = "#ffe08a";
+  ctx.fillRect(-w / 2 + 3, -h / 2, 5, 4);
+  ctx.fillRect(w / 2 - 8, -h / 2, 5, 4);
+  ctx.fillStyle = "#f44";
+  ctx.fillRect(-w / 2 + 3, h / 2 - 4, 5, 4);
+  ctx.fillRect(w / 2 - 8, h / 2 - 4, 5, 4);
+  ctx.restore();
+}
+function drawDrone(e) {
+  ctx.save();
+  ctx.translate(e.x, e.y);
+  ctx.fillStyle = "#2a3344";
+  ctx.beginPath();
+  ctx.ellipse(0, 0, e.w / 2, e.h / 2, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = e.color;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(-11, -7, 9, 0, Math.PI * 2);
+  ctx.arc(11, -7, 9, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = "#ff6b4a";
+  ctx.fillRect(-3, 2, 6, 6);
+  ctx.restore();
+}
+function drawSupply(e) {
+  ctx.save();
+  ctx.translate(e.x, e.y);
+  ctx.fillStyle = "#1e3a2a";
+  roundRect(-e.w / 2, -e.h / 2, e.w, e.h, 4);
+  ctx.fill();
+  ctx.fillStyle = e.color;
+  ctx.fillRect(-e.w / 2 + 4, -10, e.w - 8, 18);
+  ctx.fillStyle = "#0a0c12";
+  ctx.font = "bold 10px sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("SUPPLY", 0, 3);
+  ctx.restore();
+}
+
+function draw() {
+  ctx.save();
+  if (shake > 0.4) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+
+  if (screen === "splash" || screen === "menu" || screen === "controls" || screen === "about") {
+    // idle backdrop
+    if (!player) {
+      regionIdx = 0;
+      roadOffset = (roadOffset + 0.8) % 80;
+    }
+  }
+  drawRoad();
+
+  if (player && (screen === "play" || screen === "pause" || screen === "over")) {
+    const sorted = entities.slice().sort((a, b) => a.y - b.y);
+    for (const e of sorted) {
+      if (e.type === "drone") drawDrone(e);
+      else if (e.type === "supply") drawSupply(e);
+      else drawCar(e.x, e.y, e.w, e.h, e.color, e.type === "raider");
+    }
+    for (const b of bullets) {
+      ctx.fillStyle = b.from === "enemy" ? "#ff6b4a" : "#ffe08a";
+      ctx.fillRect(b.x - b.w / 2, b.y - b.h / 2, b.w, b.h);
+    }
+    if (hitFlash > 0 || invuln <= 0 || (Math.floor(gameTime * 14) % 2)) {
+      drawCar(player.x, player.y, player.w, player.h, hitFlash > 0 ? "#fff6ee" : player.color, false);
+      if (hitFlash > 0) {
+        ctx.globalAlpha = Math.min(0.85, hitFlash * 4.5);
+        ctx.fillStyle = "#fff";
+        roundRect(player.x - player.w / 2, player.y - player.h / 2, player.w, player.h, 5);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      if (boostTimer > 0) {
+        const flame = 14 + boostRamp * 16 + Math.random() * 10;
+        ctx.fillStyle = boostRamp > 0.65 ? "rgba(190,230,255,0.8)" : "rgba(126,200,255,0.55)";
+        ctx.beginPath();
+        ctx.moveTo(player.x - 8, player.y + player.h / 2);
+        ctx.lineTo(player.x, player.y + player.h / 2 + flame);
+        ctx.lineTo(player.x + 8, player.y + player.h / 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = "#222";
+      ctx.fillRect(player.x - 16, player.y + player.h / 2 + 6, 32, 4);
+      ctx.fillStyle = "#3ecf8e";
+      ctx.fillRect(player.x - 16, player.y + player.h / 2 + 6, 32 * Math.max(0, player.hp / player.maxHp), 4);
+    }
+    for (const p of particles) {
+      ctx.globalAlpha = Math.max(0, p.life * 2);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x, p.y, p.size, p.size);
+    }
+    ctx.globalAlpha = 1;
+    if (hitFlash > 0) {
+      ctx.fillStyle = "rgba(255,70,40," + (0.32 * Math.min(1, hitFlash / 0.12)).toFixed(3) + ")";
+      ctx.fillRect(0, 0, W, H);
+    }
+    if (screen === "play") {
+      ctx.fillStyle = "rgba(0,0,0,0.4)";
+      ctx.fillRect(8, 8, 168, 40);
+      ctx.fillStyle = "#e8ecf4";
+      ctx.font = "11px sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText(player.spec.name, 14, 24);
+      ctx.fillStyle = "#8b93a7";
+      ctx.fillText("F6 controls · Esc pause", 14, 38);
+    }
+  } else {
+    // title backdrop cars decoration
+    roadOffset = (typeof roadOffset === "number" ? roadOffset : 0);
+  }
+
+  ctx.restore();
+}
+
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  pollGamepad();
+  update(dt);
+  // animate idle road on menus
+  if (screen === "splash" || screen === "menu") {
+    roadOffset = (roadOffset + 40 * dt) % 80;
+  }
+  draw();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

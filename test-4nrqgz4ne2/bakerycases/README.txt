@@ -4,3 +4,10 @@ src/: core.js (rules+solver+level maker), gen.js (level generator -> levels.json
 Rebuild: cd src; node gen.js; node build.js; node smoke.js   (smoke proves every level solvable + open-slot rules)
 Difficulty curve (harder than Cassette Rack v1.2): L1-3: 4 flavors, 12 open slots. L4-6: 5 flavors + turn stands, 8-12 open. L7-10: 6 flavors + closed stand. L11-15 cooling ice, 7 flavors. L16-22 turn-required. L23-32: 7 flavors, ice+lock+turn. L33-44: 8 flavors, 8 open slots, 5 ice, 3 turn stands.
 Debug: index.html#play=N opens level N+1.
+
+v1.0.1 (2026-11-02)
+- All 44 cases re-verified solvable by the built-in solver (smoke 239/0).
+- Case polish: thicker wood/brass display frame, deeper glass, stronger stands & plates,
+  bigger SOLD badge, striped "locked" glass on closed stands, purple glow on turn stands,
+  clearer ice, punchier sweets, bigger selected lift.
+- New "How to Play" screen on the title. Toasts hide when a modal opens. Small-height phone fit.

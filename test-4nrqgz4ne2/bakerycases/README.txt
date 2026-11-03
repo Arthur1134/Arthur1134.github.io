@@ -1,4 +1,5 @@
-Bakery Cases v1.0.4 - Retro Gaming Dad / Arthur McConnell
+Bakery Cases v1.0.5 - Retro Gaming Dad / Arthur McConnell
+v1.0.5: On RUN.world with rewarded (extra hints after 2 free) + interstitial (between cases) ads; RUN host only. Credits playtesting line removed.
 v1.0.3: Sold-stand labels use short names (Berry/Choco/Lilac/…) so Strawberry/Chocolate no longer clip on phone.
 Single-file HTML5 tray-sort puzzle (index.html == bakery_cases.html). 44 levels.
 src/: core.js (rules+solver+level maker), gen.js (level generator -> levels.json), music.js (WebAudio radio), shell.html (UI), build.js, smoke.js.

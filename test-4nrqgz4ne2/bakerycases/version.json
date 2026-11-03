@@ -1,1 +1,1 @@
-{ "version": "1.0.3", "url": "./index.html", "note": "stand labels no longer clip" }
+{ "version": "1.0.4", "url": "./index.html", "note": "sold labels short + cache-bust; HUD shows v" }

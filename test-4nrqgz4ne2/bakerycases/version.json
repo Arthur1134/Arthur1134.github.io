@@ -1,1 +1,1 @@
-{ "version": "1.0.2", "url": "./index.html", "note": "smarter hints (progress-aware, no back-and-forth), clearer Case 7 closed-stand tutorial" }
+{ "version": "1.0.3", "url": "./index.html", "note": "stand labels no longer clip" }

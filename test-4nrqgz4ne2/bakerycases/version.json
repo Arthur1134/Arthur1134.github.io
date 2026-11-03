@@ -1,1 +1,1 @@
-{ "version": "1.0.1", "url": "./index.html", "note": "solvability re-check (44/44), case polish, How to Play screen" }
+{ "version": "1.0.2", "url": "./index.html", "note": "smarter hints (progress-aware, no back-and-forth), clearer Case 7 closed-stand tutorial" }

@@ -1,4 +1,4 @@
-Bakery Cases v1.0.0 - Retro Gaming Dad / Arthur McConnell
+Bakery Cases v1.0.2 - Retro Gaming Dad / Arthur McConnell
 Single-file HTML5 tray-sort puzzle (index.html == bakery_cases.html). 44 levels.
 src/: core.js (rules+solver+level maker), gen.js (level generator -> levels.json), music.js (WebAudio radio), shell.html (UI), build.js, smoke.js.
 Rebuild: cd src; node gen.js; node build.js; node smoke.js   (smoke proves every level solvable + open-slot rules)
@@ -11,3 +11,10 @@ v1.0.1 (2026-11-02)
   bigger SOLD badge, striped "locked" glass on closed stands, purple glow on turn stands,
   clearer ice, punchier sweets, bigger selected lift.
 - New "How to Play" screen on the title. Toasts hide when a modal opens. Small-height phone fit.
+
+v1.0.2 (2026-11-02)
+- Smarter Hint: weighted A* search (shorter paths) + per-first-move scoring that rewards sell-outs,
+  opening closed stands and stacking on matching tops, and penalizes undoing recent moves or
+  shuffling the same flavor between the same two stands. No more Lemon ping-pong on Case 7.
+- Hint toast now says it in words ("move Lemon from Tier 3 onto Tier 4") and still highlights both stands.
+- Closed-stand coaching: clearer Case 7 intro; tip after repeated hints/undos while nothing is sold out.

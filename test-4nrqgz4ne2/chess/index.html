@@ -2,23 +2,26 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-  <meta name="robots" content="noindex, nofollow">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Classic Chess & Checkers v1.2</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1a120b">
+<title>Classic Chess & Checkers</title>
+<link rel="icon" href="icons/icon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     background: linear-gradient(135deg, #1a120b 0%, #3c2415 50%, #1a120b 100%);
     color: #f5e6d3;
     font-family: 'Georgia', 'Times New Roman', serif;
-    min-height: 100vh;
-    display: flex;
+    min-height: 100vh; min-height: 100dvh;
+    display: flex; overflow-x: hidden; -webkit-tap-highlight-color: transparent;
+    --sq: min(70px, calc((100vw - 52px) / 8));
     flex-direction: column;
     align-items: center;
-    padding: 20px;
+    padding: max(10px, env(safe-area-inset-top)) 10px max(14px, env(safe-area-inset-bottom));
   }
   h1 {
-    font-size: 2.8rem;
+    font-size: clamp(1.4rem, 6vw, 2.6rem); text-align: center;
     margin-bottom: 10px;
     text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
     letter-spacing: 2px;
@@ -59,16 +62,16 @@
   #board-container {
     position: relative;
     background: #5c3a21;
-    padding: 12px;
+    padding: 6px;
     border-radius: 8px;
     box-shadow: 0 15px 40px rgba(0,0,0,0.6), inset 0 0 20px rgba(0,0,0,0.3);
   }
   #board {
     display: grid;
-    grid-template-columns: repeat(8, 70px);
-    grid-template-rows: repeat(8, 70px);
-    width: 560px;
-    height: 560px;
+    grid-template-columns: repeat(8, var(--sq));
+    grid-template-rows: repeat(8, var(--sq));
+    width: calc(var(--sq) * 8 + 8px);
+    height: calc(var(--sq) * 8 + 8px);
     border: 4px solid #3d2914;
     position: relative;
   }
@@ -82,14 +85,14 @@
   .rank-label { left: 2px; }
   .file-label { bottom: 2px; right: 4px; }
   .square {
-    width: 70px;
-    height: 70px;
+    width: var(--sq);
+    height: var(--sq);
     display: flex;
     align-items: center;
     justify-content: center;
     position: relative;
     cursor: pointer;
-    font-size: 52px;
+    font-size: calc(var(--sq) * 0.74);
     line-height: 1;
     user-select: none;
     transition: background 0.15s;
@@ -100,16 +103,16 @@
   .square.selected { box-shadow: inset 0 0 0 4px #ffd700; }
   .square.possible::after {
     content: '';
-    width: 20px;
-    height: 20px;
+    width: 30%;
+    height: 30%;
     background: rgba(0, 150, 0, 0.45);
     border-radius: 50%;
     position: absolute;
   }
   .square.possible.capture::after {
     background: rgba(200, 0, 0, 0.5);
-    width: 50px;
-    height: 50px;
+    width: 74%;
+    height: 74%;
   }
   .piece {
     text-shadow: 1px 1px 2px rgba(0,0,0,0.6), -1px -1px 1px rgba(255,255,255,0.3);
@@ -119,8 +122,8 @@
   .piece.black { color: #222; filter: drop-shadow(1px 1px 1px #888); }
   /* Checkers pieces */
   .checkers-piece {
-    width: 52px;
-    height: 52px;
+    width: 74%;
+    height: 74%;
     border-radius: 50%;
     border: 3px solid #333;
     box-shadow: inset 0 -8px 12px rgba(0,0,0,0.4), 0 4px 8px rgba(0,0,0,0.3);
@@ -137,7 +140,7 @@
   .checkers-piece.king::after {
     content: '♔';
     position: absolute;
-    font-size: 28px;
+    font-size: calc(var(--sq) * 0.4);
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
@@ -175,11 +178,6 @@
     line-height: 1.5;
   }
   .rules h3 { margin-bottom: 8px; color: #c9a66b; }
-  @media (max-width: 650px) {
-    #board { grid-template-columns: repeat(8, 40px); grid-template-rows: repeat(8, 40px); width: 320px; height: 320px; }
-    .square { width: 40px; height: 40px; font-size: 30px; }
-    .checkers-piece { width: 30px; height: 30px; }
-  }
   .main { display: flex; gap: 18px; align-items: flex-start; justify-content: center; flex-wrap: wrap; }
   #side { width: 270px; background: rgba(0,0,0,0.3); border: 2px solid #5c3a21; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
   #side h3 { color: #c9a66b; font-size: 1rem; }
@@ -198,25 +196,35 @@
   #side .btnrow button { padding: 6px 10px; font-size: .85rem; flex: 1; }
   select.ctl { padding: 10px 12px; font-family: inherit; border: 2px solid #c9a66b; border-radius: 6px; background: #5c3a21; color: #f5e6d3; cursor: pointer; }
   #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #3c2415; border: 2px solid #c9a66b; padding: 8px 16px; border-radius: 6px; display: none; z-index: 200; }
-  @media (max-width: 650px) { #side { width: 336px; } #moveList { height: 150px; } .checkers-piece.king::after { font-size: 18px; } }
+  @media (max-width: 650px) { #side { width: calc(var(--sq) * 8 + 20px); } #moveList { height: 110px; } .controls { gap: 6px; margin-bottom: 8px; } button { padding: 8px 12px; font-size: .9rem; } select.ctl { padding: 8px; font-size: .9rem; } #status { font-size: 1.05rem; margin: 6px 0; } .subtitle { margin-bottom: 8px; font-size: .9rem; } }
+  .square.incheck { background-image: radial-gradient(circle, rgba(255,40,40,.85) 0%, rgba(255,40,40,.45) 45%, rgba(255,40,40,0) 75%); }
+  #board.shake { animation: shake .35s; }
+  @keyframes shake { 0%,100%{transform:none} 25%{transform:translateX(-4px)} 75%{transform:translateX(4px)} }
+  .overlay { position: fixed; inset: 0; background: rgba(10,6,3,.82); display: none; align-items: center; justify-content: center; z-index: 150; padding: 16px; }
+  .overlay.show { display: flex; }
+  .panel { background: linear-gradient(#3c2415,#24160c); border: 3px solid #c9a66b; border-radius: 12px; padding: 20px; width: min(380px, 100%); max-height: 92vh; overflow-y: auto; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,.8); }
+  .panel h2 { color: #ffd700; margin-bottom: 6px; font-size: 1.6rem; text-shadow: 2px 2px 3px #000; }
+  .panel .big { font-size: 2.6rem; margin-bottom: 4px; }
+  .panel p { margin: 8px 0; color: #d4c4a8; line-height: 1.45; font-size: .95rem; }
+  .panel .stack { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+  .panel .seg { display: flex; gap: 6px; justify-content: center; }
+  .panel .seg button { flex: 1; padding: 8px 6px; }
+  .panel .lbl { color: #c9a66b; font-size: .85rem; margin-top: 6px; text-align: left; }
+  .panel .rules-text { text-align: left; font-size: .88rem; }
+  .promo-modal.show { display: block; }
+  #promoBackdrop { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 99; display: none; }
 </style>
 </head>
 <body>
-  <h1>Classic Chess & Checkers <span id="version" style="font-size:1rem;color:#c9a66b;vertical-align:middle">v1.2</span></h1>
-  <p class="subtitle">Play against a friend or the computer</p>
+  <h1>Classic Chess & Checkers <span id="version" style="font-size:.9rem;color:#c9a66b;vertical-align:middle">v1.4.0</span></h1>
+  <p class="subtitle">You vs the Computer &middot; by Retro Gaming Dad</p>
   <div class="controls">
     <button id="chessBtn" class="active">Chess</button>
     <button id="checkersBtn">Checkers</button>
-    <button id="vsPlayerBtn" class="active">vs Player</button>
-    <button id="vsComputerBtn">vs Computer</button>
-    <select id="difficultySelect" class="ctl" style="display:none" title="Computer strength">
+    <select id="difficultySelect" class="ctl" title="Computer strength">
       <option value="easy">Easy</option>
       <option value="medium" selected>Medium</option>
       <option value="hard">Hard</option>
-    </select>
-    <select id="playAsSelect" class="ctl" style="display:none" title="Your color">
-      <option value="w">Play as White</option>
-      <option value="b">Play as Black</option>
     </select>
     <select id="clockSelect" class="ctl" title="Chess clock">
       <option value="0">Clock: Off</option>
@@ -227,8 +235,9 @@
   <div class="controls">
     <button id="newGameBtn">New Game</button>
     <button id="undoBtn">Undo</button>
-    <button id="flipBtn">Flip Board</button>
     <button id="muteBtn">Sound: On</button>
+    <button id="musicBtn">Music: On</button>
+    <button id="menuBtn">&#9776; Menu</button>
   </div>
   <div id="status">White to move</div>
   <div class="main">
@@ -255,36 +264,91 @@
   <div id="info">Click a piece to select it, then click a highlighted square to move.</div>
   <div class="rules">
     <h3>How to Play</h3>
-    <p>Choose <strong>vs Player</strong> for two-player hotseat or <strong>vs Computer</strong> for an AI opponent. Pick Easy / Medium / Hard and whether you play White or Black. Optional 5 or 10 minute chess clocks. Your game is saved automatically and restored when you reopen the page.</p>
+    <p>You play <strong>White</strong> against the <strong>Computer</strong> (Black). Pick Easy, Medium or Hard. Optional 5 or 10 minute chess clocks. Tap a piece, then a highlighted square. Your game is saved automatically and restored when you come back. Use <strong>Menu</strong> to pause, start a new game, or quit to the title screen.</p>
     <p><strong>Chess:</strong> Standard rules including castling, en passant and promotion (choose your piece). Checkmate wins; stalemate, threefold repetition, the 50-move rule and insufficient material are draws. Running out of time loses (draw if the opponent cannot mate).</p>
     <p><strong>Checkers:</strong> English draughts on dark squares. Captures are mandatory. Multi-jumps continue with the same piece until no more captures; reaching the far row crowns a king and ends the turn. Kings move and capture in all diagonal directions. Capture all opponent pieces or leave them with no moves to win. 40 moves each without a capture or man move, or threefold repetition, is a draw. Squares are numbered 1–32 for notation.</p>
   </div>
+  <div id="promoBackdrop"></div>
   <div id="promoModal" class="promo-modal">
     <p>Promote pawn to:</p>
     <button data-piece="q">♕</button>
     <button data-piece="r">♖</button>
     <button data-piece="b">♗</button>
     <button data-piece="n">♘</button>
+    <div><button id="promoCancel" style="font-size:.9rem;padding:6px 12px">Cancel</button></div>
   </div>
+  <div id="titleOv" class="overlay show"><div class="panel">
+    <div class="big">♞ ⛀</div>
+    <h2>Classic Chess &amp; Checkers</h2>
+    <p style="margin:0">You vs the Computer &middot; v1.4.0</p>
+    <div class="lbl">Game</div>
+    <div class="seg"><button id="tChess">♔ Chess</button><button id="tCheckers">⛀ Checkers</button></div>
+    <div class="lbl">Computer</div>
+    <div class="seg"><button data-diff="easy">Easy</button><button data-diff="medium">Medium</button><button data-diff="hard">Hard</button></div>
+    <div class="stack">
+      <button id="tContinue">Continue Game</button>
+      <button id="tPlay">New Game</button>
+      <button id="tHow">How to Play</button>
+      <button id="tCredits">Credits</button>
+    </div>
+  </div></div>
+  <div id="pauseOv" class="overlay"><div class="panel">
+    <h2>Paused</h2>
+    <div class="stack">
+      <button id="pResume">Resume</button>
+      <button id="pNew">New Game</button>
+      <button id="pQuit">Quit to Menu</button>
+    </div>
+  </div></div>
+  <div id="endOv" class="overlay"><div class="panel">
+    <div class="big" id="endIcon">🏆</div>
+    <h2 id="endTitle">You win!</h2>
+    <p id="endText"></p>
+    <div class="stack">
+      <button id="eAgain">Play Again</button>
+      <button id="eView">View Board</button>
+      <button id="eMenu">Main Menu</button>
+    </div>
+  </div></div>
+  <div id="howOv" class="overlay"><div class="panel">
+    <h2>How to Play</h2>
+    <div class="rules-text">
+      <p>You play <strong>White</strong>; the Computer plays Black. Tap a piece, then tap a highlighted square. Green dots are moves, red rings are captures. The last move is highlighted in gold, and a king in check glows red.</p>
+      <p><strong>Chess:</strong> castling, en passant and promotion (you choose the piece). Checkmate wins; stalemate, repetition, 50-move rule and insufficient material draw.</p>
+      <p><strong>Checkers:</strong> captures are mandatory, multi-jumps continue, reaching the far row crowns a king.</p>
+      <p><strong>Undo</strong> takes back your last move.</p>
+    </div>
+    <div class="stack"><button class="closeOv">Back</button></div>
+  </div></div>
+  <div id="creditsOv" class="overlay"><div class="panel">
+    <h2>Credits</h2>
+    <p><strong>Retro Gaming Dad</strong></p>
+    <p>Game design, code &amp; sound<br>Arthur McConnell</p>
+    <p style="font-size:.8rem;opacity:.7">Classic Chess &amp; Checkers v1.4.0</p>
+    <div class="stack"><button class="closeOv">Back</button></div>
+  </div></div>
   <div id="toast"></div>
+<script>window.CCAds=window.CCAds||{available:false,isRunHost(){return false},async isRewardedReady(){return false},async showRewarded(){return false},async showInterstitial(){return false}};</script>
+<script type="module">try{await import('./rundot-ads.js')}catch(_){}</script>
 <script>
 'use strict';
 const $ = id => document.getElementById(id);
 const boardEl = $('board'), statusEl = $('status'), infoEl = $('info');
 const chessBtn = $('chessBtn'), checkersBtn = $('checkersBtn'), newGameBtn = $('newGameBtn');
-const vsPlayerBtn = $('vsPlayerBtn'), vsComputerBtn = $('vsComputerBtn');
-const difficultySelect = $('difficultySelect'), playAsSelect = $('playAsSelect'), clockSelect = $('clockSelect');
-const promoModal = $('promoModal'), undoBtn = $('undoBtn'), muteBtn = $('muteBtn'), flipBtn = $('flipBtn');
-const SAVE_KEY = 'ccc_save_v12';
-const VERSION = '1.2';
+const difficultySelect = $('difficultySelect'), clockSelect = $('clockSelect');
+const promoModal = $('promoModal'), undoBtn = $('undoBtn'), muteBtn = $('muteBtn'), musicBtn = $('musicBtn');
+const SAVE_KEY = 'ccc_save_v14';
+const VERSION = '1.4.0';
 
-let mode = 'chess', vsComputer = false, humanColor = 'w', difficulty = 'medium';
+let mode = 'chess', difficulty = 'medium', paused = false, onTitle = true;
+const vsComputer = true, humanColor = 'w'; // single-player only: you are White, the Computer is Black
 let board = [], turn = 'w', selected = null, possibleMoves = [], gameOver = false, result = null, resultText = '';
 let castling = { wK: true, wQ: true, bK: true, bQ: true }, enPassant = null, lastMove = null;
 let mustContinueJump = null, halfmove = 0, moveLog = [], keyHist = [];
 let gameId = 0, aiTimer = null, promoCtx = null, history = [];
-let flipped = false, clockSetting = 0, clocks = { w: 0, b: 0 }, clockLast = 0, clockStarted = false;
+const flipped = false; let clockSetting = 0, clocks = { w: 0, b: 0 }, clockLast = 0, clockStarted = false;
 let muted = localStorage.getItem('ccc_muted') === '1';
+let musicOn = localStorage.getItem('ccc_music') !== '0';
 
 // ---------- sound ----------
 let audioCtx = null;
@@ -305,7 +369,27 @@ function playSound(kind) {
   else if (kind === 'capture') { tone(300, 0.12, 'square', 0.1); tone(200, 0.12, 'square', 0.1, 0.06); }
   else if (kind === 'check') { tone(880, 0.1, 'sawtooth', 0.08); tone(660, 0.15, 'sawtooth', 0.08, 0.1); }
   else if (kind === 'gameover') { [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.25, 'triangle', 0.12, i * 0.15)); }
+  else if (kind === 'lose') { [392, 349, 311, 262].forEach((f, i) => tone(f, 0.3, 'triangle', 0.12, i * 0.18)); }
+  else if (kind === 'draw') { [440, 440, 523].forEach((f, i) => tone(f, 0.2, 'triangle', 0.1, i * 0.16)); }
+  else if (kind === 'select') tone(740, 0.04, 'sine', 0.07);
+  else if (kind === 'bad') tone(140, 0.12, 'square', 0.06);
+  else if (kind === 'promote' || kind === 'king') { [660, 880, 1100].forEach((f, i) => tone(f, 0.12, 'triangle', 0.1, i * 0.07)); }
+  else if (kind === 'click') tone(600, 0.03, 'triangle', 0.06);
 }
+// gentle procedural background music (parlour waltz), muted by Sound or Music toggles
+const MUSIC = [[262,330,392],[220,262,330],[175,220,262],[196,247,294],[262,330,392],[220,277,330],[175,220,294],[196,247,349]];
+let musicStep = 0;
+setInterval(() => {
+  if (!musicOn || muted || document.hidden || !audioCtx) return;
+  const ch = MUSIC[Math.floor(musicStep / 3) % MUSIC.length], beat = musicStep % 3;
+  if (beat === 0) tone(ch[0] / 2, 0.9, 'sine', 0.035);
+  else tone(ch[beat], 0.35, 'triangle', 0.018);
+  if (beat === 1 && (musicStep / 3 | 0) % 2 === 0) tone(ch[2] * 2, 0.3, 'sine', 0.012, 0.25);
+  musicStep++;
+}, 520);
+function updateMusicBtn() { musicBtn.textContent = musicOn ? 'Music: On' : 'Music: Off'; }
+function primeAudio() { try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume(); } catch (e) {} }
+document.addEventListener('pointerdown', primeAudio, { passive: true });
 function updateMuteBtn() { muteBtn.textContent = muted ? 'Sound: Off' : 'Sound: On'; }
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(toast.h); toast.h = setTimeout(() => t.style.display = 'none', 2200); }
 
@@ -719,7 +803,24 @@ function scheduleAI(delay) {
   if (aiTimer) clearTimeout(aiTimer);
   aiTimer = setTimeout(() => { aiTimer = null; if (id === gameId) aiMove(); }, delay);
 }
-function undo() {
+// ----- RUN ads (only inside RUN host; no-op elsewhere) -----
+const FREE_UNDOS = 2; let undosUsed = 0, gamesFinished = 0, lastCountedGame = -1, adBusy = false;
+function adsHosted() { try { return !!(window.CCAds && window.CCAds.isRunHost && window.CCAds.isRunHost()); } catch (e) { return false; } }
+function undoNeedsAd() { return adsHosted() && vsComputer && undosUsed >= FREE_UNDOS; }
+function refreshUndoBtn() { if (undoBtn) undoBtn.textContent = undoNeedsAd() ? 'Undo (Watch Ad)' : 'Undo'; }
+async function undo() {
+  if (!history.length || adBusy) return;
+  if (undoNeedsAd()) {
+    adBusy = true; let ok = false;
+    try { ok = await window.CCAds.showRewarded({ adDisplayId: 'extra_undo', adDisplayName: 'Extra Undo' }); } catch (e) {}
+    adBusy = false;
+    if (!ok) { infoEl.textContent = 'No ad available right now — try again in a moment.'; return; }
+  }
+  if (vsComputer) undosUsed++;
+  refreshUndoBtn();
+  doUndo();
+}
+function doUndo() {
   if (!history.length) return;
   cancelPending();
   let snap = history.pop();
@@ -735,6 +836,9 @@ function undo() {
 }
 
 function initBoard() {
+  if (gameOver && lastCountedGame !== gameId) { lastCountedGame = gameId; gamesFinished++;
+    if (gamesFinished % 2 === 0 && adsHosted()) { try { window.CCAds.showInterstitial({ adDisplayId: 'between_games', adDisplayName: 'Between Games' }); } catch (e) {} } }
+  undosUsed = 0; setTimeout(refreshUndoBtn, 0);
   cancelPending();
   history = []; moveLog = []; keyHist = []; halfmove = 0;
   board = Array(8).fill(null).map(() => Array(8).fill(null));
@@ -814,13 +918,21 @@ function endTurn(isCapture) {
   if (!clockStarted && clockSetting) { clockStarted = true; clockLast = Date.now(); }
   checkGameOver();
   updateStatus(); render();
-  if (gameOver) playSound('gameover');
+  if (gameOver) announceEnd();
   else if (mode === 'chess' && inCheck(turn)) playSound('check');
   else playSound(isCapture ? 'capture' : 'move');
   saveGame();
   if (vsComputer && !gameOver && turn !== humanColor) scheduleAI(350);
 }
 function finish(res, text) { gameOver = true; result = res; resultText = text; }
+function announceEnd() {
+  const won = result === '1-0', draw = result === '1/2-1/2';
+  playSound(won ? 'gameover' : draw ? 'draw' : 'lose');
+  $('endIcon').textContent = won ? '🏆' : draw ? '🤝' : '💻';
+  $('endTitle').textContent = won ? 'You win!' : draw ? 'Draw' : 'Computer wins';
+  $('endText').textContent = resultText + ' (' + (mode === 'chess' ? 'Chess' : 'Checkers') + ', ' + difficulty + ')';
+  setTimeout(() => { if (gameOver && !onTitle) showOv('endOv'); }, 900);
+}
 function checkGameOver() {
   const winner = turn === 'w' ? 'Black' : 'White', winRes = turn === 'w' ? '0-1' : '1-0';
   const reps = keyHist.filter(k => k === keyHist[keyHist.length - 1]).length;
@@ -846,7 +958,8 @@ function updateStatus() {
 }
 
 function aiMove() {
-  if (gameOver || promoCtx || !vsComputer || turn === humanColor) return;
+  if (gameOver || promoCtx || turn === humanColor) return;
+  if (paused || onTitle) { scheduleAI(300); return; }
   statusEl.textContent = (turn === 'w' ? 'White' : 'Black') + ' thinking...';
   const id = gameId;
   aiTimer = setTimeout(() => {
@@ -873,8 +986,8 @@ function aiMove() {
 }
 
 function onSquareClick(r, c) {
-  if (gameOver || promoCtx) return;
-  if (vsComputer && turn !== humanColor) return;
+  if (gameOver || promoCtx || paused || onTitle) return;
+  if (turn !== humanColor) { playSound('bad'); return; }
   const piece = board[r][c];
   if (mustContinueJump) {
     const mv = possibleMoves.find(m => m.to[0] === r && m.to[1] === c);
@@ -893,6 +1006,7 @@ function onSquareClick(r, c) {
     if (piece && piece.color === turn) selectPiece(r, c);
     else { selected = null; possibleMoves = []; render(); }
   } else if (piece && piece.color === turn) selectPiece(r, c);
+  else if (piece) playSound('bad');
 }
 function selectPiece(r, c) {
   selected = [r, c];
@@ -902,26 +1016,32 @@ function selectPiece(r, c) {
     possibleMoves = ckStepsFrom(r, c);
     if (ckAnyCapture(turn)) possibleMoves = possibleMoves.filter(m => m.capture);
   }
-  if (!possibleMoves.length) { selected = null; }
+  if (!possibleMoves.length) { selected = null; playSound('bad'); boardEl.classList.remove('shake'); void boardEl.offsetWidth; boardEl.classList.add('shake'); }
+  else playSound('select');
   render();
 }
 function showPromo(cands) {
   promoCtx = { cands, id: gameId };
   const col = board[cands[0].m.fr][cands[0].m.fc].color;
-  promoModal.querySelectorAll('button').forEach(b => b.textContent = UNICODE[col][b.dataset.piece]);
-  promoModal.style.display = 'block';
+  promoModal.querySelectorAll('button[data-piece]').forEach(b => b.textContent = UNICODE[col][b.dataset.piece]);
+  promoModal.classList.add('show'); $('promoBackdrop').style.display = 'block';
 }
-promoModal.querySelectorAll('button').forEach(btn => btn.addEventListener('click', e => {
+function closePromo() { promoCtx = null; promoModal.classList.remove('show'); promoModal.style.display = ''; $('promoBackdrop').style.display = 'none'; }
+$('promoCancel').addEventListener('click', () => { closePromo(); selected = null; possibleMoves = []; render(); });
+$('promoBackdrop').addEventListener('click', () => $('promoCancel').click());
+promoModal.querySelectorAll('button[data-piece]').forEach(btn => btn.addEventListener('click', e => {
   const type = e.currentTarget.dataset.piece;
   if (!promoCtx || promoCtx.id !== gameId) return;
   const c = promoCtx.cands.find(x => x.promo === type);
-  promoCtx = null; promoModal.style.display = 'none';
-  if (c) executeChess(c.m);
+  closePromo();
+  if (c) { executeChess(c.m); playSound('promote'); }
 }));
 
 // ----- rendering -----
 function render() {
   boardEl.innerHTML = '';
+  let checkSq = null;
+  if (mode === 'chess' && inCheck(turn)) for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) { const p = board[i][j]; if (p && p.color === turn && p.type === 'k') checkSq = [i, j]; }
   for (let dr = 0; dr < 8; dr++) for (let dc = 0; dc < 8; dc++) {
     const r = flipped ? 7 - dr : dr, c = flipped ? 7 - dc : dc;
     const sq = document.createElement('div');
@@ -929,6 +1049,7 @@ function render() {
     sq.dataset.r = r; sq.dataset.c = c;
     if (lastMove && ((lastMove.from[0] === r && lastMove.from[1] === c) || (lastMove.to[0] === r && lastMove.to[1] === c))) sq.classList.add('lastmove');
     if (selected && selected[0] === r && selected[1] === c) sq.classList.add('selected');
+    if (checkSq && checkSq[0] === r && checkSq[1] === c) sq.classList.add('incheck');
     const move = possibleMoves.find(m => m.to[0] === r && m.to[1] === c);
     if (move) { sq.classList.add('possible'); if (move.capture) sq.classList.add('capture'); }
     const piece = board[r][c];
@@ -1025,14 +1146,14 @@ function renderClocks() {
   }
 }
 setInterval(() => {
-  if (!clockSetting || !clockStarted || gameOver) { clockLast = Date.now(); return; }
+  if (!clockSetting || !clockStarted || gameOver || paused || onTitle) { clockLast = Date.now(); return; }
   const now = Date.now(); clocks[turn] -= now - clockLast; clockLast = now;
   if (clocks[turn] <= 0) {
     clocks[turn] = 0; cancelPending();
     const other = opp(turn);
     if (mode === 'chess' && !canMate(other)) finish('1/2-1/2', 'Draw — time out vs insufficient material');
     else finish(other === 'w' ? '1-0' : '0-1', (other === 'w' ? 'White' : 'Black') + ' wins on time!');
-    selected = null; possibleMoves = []; updateStatus(); render(); playSound('gameover'); saveGame();
+    selected = null; possibleMoves = []; updateStatus(); render(); announceEnd(); saveGame();
   } else renderClocks();
 }, 250);
 setInterval(() => { if (clockSetting && clockStarted && !gameOver) saveGame(); }, 5000);
@@ -1074,7 +1195,7 @@ $('pgnDlBtn').addEventListener('click', () => {
 // ----- save / restore -----
 function saveGame() {
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 1, mode, vsComputer, humanColor, difficulty, clockSetting, flipped,
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 1, mode, difficulty, clockSetting,
       state: snapshot(), gameOver, result, resultText, clocks, clockStarted, history: history.slice(-60) }));
   } catch (e) {}
 }
@@ -1082,8 +1203,8 @@ function loadGame() {
   try {
     const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
     if (!s || s.v !== 1) return false;
-    mode = s.mode; vsComputer = s.vsComputer; humanColor = s.humanColor; difficulty = s.difficulty;
-    clockSetting = s.clockSetting || 0; flipped = !!s.flipped;
+    mode = s.mode; difficulty = s.difficulty || 'medium';
+    clockSetting = s.clockSetting || 0;
     restoreSnap(s.state); history = s.history || [];
     gameOver = s.gameOver; result = s.result; resultText = s.resultText || '';
     clocks = s.clocks || { w: 0, b: 0 }; clockStarted = !!s.clockStarted; clockLast = Date.now();
@@ -1096,32 +1217,47 @@ function loadGame() {
 // ----- controls -----
 function syncControls() {
   chessBtn.classList.toggle('active', mode === 'chess'); checkersBtn.classList.toggle('active', mode === 'checkers');
-  vsPlayerBtn.classList.toggle('active', !vsComputer); vsComputerBtn.classList.toggle('active', vsComputer);
-  difficultySelect.style.display = vsComputer ? 'inline-block' : 'none';
-  playAsSelect.style.display = vsComputer ? 'inline-block' : 'none';
-  difficultySelect.value = difficulty; playAsSelect.value = humanColor; clockSelect.value = String(clockSetting);
-  infoEl.textContent = vsComputer
-    ? `Click a piece, then a highlighted square. You play ${humanColor === 'w' ? 'White' : 'Black'}; the computer plays ${humanColor === 'w' ? 'Black' : 'White'} (${difficulty}).`
-    : 'Two-player hotseat: take turns on this device. Click a piece, then a highlighted square. Undo steps back one move.';
+  difficultySelect.value = difficulty; clockSelect.value = String(clockSetting);
+  document.querySelectorAll('[data-diff]').forEach(b => b.classList.toggle('active', b.dataset.diff === difficulty));
+  $('tChess').classList.toggle('active', mode === 'chess'); $('tCheckers').classList.toggle('active', mode === 'checkers');
+  infoEl.textContent = `Tap a piece, then a highlighted square. You play White; the computer plays Black (${difficulty}).`;
 }
 chessBtn.addEventListener('click', () => { mode = 'chess'; syncControls(); initBoard(); });
 checkersBtn.addEventListener('click', () => { mode = 'checkers'; syncControls(); initBoard(); });
 newGameBtn.addEventListener('click', initBoard);
 undoBtn.addEventListener('click', undo);
-flipBtn.addEventListener('click', () => { flipped = !flipped; render(); saveGame(); });
 muteBtn.addEventListener('click', () => { muted = !muted; localStorage.setItem('ccc_muted', muted ? '1' : '0'); updateMuteBtn(); if (!muted) playSound('move'); });
-vsPlayerBtn.addEventListener('click', () => { vsComputer = false; syncControls(); initBoard(); });
-vsComputerBtn.addEventListener('click', () => { vsComputer = true; flipped = humanColor === 'b'; syncControls(); initBoard(); });
 difficultySelect.addEventListener('change', () => { difficulty = difficultySelect.value; syncControls(); saveGame(); });
-playAsSelect.addEventListener('change', () => { humanColor = playAsSelect.value; flipped = humanColor === 'b'; syncControls(); initBoard(); });
+musicBtn.addEventListener('click', () => { musicOn = !musicOn; localStorage.setItem('ccc_music', musicOn ? '1' : '0'); updateMusicBtn(); });
+// ----- menus -----
+function showOv(id) { document.querySelectorAll('.overlay').forEach(o => o.classList.toggle('show', o.id === id)); }
+function hideOv() { document.querySelectorAll('.overlay').forEach(o => o.classList.remove('show')); }
+let ovReturn = 'titleOv';
+function openTitle() { onTitle = true; paused = false; $('tContinue').style.display = (history.length && !gameOver) ? '' : 'none'; syncControls(); showOv('titleOv'); }
+function startPlay(fresh) { primeAudio(); onTitle = false; paused = false; hideOv(); if (fresh) initBoard(); else { updateStatus(); render(); if (!gameOver && turn !== humanColor) scheduleAI(500); } }
+$('tChess').addEventListener('click', () => { playSound('click'); if (mode !== 'chess') { mode = 'chess'; initBoard(); } syncControls(); openTitle(); });
+$('tCheckers').addEventListener('click', () => { playSound('click'); if (mode !== 'checkers') { mode = 'checkers'; initBoard(); } syncControls(); openTitle(); });
+document.querySelectorAll('[data-diff]').forEach(b => b.addEventListener('click', () => { playSound('click'); difficulty = b.dataset.diff; syncControls(); saveGame(); }));
+$('tPlay').addEventListener('click', () => startPlay(true));
+$('tContinue').addEventListener('click', () => startPlay(false));
+$('tHow').addEventListener('click', () => { ovReturn = 'titleOv'; showOv('howOv'); });
+$('tCredits').addEventListener('click', () => { ovReturn = 'titleOv'; showOv('creditsOv'); });
+document.querySelectorAll('.closeOv').forEach(b => b.addEventListener('click', () => showOv(ovReturn)));
+$('menuBtn').addEventListener('click', () => { paused = true; playSound('click'); showOv('pauseOv'); });
+$('pResume').addEventListener('click', () => { paused = false; hideOv(); });
+$('pNew').addEventListener('click', () => { paused = false; hideOv(); initBoard(); });
+$('pQuit').addEventListener('click', () => { saveGame(); openTitle(); });
+$('eAgain').addEventListener('click', () => { hideOv(); initBoard(); });
+$('eView').addEventListener('click', () => hideOv());
+$('eMenu').addEventListener('click', () => { initBoard(); openTitle(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !onTitle) { if (paused) $('pResume').click(); else $('menuBtn').click(); } });
 clockSelect.addEventListener('change', () => { clockSetting = +clockSelect.value; initBoard(); });
 
 // ----- start -----
-updateMuteBtn();
-if (loadGame()) {
-  syncControls(); updateStatus(); render();
-  if (vsComputer && !gameOver && turn !== humanColor) scheduleAI(600);
-} else { syncControls(); initBoard(); }
+updateMuteBtn(); updateMusicBtn();
+if (loadGame()) { syncControls(); updateStatus(); render(); }
+else { syncControls(); initBoard(); }
+openTitle();
 </script>
 </body>
 </html>

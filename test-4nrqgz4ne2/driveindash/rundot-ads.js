@@ -1,0 +1,1 @@
+window.DriveAds=window.DriveAds||{available:false,isRunHost(){return false},async isRewardedReady(){return false},async showRewarded(){return false},async showInterstitial(){return false}};export default window.DriveAds;

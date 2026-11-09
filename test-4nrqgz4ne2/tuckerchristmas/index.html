@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><link rel="icon" href="icons/icon-32.png"><link rel="apple-touch-icon" href="icons/icon-192.png"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tucker's Very Busy Christmas (offline preview)</title>
+<style>
+:root{--red:#a0181f;--cream:#fff7e8;--ink:#3a2418;--gold:#8c5f14}
+*{box-sizing:border-box}body{margin:0;background:#2b1a14 radial-gradient(circle at 50% 0,#5a2a1e,#1c110d);color:var(--ink);font-family:Georgia,'Times New Roman',serif;min-height:100vh}
+header{display:flex;gap:.5rem;align-items:center;justify-content:center;padding:.6rem;flex-wrap:wrap}
+header h1{color:#ffe9c4;font-size:1.1rem;margin:0 1rem 0 0;font-weight:normal}
+button{font:inherit;border:0;border-radius:999px;padding:.45rem 1rem;background:#f3e2c2;color:var(--ink);cursor:pointer}
+button.on{background:var(--red);color:#fff}
+.book{max-width:1100px;margin:0 auto;padding:0 .8rem 5rem}
+.page{background:var(--cream);border-radius:14px;box-shadow:0 10px 40px #0008;overflow:hidden}
+.page img{width:100%;height:auto;display:block;background:#000}
+.page .txt{padding:1.2rem 1.6rem 1.6rem;line-height:1.6;font-size:1.05rem;max-width:820px;margin:0 auto}
+.page.cover,.page.chap{background:#1c110d;text-align:center}
+.page.cover img{max-height:84vh;width:auto;max-width:100%;margin:0 auto}
+
+.page.chap .txt{color:#ffe9c4;text-align:center;font-style:italic}
+h2{color:var(--red);margin:.1rem 0 .6rem;font-size:1.3rem}.end{font-weight:bold;color:var(--red);text-align:center}
+.choices{background:#f6ead2;border-radius:8px;padding:.5rem .7rem;font-size:.92rem;margin:.6rem 0}.choices span{display:block}.choices .p{font-weight:bold;color:var(--red)}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;justify-content:center;gap:1rem;align-items:center;padding:.6rem;background:#1c110dee;color:#ffe9c4}
+.play-choices button{display:block;width:100%;text-align:left;margin:.35rem 0;border-radius:10px;background:#f3e2c2}
+.play-choices button:hover{background:var(--red);color:#fff}
+
+@media (max-width:600px){header h1{width:100%;text-align:center;margin:0 0 .3rem;font-size:1rem}header button{font-size:.85rem;padding:.4rem .7rem}.book{padding:0 .4rem 5rem}.page .txt{padding:1rem;font-size:1rem}}
+</style></head><body>
+<header><h1>Tucker's Very Busy Christmas · by Retro Gaming Dad</h1>
+<button id="mBook" class="on">📖 Flip through the book</button><button id="mPlay">🎮 Play it (choose your path)</button></header>
+<div class="book" id="view"></div>
+<nav id="nav"><button id="prev">◀ Prev</button><span id="count"></span><button id="next">Next ▶</button></nav>
+<script src="book-data.js"></script><script src="ink.js"></script><script src="story-data.js"></script>
+<script>
+const V=document.getElementById('view'),nav=document.getElementById('nav');let i=0,mode='book';
+const esc=s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+function renderBook(){const b=BOOK[i];let h='';
+ if(b.kind==='cover')h=`<div class="page cover"><img src="${b.img}" alt="Cover"></div>`;
+ else if(b.kind==='chapter')h=`<div class="page chap"><img src="${b.img}" alt="${esc(b.title)}"><div class="txt"><p>${esc(b.blurb)}</p></div></div>`;
+ else{let t=b.paras.map(x=>typeof x==='string'?`<p>${esc(x)}</p>`:x.end?`<p class="end">${esc(x.end)}</p>`:`<div class="choices"><b>What should Tucker do?</b>${x.choices.map(c=>`<span class="${c===x.picked?'p':''}">${c===x.picked?'▸ ':'• '}${esc(c)}</span>`).join('')}</div>`).join('');
+  h=`<div class="page"><img src="${b.img}" alt="${esc(b.title)}"><div class="txt"><h2>Page ${b.n}: ${esc(b.title)}${b.ending?'<br><small>'+esc(b.ending)+'</small>':''}</h2>${t}</div></div>`;}
+ V.innerHTML=h;document.getElementById('count').textContent=`${i+1} / ${BOOK.length}`;window.scrollTo(0,0);}
+document.getElementById('prev').onclick=()=>{if(i>0){i--;renderBook()}};document.getElementById('next').onclick=()=>{if(i<BOOK.length-1){i++;renderBook()}};
+document.addEventListener('keydown',e=>{if(mode!=='book')return;if(e.key==='ArrowRight')document.getElementById('next').click();if(e.key==='ArrowLeft')document.getElementById('prev').click();});
+let story,img='images/00_cover.jpg';
+function startPlay(){story=new inkjs.Story(STORY_JSON);img='images/00_cover.jpg';V.innerHTML='';step();}
+function step(){let paras=[];let chap='';
+ while(story.canContinue){let l=story.Continue().trim();const m=l.match(/@SCENE_UPDATE: background="([^"]+)"/);if(m){img=PLACES[m[1]]||img;continue}
+  story.currentTags.forEach(t=>{if(t.startsWith('CHAPTER:'))chap=t.slice(8).trim()});if(l)paras.push(l);}
+ const ch=story.currentChoices;
+ const t=(chap?`<h2>Chapter ${esc(chap)}</h2>`:'')+paras.map(p=>/^(THE END|TO BE CONTINUED)/.test(p)?`<p class="end">${esc(p)}</p>`:`<p>${esc(p)}</p>`).join('')+
+  `<div class="play-choices">${ch.map((c,k)=>`<button data-k="${k}">${esc(c.text)}</button>`).join('')}${ch.length?'':'<button data-r>↺ Read again from the start</button>'}</div>`;
+ V.innerHTML=`<div class="page"><img src="${img}" alt=""><div class="txt">${t}</div></div>`;window.scrollTo(0,0);
+ V.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{story.ChooseChoiceIndex(+b.dataset.k);step()});const r=V.querySelector('[data-r]');if(r)r.onclick=startPlay;}
+function setMode(m){mode=m;document.getElementById('mBook').classList.toggle('on',m==='book');document.getElementById('mPlay').classList.toggle('on',m==='play');nav.style.display=m==='book'?'flex':'none';m==='book'?renderBook():startPlay();}
+document.getElementById('mBook').onclick=()=>setMode('book');document.getElementById('mPlay').onclick=()=>setMode('play');renderBook();
+</script></body></html>

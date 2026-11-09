@@ -28,14 +28,14 @@ nav{position:fixed;bottom:0;left:0;right:0;display:flex;justify-content:center;g
 <button id="mBook" class="on">📖 Flip through the book</button><button id="mPlay">🎮 Play it (choose your path)</button></header>
 <div class="book" id="view"></div>
 <nav id="nav"><button id="prev">◀ Prev</button><span id="count"></span><button id="next">Next ▶</button></nav>
-<script src="book-data.js"></script><script src="ink.js"></script><script src="story-data.js"></script>
+<script src="book-data.js?v=101"></script><script src="ink.js"></script><script src="story-data.js?v=101"></script>
 <script>
 const V=document.getElementById('view'),nav=document.getElementById('nav');let i=0,mode='book';
 const esc=s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 function renderBook(){const b=BOOK[i];let h='';
  if(b.kind==='cover')h=`<div class="page cover"><img src="${b.img}" alt="Cover"></div>`;
  else if(b.kind==='chapter')h=`<div class="page chap"><img src="${b.img}" alt="${esc(b.title)}"><div class="txt"><p>${esc(b.blurb)}</p></div></div>`;
- else{let t=b.paras.map(x=>typeof x==='string'?`<p>${esc(x)}</p>`:x.end?`<p class="end">${esc(x.end)}</p>`:`<div class="choices"><b>What should Tucker do?</b>${x.choices.map(c=>`<span class="${c===x.picked?'p':''}">${c===x.picked?'▸ ':'• '}${esc(c)}</span>`).join('')}</div>`).join('');
+ else{let t=b.paras.map(x=>typeof x==='string'?`<p>${esc(x)}</p>`:x.end?`<p class="end">${esc(x.end)}</p>`:`<div class="choices"><b>${esc(x.prompt||'What should Tucker do?')}</b>${x.choices.map(c=>`<span class="${c===x.picked?'p':''}">${c===x.picked?'▸ ':'• '}${esc(c)}</span>`).join('')}</div>`).join('');
   h=`<div class="page"><img src="${b.img}" alt="${esc(b.title)}"><div class="txt"><h2>Page ${b.n}: ${esc(b.title)}${b.ending?'<br><small>'+esc(b.ending)+'</small>':''}</h2>${t}</div></div>`;}
  V.innerHTML=h;document.getElementById('count').textContent=`${i+1} / ${BOOK.length}`;window.scrollTo(0,0);}
 document.getElementById('prev').onclick=()=>{if(i>0){i--;renderBook()}};document.getElementById('next').onclick=()=>{if(i<BOOK.length-1){i++;renderBook()}};

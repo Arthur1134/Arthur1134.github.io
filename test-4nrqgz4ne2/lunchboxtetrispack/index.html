@@ -94,7 +94,7 @@ const LEVELS=[
  {kid:'NINA',say:'UH OH... ANTS ON THE BUS!',lay:'quad',pool:P_STD,pieces:24,sp:2,ants:{start:3,every:5,max:2},ord:[['pack',4],['ant',2]],tip:5},
  {kid:'OTTO',say:'NO BUGS IN MY BENTO!',lay:'school',pool:P_STD,pieces:26,sp:2,ants:{start:4,every:5,max:2},ord:[['bal',3]]},
  {kid:'IVY',say:'COLD CARROTS ON A HOT DAY.',lay:'steps',pool:P_STD,pieces:28,sp:1,ice:[[0,0],[7,0],[3,4],[4,4]],ants:{start:5,every:6,max:2},ord:[['eat','V',8],['pack',4]]},
- {kid:'RAY',say:'SQUISH THOSE ANTS!',lay:'tall',pool:P_STD,pieces:28,sp:2,ants:{start:2,every:4,max:3},ord:[['ant',4],['bal',3]]},
+ {kid:'RAY',say:'SQUISH THOSE ANTS!',lay:'tall',pool:P_STD,pieces:28,sp:2,ants:{start:2,every:4,max:3},ord:[['ant',4],['bal',3]],tip:7},
  {kid:'ZOE',say:'PICNIC PIZZA PARTY!',lay:'pizza',pool:pool(P_STD,{pizza:4}),pieces:30,sp:2,ants:{start:4,every:5,max:3},ord:[['pack',6],['bal',3]],fri:1},
  {kid:'BEN',say:'FIND THE GOLD STICKERS!',lay:'rounded',pool:P_TREAT,pieces:24,sp:1,stk:[[1,1],[6,2],[2,6]],ord:[['stk',3],['pack',3]],tip:6},
  {kid:'LILA',say:'COOKIES! COOKIES! COOKIES!',lay:'bento',pool:P_TREAT,pieces:26,sp:1,stk:[[6,6],[1,3]],ord:[['eat','T',6],['stk',2],['bal',2]]},
@@ -106,7 +106,7 @@ const BELL=[14,21,33,31,28,29,36,51,35,38,33,46,24,44,38,32,47,44,28,73];const S
 LEVELS.forEach((L,i)=>{L.w=Math.floor(i/5);L.d=i%5;if(BELL[i])L.pieces=BELL[i];L.stars=STAR_T[i]||[3000,5000]});
 const ENDLESS={kid:'LUNCH RUSH',say:'HOW MANY LUNCHES CAN YOU PACK?',lay:'school',pool:P_STD,pieces:Infinity,sp:2,ord:[],endless:1};
 const KIDS_E=['TIMMY','ROSA','MAX','PRIYA','LEO','JUNE','OMAR','BEA','SAM','KAI','NINA','OTTO','IVY','RAY','ZOE','BEN','LILA','GUS','MAE'];
-const TIPS=['','DRAG FOOD INTO A COMPARTMENT. FILL IT TO PACK IT!','ICE PACKS FILL A SPOT FOR YOU AND MELT FOR +50.','ONLY-FRUIT COMPARTMENT = FRUIT CUP!','SUPER LUNCH = 4 OR MORE FOOD GROUPS IN ONE COMPARTMENT!','ANTS WALK AROUND AND RUIN BONUSES. TAP THE SPORK, THEN AN ANT!','PACK A COMPARTMENT ON A GOLD STICKER TO COLLECT IT.'];
+const TIPS=['','DRAG FOOD INTO A COMPARTMENT. FILL IT TO PACK IT!','ICE PACKS FILL A SPOT FOR YOU AND MELT FOR +50.','ONLY-FRUIT COMPARTMENT = FRUIT CUP!','SUPER LUNCH = 4 OR MORE FOOD GROUPS IN ONE COMPARTMENT!','ANTS WALK AROUND AND RUIN BONUSES. TAP THE SPORK, THEN AN ANT!','PACK A COMPARTMENT ON A GOLD STICKER TO COLLECT IT.','PACK A BALANCED OR SUPER LUNCH TO EARN A SPORK! UP TO 3 EXTRA PER DAY. USE THEM TO SQUISH ANTS.'];
 
 /* ---------- core rules (pure; no DOM) ---------- */
 function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
@@ -114,13 +114,20 @@ function norm(cells){let mx=99,my=99;for(const [x,y] of cells){mx=Math.min(mx,x)
 function rotCells(cells){return norm(cells.map(([x,y])=>[-y,x]))}
 function pieceRots(it){const out=[];let c=norm(ITEMS[it].s);for(let r=0;r<4;r++){const k=JSON.stringify(c);if(!out.some(o=>JSON.stringify(o)===k))out.push(c);c=rotCells(c)}return out}
 const ROTS={};for(const k in ITEMS)ROTS[k]=pieceRots(k);
+const SP_EARN_CAP=3;
+function remainingEarnable(S){return Math.max(0,SP_EARN_CAP-(S.spEarned||0))}
+function achievableSporks(S){return (S.sp||0)+remainingEarnable(S)}
+function antNeed(S){return S.orders.reduce((a,o)=>o.t==='ant'?a+Math.max(0,o.n-o.have):a,0)}
+function canAffordSquish(S){if(S.sp<=0)return false;const need=antNeed(S);if(need<=0)return false;return (S.sp-1)+remainingEarnable(S)>=need-1}
+function maybeJam(S){if(S.complete||S.over||anyMove(S))return;if(S.sp>0)S.ev.push({type:'jamhint'});else{S.over=true;S.reason='jam';S.ev.push({type:'over',why:'jam'})}}
+
 function pdim(cells){let w=0,h=0;for(const [x,y] of cells){w=Math.max(w,x+1);h=Math.max(h,y+1)}return[w,h]}
 function mkPiece(S,it){return{it,cells:ROTS[it][0],r:0,id:++S.pidN}}
 function rotatePiece(p){const R=ROTS[p.it];p.r=(p.r+1)%R.length;p.cells=R[p.r];return p}
 function lvDef(idx){return idx<0?ENDLESS:LEVELS[idx]}
 function newState(idx,seed){const L=lvDef(idx),lay=LAY[L.lay];const S={idx,L,endless:!!L.endless,seed,rng:mulberry(seed*9301+49297),pidN:0,
  comp:new Array(64).fill(-1),comps:[],grid:new Array(64).fill(null),stk:new Array(64).fill(0),tray:[null,null,null],bag:null,
- left:L.pieces,sp:L.sp,score:0,combo:0,sincePack:9,bestCombo:0,placed:0,packs:0,ev:[],over:false,complete:false,reason:'',ants:0,antTimer:0,cont:false,bonus:false,
+ left:L.pieces,sp:L.sp,spEarned:0,score:0,combo:0,sincePack:9,bestCombo:0,placed:0,packs:0,ev:[],over:false,complete:false,reason:'',ants:0,antTimer:0,cont:false,bonus:false,
  orders:L.ord.map(o=>({t:o[0],g:typeof o[1]==='string'?o[1]:null,n:typeof o[1]==='string'?o[2]:o[1],have:0})),
  st:{packs:0,bal:0,sup:0,cups:0,ants:0,stk:0,ice:0,cells:0,placed:0,sporks:0,rot:0},kidN:0,lunches:0};
  const ids={};for(let y=0;y<8;y++)for(let x=0;x<8;x++){const ch=lay[y][x];if(ch==='#')continue;if(!(ch in ids)){ids[ch]=S.comps.length;S.comps.push({id:S.comps.length,cells:[]})}S.comp[y*8+x]=ids[ch];S.comps[ids[ch]].cells.push(y*8+x)}
@@ -128,8 +135,8 @@ function newState(idx,seed){const L=lvDef(idx),lay=LAY[L.lay];const S={idx,L,end
  for(const [x,y] of (L.stk||[]))S.stk[y*8+x]=1;
  if(S.endless){S.orders=[];nextKid(S)}
  for(let i=0;i<3;i++)S.tray[i]=draw(S);return S}
-function nextKid(S){S.kidN++;const r=S.rng,k=S.kidN;const opts=[['pack',2+Math.min(3,k>>1)],['bal',1+Math.min(3,k>>2)],['eat',HEALTHY[Math.floor(r()*5)],4+Math.min(8,k)],['grp',HEALTHY[Math.floor(r()*5)],1]];
- if(k>3)opts.push(['ant',1+Math.min(3,k>>2)]);if(k>5)opts.push(['sup',1]);
+function nextKid(S){S.kidN++;S.spEarned=0;const r=S.rng,k=S.kidN;const opts=[['pack',2+Math.min(3,k>>1)],['bal',1+Math.min(3,k>>2)],['eat',HEALTHY[Math.floor(r()*5)],4+Math.min(8,k)],['grp',HEALTHY[Math.floor(r()*5)],1]];
+ if(k>3){const maxA=achievableSporks(S);if(maxA>0)opts.push(['ant',Math.min(maxA,1+Math.min(3,k>>2))])}if(k>5)opts.push(['sup',1]);
  const o=opts[Math.floor(r()*opts.length)];S.orders=[{t:o[0],g:typeof o[1]==='string'?o[1]:null,n:typeof o[1]==='string'?o[2]:o[1],have:0}];S.kid=KIDS_E[(k-1)%KIDS_E.length]}
 function endlessPool(S){const p=Object.assign({},P_STD);const k=S.placed;if(k>25)Object.assign(p,{cookie:2,brownie:2,cupcake:1});if(k>45)Object.assign(p,{thermos:2,pizza:2});if(k>80){p.grape=1;p.cheese=1;p.egg=1;p.hoagie=1}return p}
 function pickItem(S){const pool=Object.assign({},S.endless?endlessPool(S):S.L.pool);for(const o of S.orders)if((o.t==='grp'||o.t==='eat')&&o.have<o.n)for(const k in pool)if(ITEMS[k].g===o.g)pool[k]*=1.7;let tot=0;for(const k in pool)tot+=pool[k];let v=S.rng()*tot;for(const k in pool){v-=pool[k];if(v<=0)return k}return Object.keys(pool)[0]}
@@ -151,7 +158,7 @@ function place(S,slot,x,y,cellsOverride){const p=slot===3?S.bag:S.tray[slot];if(
  checkOrders(S);
  if(S.complete)return true;
  if(S.left!==Infinity&&S.left<=0){if(!S.complete){S.over=true;S.reason='bell';S.ev.push({type:'over',why:'bell'})}}
- else if(!anyMove(S)){if(S.sp>0)S.ev.push({type:'jamhint'});else{S.over=true;S.reason='jam';S.ev.push({type:'over',why:'jam'})}}
+ else maybeJam(S);
  return true}
 function packComp(S,cid){const c=S.comps[cid];const food=c.cells.map(i=>S.grid[i]).filter(g=>g.it);const groups=new Set(food.filter(f=>f.g!=='T').map(f=>f.g));const all=new Set(food.map(f=>f.g));
  const ant=c.cells.filter(i=>S.grid[i].ant).length,ice=c.cells.filter(i=>S.grid[i].ice).length,stk=c.cells.filter(i=>S.stk[i]).length;
@@ -164,7 +171,9 @@ function packComp(S,cid){const c=S.comps[cid];const food=c.cells.map(i=>S.grid[i
  const base=c.cells.length*20,pts=Math.round(base*mult*cm/5)*5+ice*50+ant*25+stk*150;S.score+=pts;
  S.packs++;S.st.packs++;if(kind==='bal')S.st.bal++;if(kind==='sup'){S.st.sup++;S.st.bal++}if(kind==='cup')S.st.cups++;S.st.ants+=ant;S.st.stk+=stk;S.st.ice+=ice;S.ants-=ant;
  const eat={};for(const f of food)eat[f.g]=(eat[f.g]||0)+1;
- S.ev.push({type:'pack',cid,cells:c.cells.slice(),gs:c.cells.map(i=>S.grid[i].g||'I'),label,kind,pts,combo:S.combo,ice,ant,stk,mult});
+ let earned=0;if((kind==='bal'||kind==='sup')&&remainingEarnable(S)>0){S.sp++;S.spEarned=(S.spEarned||0)+1;earned=1}
+ S.ev.push({type:'pack',cid,cells:c.cells.slice(),gs:c.cells.map(i=>S.grid[i].g||'I'),label,kind,pts,combo:S.combo,ice,ant,stk,mult,sporkEarned:earned});
+ if(earned)S.ev.push({type:'sporkearn',cid,sp:S.sp,earned:S.spEarned});
  for(const o of S.orders){if(o.t==='pack')o.have++;if(o.t==='bal'&&(kind==='bal'||kind==='sup'))o.have++;if(o.t==='sup'&&kind==='sup')o.have++;if(o.t==='grp'&&kind==='cup'&&all.has(o.g))o.have++;
   if(o.t==='eat'&&!ant)o.have+=eat[o.g]||0;if(o.t==='stk')o.have+=stk;if(o.t==='ant')o.have+=ant}
  for(const i of c.cells){const g=S.grid[i];if(g.ice===2&&false){}S.grid[i]=null;S.stk[i]=0}}
@@ -179,8 +188,8 @@ function moveAnts(S){const moved=new Set();for(let i=0;i<64;i++){const g=S.grid[
  if(!nb.length)continue;const j=nb[Math.floor(S.rng()*nb.length)];S.grid[j]=g;g.from=i;S.grid[i]=null;moved.add(j);S.ev.push({type:'antmove',from:i,to:j})}}
 /* spork: eat one placed food (whole piece) or squish an ant */
 function spork(S,i){if(S.sp<=0||S.over||S.complete)return false;const g=S.grid[i];if(!g||g.ice)return false;
- if(g.ant){S.grid[i]=null;S.ants--;S.sp--;S.st.sporks++;S.st.ants++;S.score+=25;for(const o of S.orders)if(o.t==='ant')o.have++;S.ev.push({type:'squish',i});checkOrders(S);if(!S.complete&&S.sp<=0&&!anyMove(S)){S.over=true;S.reason='jam';S.ev.push({type:'over',why:'jam'})}return true}
- const pid=g.pid,cells=[];for(let k=0;k<64;k++)if(S.grid[k]&&S.grid[k].pid===pid&&!S.grid[k].ant&&!S.grid[k].ice){cells.push(k);S.grid[k]=null}S.sp--;S.st.sporks++;S.ev.push({type:'spork',cells,it:g.it});if(S.sp<=0&&!anyMove(S)){S.over=true;S.reason='jam';S.ev.push({type:'over',why:'jam'})}return true}
+ if(g.ant){S.grid[i]=null;S.ants--;S.sp--;S.st.sporks++;S.st.ants++;S.score+=25;for(const o of S.orders)if(o.t==='ant')o.have++;S.ev.push({type:'squish',i});checkOrders(S);maybeJam(S);return true}
+ const pid=g.pid,cells=[];for(let k=0;k<64;k++)if(S.grid[k]&&S.grid[k].pid===pid&&!S.grid[k].ant&&!S.grid[k].ice){cells.push(k);S.grid[k]=null}S.sp--;S.st.sporks++;S.ev.push({type:'spork',cells,it:g.it});maybeJam(S);return true}
 function stash(S,slot){if(slot<0||slot>2||S.over||S.complete)return false;const p=S.tray[slot];if(!p)return false;S.tray[slot]=S.bag;S.bag=p;if(!S.tray[slot])S.tray[slot]=(S.left===Infinity||S.left>S.tray.filter(Boolean).length+1)?draw(S):null;S.ev.push({type:'stash'});return true}
 function levelBonus(S){const left=S.left===Infinity?0:Math.max(0,S.left)*100;return{left,sp:S.sp*150,combo:S.bestCombo*100,total:left+S.sp*150+S.bestCombo*100}}
 function resurrect(S){S.over=false;S.reason='';if(S.left!==Infinity)S.left+=5;S.sp+=2;for(let i=0;i<3;i++)S.tray[i]=draw(S);S.cont=true}
@@ -206,7 +215,8 @@ function botTurn(S,noise){if(S.over||S.complete)return false;let m=botMove(S,noi
  if(!m){if(S.sp>0){let bi=-1,bs=0;for(let i=0;i<64;i++){const g=S.grid[i];if(g&&(g.it||g.ant)){const c=S.comps[S.comp[i]];const f=c.cells.filter(k=>S.grid[k]).length;if(g.ant&&f>bs+2){bs=f+2;bi=i}else if(f>bs){bs=f;bi=i}}}if(bi>=0){spork(S,bi);return true}}
   S.over=true;S.reason='jam';return false}
  const p=m.slot===3?S.bag:S.tray[m.slot];p.r=m.ri;p.cells=m.cells;place(S,m.slot,m.x,m.y);
- if(S.sp>0&&S.ants>0){for(let i=0;i<64;i++){const g=S.grid[i];if(g&&g.ant){const c=S.comps[S.comp[i]];if(c.cells.filter(k=>!S.grid[k]).length<=2&&S.orders.some(o=>o.t==='ant'&&o.have<o.n)||c.cells.filter(k=>!S.grid[k]).length===0){spork(S,i);break}}}}
+ if(S.ants>0&&canAffordSquish(S)){let bi=-1,bs=-1;for(let i=0;i<64;i++){const g=S.grid[i];if(!g||!g.ant)continue;const c=S.comps[S.comp[i]];const empty=c.cells.filter(k=>!S.grid[k]).length;const sc=(empty===0?8:empty<=2?5:1);if(sc>bs){bs=sc;bi=i}}if(bi>=0)spork(S,bi)}
+ else if(S.sp>0&&S.ants>0){for(let i=0;i<64;i++){const g=S.grid[i];if(g&&g.ant){const c=S.comps[S.comp[i]];if(c.cells.filter(k=>!S.grid[k]).length===0){spork(S,i);break}}}}
  if(S.over&&S.reason==='jam')return false;return true}
 function botPlay(idx,seed,noise,maxT){const S=newState(idx,seed);let n=0;while(!S.over&&!S.complete&&n<(maxT||400)){if(!botTurn(S,noise))break;S.ev.length=0;n++;if(S.over&&S.reason==='jam'&&S.sp>0){S.over=false}}return S}
 
@@ -394,6 +404,7 @@ function sfx(name,v){const c=AU.ctx;if(!c||c.state!=='running')return;const t=c.
  case'squish':nz(t,.12,.3,D,200,1500);osc('sawtooth',260,t,.12,.16,D,{to:60});break;
  case'spork':nz(t,.05,.25,D,800,4000);nz(t+.09,.05,.22,D,800,4000);osc('square',200,t,.05,.12,D,{to:120});osc('square',180,t+.09,.05,.1,D,{to:110});break;
  case'sporkon':osc('p25',988,t,.05,.1,D);osc('p25',1319,t+.05,.07,.1,D);break;
+ case'sporkearn':[1047,1319,1568,2093].forEach((f,i)=>osc('p25',f,t+i*.05,.1,.12,D));osc('triangle',523,t,.28,.16,D);break;
  case'ice':[2093,2637,3136].forEach((f,i)=>osc('sine',f,t+i*.05,.12,.07,D));break;
  case'sticker':[1319,1568,2093,2637].forEach((f,i)=>osc('p25',f,t+.2+i*.05,.1,.11,D));break;
  case'warn':osc('p50',1568,t,.06,.08,D);osc('p50',1568,t+.12,.06,.08,D);break;
@@ -410,7 +421,7 @@ function sfx(name,v){const c=AU.ctx;if(!c||c.state!=='running')return;const t=c.
  }}
 
 /* ---------- save ---------- */
-const VERSION='1.0.0',SKEY='lunchboxtetrispack_v1',W=360,H=640;
+const VERSION='1.0.1',SKEY='lunchboxtetrispack_v1',W=360,H=640;
 function defSave(){return{v:1,set:{music:.7,sfx:.8,mute:false,shake:true,tips:true},best:[],stars:[],unlocked:1,endBest:0,seen:{},top:[],
  stats:{packs:0,bal:0,sup:0,cups:0,ants:0,stk:0,ice:0,placed:0,sporks:0,levels:0,overs:0,time:0,bestCombo:0,lunches:0,cells:0}}}
 let SAVE=defSave();try{const s=JSON.parse(localStorage.getItem(SKEY)||'null');if(s&&s.v===1){SAVE=Object.assign(defSave(),s);SAVE.set=Object.assign(defSave().set,s.set||{});SAVE.stats=Object.assign(defSave().stats,s.stats||{})}}catch(e){}
@@ -424,7 +435,7 @@ function ensureBox(){if(boxFor===S)return;boxC.width=Math.ceil(W*K);boxC.height=
 /* ---------- state ---------- */
 let scene='title',T=0,last=0,S=null,paused=false,adBusy=false,started=false,idleT=0,shakeA=0,lidF=0,endT=0;
 let P=[],PU=[],FX=[],toastM=null,toastT=0,hint=null,hintQ=[],howPage=0,scoreTab=0,resetArm=0,credY=0,tally=null,selIdx=0,lastAdAt=0,levelsSinceAd=0,sessionT=0,snackReady=false,contReady=false;
-let drag=null,pressBtn=null,focus=-1,BTN=[],sporkMode=false,kb={on:false,sel:0,x:2,y:2},kidMood=0,kidMoodT=0,bellWarned=false,attractT=0,falling=[];
+let drag=null,pressBtn=null,focus=-1,BTN=[],sporkMode=false,sporkFlashT=0,kb={on:false,sel:0,x:2,y:2},kidMood=0,kidMoodT=0,bellWarned=false,attractT=0,falling=[];
 function toast(m){if(scene==='play'){showHint(m,2.6,true)}else{toastM=m;toastT=2.6}}
 /* one hint at a time: a single hint slot; tutorial queue waits for it */
 function showHint(text,dur,urgent){if(!SAVE.set.tips&&!urgent)return;if(hint&&hint.text===text){hint.t=0;return}if(hint&&!urgent&&hint.urgent)return;hint={text,t:0,dur:dur||6,urgent:!!urgent};sfx('hint')}
@@ -445,7 +456,7 @@ function go(s){if(s!=='play'&&s!=='attract'){PU=[];if(s!=='complete')P=[]}scene=
  if(s==='play'||s==='intro'||s==='attract')playMusic(S&&S.endless?'endless':WEEKS[S?S.L.w||0:0].music);else if(mus)playMusic(mus);
  if(s==='credits')credY=0;if(s==='intro'){snackReady=false;rewardedReady().then(v=>snackReady=v)}if(s==='gameover'){contReady=false;rewardedReady().then(v=>contReady=v)}}
 function startLevel(i,snack){S=newState(i,(Date.now()&0xffffff)+i*101);if(snack){S.left=S.left===Infinity?Infinity:S.left+3;S.sp++;S.bonus=true}
- P=[];PU=[];FX=[];paused=false;endT=0;lidF=0;sporkMode=false;kidMood=0;bellWarned=false;hint=null;hintQ=[];kb.sel=0;kb.x=2;kb.y=2;
+ P=[];PU=[];FX=[];paused=false;endT=0;lidF=0;sporkMode=false;sporkFlashT=0;kidMood=0;bellWarned=false;hint=null;hintQ=[];kb.sel=0;kb.x=2;kb.y=2;
  if(i===0&&!SAVE.seen.tut){hintQ=[{text:'DRAG A FOOD FROM THE TRAY INTO A COMPARTMENT',until:'place'},{text:'TAP A FOOD IN THE TRAY TO SPIN IT',until:'rotate'},{text:'FILL A WHOLE COMPARTMENT TO PACK IT!',until:'pack'},{text:'MIX 3 FOOD GROUPS IN ONE SPOT = BALANCED x2',until:'bal'},{text:'DRAG A FOOD ONTO THE BROWN BAG TO SAVE IT',until:'stash'}];SAVE.seen.tut=1;persist()}
  else if(S.L.tip&&!SAVE.seen['tip'+S.L.tip]){hintQ=[{text:TIPS[S.L.tip],until:'_',dur:7}];SAVE.seen['tip'+S.L.tip]=1;persist()}
  else if(i<0&&!SAVE.seen.endless){hintQ=[{text:'ENDLESS: NO BELL! PACK UNTIL THE LUNCHBOX JAMS.',until:'_',dur:6}];SAVE.seen.endless=1;persist()}
@@ -475,6 +486,8 @@ function handleEvents(quiet){for(const e of S.ev){switch(e.type){
  case'antmove':if(!quiet)sfx('antstep');break;
  case'squish':if(!quiet){sfx('squish');shake(2)}{const [x,y]=cellXY(e.i);burst(x,y,10,['#2a1a14','#5a3418','#fff'],110,.5);pop(x,y-12,'SQUISH! +25','#fff',1,1)}break;
  case'spork':if(!quiet){sfx('spork');shake(2)}for(const i of e.cells){const [x,y]=cellXY(i);burst(x,y,5,[GROUPS[ITEMS[e.it].g].c,'#fff'],100,.5)}{const [x,y]=cellXY(e.cells[0]);pop(x,y-10,'NOM NOM!','#fff',1.5,1)}break;
+ case'sporkearn':{let sx=0,sy=0;const c=S.comps[e.cid];c.cells.forEach(i=>{const [x,y]=cellXY(i);sx+=x;sy+=y});sx/=c.cells.length;sy/=c.cells.length;
+  pop(sx,sy-36,'SPORK EARNED! +1','#ffe066',2,1.5);if(!quiet){sfx('sporkearn');shake(3);sporkFlashT=1.2;if(!SAVE.seen.sporkearn){SAVE.seen.sporkearn=1;persist();showHint('SPORK EARNED! BALANCED AND SUPER LUNCHES GRANT +1 SPORK, UP TO 3 PER DAY.',7,true)}}}break;
  case'stash':if(!quiet){sfx('stash');tutorial('stash')}break;
  case'kid':if(!quiet){sfx('kid');showHint(e.kid+' IS HAPPY! +'+e.pts+' - NEXT KID!',3,true)}kidMood=1;kidMoodT=2;burst(40,86,20,['#ffe066','#fff','#ff8fa3'],150,.8,'conf');break;
  case'jamhint':if(!quiet){sfx('jam');showHint('STUCK! TAP THE SPORK, THEN A FOOD TO EAT IT.',6,true)}break;
@@ -538,7 +551,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden){pauseGame(
 function update(dt){T+=dt;sessionT+=dt;if(toastT>0)toastT-=dt;shakeA*=Math.pow(.02,dt);if(shakeA<.1)shakeA=0;
  for(const p of P){p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=1-2*dt;p.vy=p.vy*(1-2*dt)+(p.k==='conf'?180:90)*dt;p.r+=dt*8}P=P.filter(p=>p.life>0);if(P.length>500)P.splice(0,P.length-500);
  for(const u of PU)u.t+=dt;PU=PU.filter(u=>u.t<u.life);for(const f of FX)f.t+=dt;FX=FX.filter(f=>f.t<.6);
- if(kidMoodT>0){kidMoodT-=dt;if(kidMoodT<=0)kidMood=0}
+ if(sporkFlashT>0)sporkFlashT=Math.max(0,sporkFlashT-dt);if(kidMoodT>0){kidMoodT-=dt;if(kidMoodT<=0)kidMood=0}
  if(hint){hint.t+=dt;if(hint.t>hint.dur)hint=null}
  if(!hint&&hintQ.length&&(scene==='play')&&!paused){const q=hintQ[0];hint={text:q.text,t:0,dur:q.dur||9,tut:1};if(q.until==='_')hintQ.shift()}
  if(hint&&hint.tut&&hintQ.length===0&&hint.t>2&&hint.dur>7)hint.dur=7;
@@ -624,8 +637,8 @@ function drawHud(c,att){// top bar
  drawSchoolBell(c,25,478,low?Math.sin(T*30)*.3:0);txt(c,'BELL IN',40,468,1,'#ffd9a8');txtO(c,S.left===Infinity?'--':left+' FOOD'+(left===1?'':'S'),40,479,1.5,'#fff','left',OL);
  if(S.combo>1&&S.sincePack<=3){const a=1-S.sincePack/4;rr(c,136,463,124,30,8);c.fillStyle='rgba(42,26,20,.85)';c.fill();txtO(c,'COMBO x'+S.combo,198,468,2,'#7ff0ff','center',OL);c.fillStyle='#7ff0ff';c.fillRect(146,486,104*a,3)}
  else{rr(c,136,463,124,30,8);c.fillStyle='rgba(42,26,20,.6)';c.fill();txt(c,'BEST COMBO',198,468,1,'#ffd9a8','center');txt(c,'x'+S.bestCombo,198,479,1.5,'#fff','center')}
- const sb=SPORK_BTN;rr(c,sb.x,sb.y,sb.w,sb.h,8);c.fillStyle=sporkMode?'#ffe066':S.sp>0?'#2a9d8f':'#7a6a60';c.fill();c.strokeStyle=OL;c.lineWidth=2;c.stroke();
- drawSporkIcon(c,sb.x+16,sb.y+15,sporkMode);txtO(c,'SPORK',sb.x+52,sb.y+6,1,'#fff','center',OL);txtO(c,'x'+S.sp,sb.x+52,sb.y+16,1.5,'#fff','center',OL)}
+ const sb=SPORK_BTN;const flash=sporkFlashT>0;const pulse=flash?1+.08*Math.sin((1.2-sporkFlashT)*24):1;c.save();if(flash){c.translate(sb.x+sb.w/2,sb.y+sb.h/2);c.scale(pulse,pulse);c.translate(-(sb.x+sb.w/2),-(sb.y+sb.h/2));rr(c,sb.x-3,sb.y-3,sb.w+6,sb.h+6,10);c.fillStyle='rgba(255,226,102,'+(0.35+0.25*Math.sin((1.2-sporkFlashT)*18))+')';c.fill()}rr(c,sb.x,sb.y,sb.w,sb.h,8);c.fillStyle=flash||sporkMode?'#ffe066':S.sp>0?'#2a9d8f':'#7a6a60';c.fill();c.strokeStyle=flash?'#fff':OL;c.lineWidth=flash?3:2;c.stroke();
+ drawSporkIcon(c,sb.x+16,sb.y+15,flash||sporkMode);txtO(c,'SPORK',sb.x+52,sb.y+6,1,'#fff','center',OL);txtO(c,'x'+S.sp,sb.x+52,sb.y+16,1.5,flash?'#ffe066':'#fff','center',OL);c.restore()}
 function drawSchoolBell(c,x,y,a){c.save();c.translate(x,y);c.rotate(a);c.beginPath();c.moveTo(-8,5);c.quadraticCurveTo(-8,-9,0,-9);c.quadraticCurveTo(8,-9,8,5);c.closePath();c.fillStyle='#ffd23f';c.fill();c.strokeStyle=OL;c.lineWidth=1.6;c.stroke();c.fillStyle=OL;c.fillRect(-9,4,18,2.5);circ(c,0,8,2,'#c4923a',OL,1);c.restore()}
 function drawSporkIcon(c,x,y,on){c.save();c.translate(x,y);c.rotate(-.6);ell(c,0,-6,5,6.5,on?'#fff':'#e9e4d6',OL,1.5);c.fillStyle=OL;for(const dx of [-2.2,0,2.2])c.fillRect(dx-.5,-13,1,4);rr(c,-1.6,0,3.2,12,1.5);c.fillStyle=on?'#fff':'#e9e4d6';c.fill();c.strokeStyle=OL;c.lineWidth=1.3;c.stroke();c.restore()}
 function drawTray(c,att){rr(c,4,494,352,106,12);c.fillStyle='rgba(42,26,20,.55)';c.fill();
@@ -667,10 +680,10 @@ function drawTitle(c){menuBg(c,0);drawLogo(c,58,1);
  if(!started)txtO(c,Math.floor(T*2)%2?'TAP ANYWHERE FOR SOUND':'',180,600,1,'#ffe066','center',OL)}
 /* ----- how to ----- */
 const HOW=[{t:'PACK THE LUNCHBOX',l:['DRAG A FOOD FROM THE TRAY INTO THE','LUNCHBOX. EVERY FOOD MUST FIT INSIDE','ONE COMPARTMENT - NO CROSSING THE','DIVIDERS!','','FILL A COMPARTMENT COMPLETELY','AND IT GETS PACKED: POINTS, SPARKLES','AND ROOM FOR MORE FOOD.'],d:'pack'},
- {t:'SPIN, STASH, SPORK',l:['TAP A FOOD IN THE TRAY TO SPIN IT.','','DRAG A FOOD ONTO THE BROWN BAG TO','SAVE IT FOR LATER. DRAG IT BACK OUT','ANY TIME.','','STUCK? TAP THE SPORK, THEN A PACKED','FOOD TO EAT IT AND FREE THE SPACE.'],d:'tools'},
- {t:'FOOD GROUPS = BONUSES',l:['3+ FOOD GROUPS IN ONE COMPARTMENT','   = BALANCED!  x2','4+ FOOD GROUPS = SUPER LUNCH!  x3','ALL ONE GROUP = FRUIT CUP, VEGGIE','   TRAY, CARB LOAD...  x2','','PACK AGAIN WITHIN 3 FOODS FOR A','COMBO MULTIPLIER!'],d:'groups'},
+ {t:'SPIN, STASH, SPORK',l:['TAP A FOOD IN THE TRAY TO SPIN IT.','DRAG A FOOD ONTO THE BROWN BAG TO','SAVE IT FOR LATER. DRAG IT BACK OUT','ANY TIME.','STUCK? TAP THE SPORK, THEN A PACKED','FOOD TO EAT IT AND FREE THE SPACE.','PACK A BALANCED OR SUPER LUNCH TO','EARN +1 SPORK (UP TO 3 PER DAY).'],d:'tools'},
+ {t:'FOOD GROUPS = BONUSES',l:['3+ FOOD GROUPS IN ONE COMPARTMENT','   = BALANCED!  x2  AND +1 SPORK','4+ FOOD GROUPS = SUPER LUNCH!  x3','   AND +1 SPORK (MAX 3 PER DAY)','ALL ONE GROUP = FRUIT CUP, VEGGIE','   TRAY, CARB LOAD...  x2','PACK AGAIN WITHIN 3 FOODS FOR A','COMBO MULTIPLIER!'],d:'groups'},
  {t:'LUNCH ORDERS',l:['EACH DAY A KID PLACES AN ORDER.','FINISH EVERY ORDER BEFORE THE','LUNCH BELL RINGS (YOU HAVE A SET','NUMBER OF FOODS).','','LEFTOVER FOODS AND SPORKS ARE','BONUS POINTS. SCORE HIGH FOR 3 STARS.','ENDLESS MODE HAS NO BELL!'],d:'orders'},
- {t:'WATCH OUT!',l:['ICE PACKS FILL A SQUARE FOR YOU','AND MELT FOR +50.','','ANTS WANDER INTO EMPTY SQUARES.','A COMPARTMENT PACKED WITH ANTS','IS YUCK - NO BONUS. SPORK THEM!','','GOLD STICKERS: PACK OVER THEM!'],d:'haz'},
+ {t:'WATCH OUT!',l:['ICE PACKS FILL A SQUARE FOR YOU','AND MELT FOR +50.','ANTS WANDER INTO EMPTY SQUARES.','A COMPARTMENT PACKED WITH ANTS','IS YUCK - NO BONUS. SPORK THEM!','EARN +1 SPORK ON A BALANCED OR','SUPER PACK (UP TO 3 PER DAY).','GOLD STICKERS: PACK OVER THEM!'],d:'haz'},
  {t:'CONTROLS',l:['TOUCH / MOUSE: DRAG TO PLACE,','TAP TO SPIN, DRAG TO BAG TO SAVE.','','KEYBOARD: ARROWS MOVE, 1-4 OR TAB','PICK A FOOD, R SPIN, SPACE PLACE,','H BAG, S SPORK, P PAUSE.','','Q / E ALSO CYCLE FOODS. ESC CANCELS.'],d:'keys'}];
 function drawHow(c){menuBg(c,1);const pg=HOW[howPage];panel(c,16,60,328,450,'HOW TO PLAY');txtO(c,pg.t,180,88,2,'#e63946','center',OL);
  pg.l.forEach((l,i)=>txt(c,l,30,112+i*13,1,OL));

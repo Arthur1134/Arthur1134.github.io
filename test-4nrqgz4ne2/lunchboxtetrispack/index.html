@@ -509,7 +509,7 @@ function sfx(name,v){const c=AU.ctx;if(!c||c.state!=='running')return;const t=c.
  }}
 
 /* ---------- save ---------- */
-const VERSION='1.0.3',SKEY='lunchboxtetrispack_v1',W=360,H=640;
+const VERSION='1.0.4',SKEY='lunchboxtetrispack_v1',W=360,H=640;
 function defSave(){return{v:1,set:{music:.7,sfx:.8,mute:false,shake:true,tips:true},best:[],stars:[],unlocked:1,endBest:0,seen:{},top:[],
  stats:{packs:0,bal:0,sup:0,cups:0,ants:0,stk:0,ice:0,placed:0,sporks:0,levels:0,overs:0,time:0,bestCombo:0,lunches:0,cells:0}}}
 let SAVE=defSave();try{const s=JSON.parse(localStorage.getItem(SKEY)||'null');if(s&&s.v===1){SAVE=Object.assign(defSave(),s);SAVE.set=Object.assign(defSave().set,s.set||{});SAVE.stats=Object.assign(defSave().stats,s.stats||{})}}catch(e){}
@@ -529,13 +529,55 @@ function toast(m){if(scene==='play'){showHint(m,2.6,true)}else{toastM=m;toastT=2
 function showHint(text,dur,urgent){if(!SAVE.set.tips&&!urgent)return;if(hint&&hint.text===text){hint.t=0;return}if(hint&&!urgent&&hint.urgent)return;hint={text,t:0,dur:dur||6,urgent:!!urgent};sfx('hint')}
 function tutorial(evt){if(!hintQ.length)return;if(hintQ[0].until===evt){hintQ.shift();if(hint&&!hint.urgent)hint=null}}
 /* ---------- ads bridge (RUN only; safe no-op elsewhere) ---------- */
+let adHangMs=180000,interstitialHangMs=120000,lunchSeq=0,adLock=false;
 function runHost(){try{return !!(window.LunchboxAds&&window.LunchboxAds.isRunHost&&window.LunchboxAds.isRunHost())}catch(e){return false}}
-function withTimeout(p,ms){return Promise.race([Promise.resolve(p).catch(()=>false),new Promise(r=>setTimeout(()=>r(false),ms))])}
-async function rewardedReady(){if(!runHost())return false;try{return !!(await withTimeout(window.LunchboxAds.isRewardedReady(),4000))}catch(e){return false}}
-async function adRewarded(id,name){if(!runHost()){toast('ADS ONLY RUN ON RUN.WORLD - BONUS SKIPPED');return false}if(adBusy)return false;adBusy=true;AU.duck=0;applyVolumes();
- try{const ok=await withTimeout(window.LunchboxAds.showRewarded({adDisplayId:id,adDisplayName:name}),45000);if(!ok)toast('NO AD RIGHT NOW - TRY AGAIN LATER');return !!ok}catch(e){return false}finally{adBusy=false;AU.duck=1;applyVolumes();last=performance.now()}}
-async function adInterstitial(){levelsSinceAd++;if(!runHost())return false;const now=Date.now();if(levelsSinceAd<2||now-lastAdAt<90000||sessionT<60)return false;if(adBusy)return false;adBusy=true;AU.duck=0;applyVolumes();
- try{const ok=await withTimeout(window.LunchboxAds.showInterstitial({adDisplayId:'lunch_break',adDisplayName:'Lunch Break'}),20000);lastAdAt=Date.now();levelsSinceAd=0;return !!ok}catch(e){return false}finally{adBusy=false;AU.duck=1;applyVolumes();last=performance.now()}}
+function withTimeout(p,ms){let t;const q=new Promise(r=>{t=setTimeout(()=>r({__to:1}),ms)});return Promise.race([Promise.resolve(p).then(v=>{clearTimeout(t);return v},e=>{clearTimeout(t);throw e}),q])}
+/* SDK docs: showRewardedAdAsync() is Promise<boolean> (true only if the reward was earned).
+   The 5.35 RPC wrapper returns call(...).rewardEarned, but hosts have also been seen to
+   resolve the raw boolean, {rewardEarned}, {rewarded}, or {completed}. Treat any of those
+   as a grant; closed/skipped/false is not a grant. */
+function rewardOk(raw){if(raw===true||raw===1)return true;if(raw===false||raw==null)return false;
+ if(typeof raw==='string'){const s=raw.toLowerCase();if(['true','rewarded','reward','earned','complete','completed'].includes(s))return true;return false}
+ if(typeof raw==='object'){if(raw.ok===true||raw.success===true)return true;if(raw.ok===false||raw.success===false)return false;
+  const v=raw.rewardEarned??raw.rewarded??raw.earned??raw.isRewarded??raw.reward??raw.granted;
+  if(v===true||v===1||v==='true'||v==='rewarded'||v==='earned')return true;
+  if(v===false||v===0||v==='false')return false;
+  if(raw.skipped===true||raw.closed===true||raw.dismissed===true||raw.error||raw.err)return false;
+  return false}
+ return false}
+function adResult(raw,err){if(err)return{ok:false,reason:'error',raw,err};if(raw&&raw.__to)return{ok:false,reason:'timeout',raw};
+ if(raw&&typeof raw==='object'&&('ok'in raw||'reason'in raw)&&!('rewardEarned'in raw||'rewarded'in raw||'earned'in raw))return{ok:!!raw.ok,reason:raw.reason||(raw.ok?'reward':'skipped'),raw:raw.raw!==undefined?raw.raw:raw};
+ const ok=rewardOk(raw);let reason=ok?'reward':'skipped';if(raw===false||raw==null){if(raw===false)reason='skipped';}return{ok,reason,raw}}
+function finishAdWait(){adBusy=false;adLock=false;AU.duck=1;applyVolumes();last=performance.now()}
+async function rewardedReady(){if(!runHost())return false;try{const v=await withTimeout(window.LunchboxAds.isRewardedReady(),4000);if(v&&v.__to)return false;return !!v}catch(e){return false}}
+function applyRewarded(id,seq){if(seq!=null&&seq!==lunchSeq)return false;
+ if(id==='continue'){if(!S||S.cont)return false;if(!(scene==='gameover'||(scene==='play'&&S.over)))return false;
+  resurrect(S);endT=0;paused=false;track('rewarded',{kind:'continue'});go('play');showHint('BACK IN BUSINESS! +5 FOODS +2 SPORKS',3,true);return true}
+ if(id==='snack_pack'){if(scene!=='intro'||S==null)return false;track('rewarded',{kind:'snack'});startLevel(selIdx,true);return true}
+ return false}
+async function adRewarded(id,name){if(!runHost()){toast('ADS ONLY RUN ON RUN.WORLD - BONUS SKIPPED');return false}if(adBusy||adLock)return false;
+ if(id==='continue'&&S&&S.cont)return false;
+ adBusy=true;adLock=true;AU.duck=0;applyVolumes();const seq=lunchSeq;
+ try{
+ const ready=await rewardedReady();if(!ready){toast('NO AD RIGHT NOW - TRY AGAIN LATER');return false}
+ const p=Promise.resolve(window.LunchboxAds.showRewarded({adDisplayId:id,adDisplayName:name})).then(v=>adResult(v)).catch(e=>adResult(null,e));
+ const raced=await withTimeout(p,adHangMs);
+  if(raced&&raced.__to){toast('AD IS TAKING A LONG TIME...');finishAdWait();BTN=[];
+   p.then(res=>{if(res&&res.ok)applyRewarded(id,seq);}).catch(()=>{});
+   return false}
+  const res=raced;
+  if(!res||!res.ok){toast(res&&res.reason==='error'?'AD FAILED - TRY AGAIN':res&&res.reason==='not_ready'?'NO AD RIGHT NOW - TRY AGAIN LATER':'AD SKIPPED - NO REWARD');return false}
+  return true}
+ catch(e){toast('AD FAILED - TRY AGAIN');return false}
+ finally{if(adBusy)finishAdWait()}}
+async function adInterstitial(){if(!runHost())return false;if(adBusy||adLock)return false;levelsSinceAd++;const now=Date.now();if(levelsSinceAd<2||now-lastAdAt<90000||sessionT<60)return false;
+ adBusy=true;adLock=true;AU.duck=0;applyVolumes();
+ const p=Promise.resolve(window.LunchboxAds.showInterstitial({adDisplayId:'lunch_break',adDisplayName:'Lunch Break'})).then(v=>v).catch(()=>false);
+ try{const raced=await withTimeout(p,interstitialHangMs);
+  if(raced&&raced.__to){finishAdWait();lastAdAt=Date.now();levelsSinceAd=0;return false}
+  lastAdAt=Date.now();levelsSinceAd=0;return !!raced&&raced.__to?false:!!raced}
+ catch(e){lastAdAt=Date.now();levelsSinceAd=0;return false}
+ finally{if(adBusy)finishAdWait()}}
 function track(n,p){try{window.LunchboxAnalytics&&window.LunchboxAnalytics.recordCustomEvent(n,p||{})}catch(e){}}
 /* ---------- scenes ---------- */
 function lvLabel(idx){return idx<0?'ENDLESS':'W'+(Math.floor(idx/5)+1)+' '+DAYS[idx%5].slice(0,3)}
@@ -543,7 +585,7 @@ function go(s){if(s!=='play'&&s!=='attract'){PU=[];if(s!=='complete')P=[]}scene=
  const mus={title:'title',howto:'title',select:'title',scores:'title',settings:'title',credits:'title',complete:null,gameover:'gameover'}[s];
  if(s==='play'||s==='intro'||s==='attract')playMusic(S&&S.endless?'endless':WEEKS[S?S.L.w||0:0].music);else if(mus)playMusic(mus);
  if(s==='credits')credY=0;if(s==='intro'){snackReady=false;rewardedReady().then(v=>snackReady=v)}if(s==='gameover'){contReady=false;rewardedReady().then(v=>contReady=v)}}
-function startLevel(i,snack){S=newState(i,(Date.now()&0xffffff)+i*101);if(snack){S.left=S.left===Infinity?Infinity:S.left+3;S.sp++;S.bonus=true}
+function startLevel(i,snack){lunchSeq++;S=newState(i,(Date.now()&0xffffff)+i*101);if(snack){S.left=S.left===Infinity?Infinity:S.left+3;S.sp++;S.bonus=true}
  P=[];PU=[];FX=[];paused=false;endT=0;lidF=0;sporkMode=false;sporkFlashT=0;kidMood=0;bellWarned=false;hint=null;hintQ=[];kb.sel=0;kb.x=2;kb.y=2;
  if(i===0&&!SAVE.seen.tut){hintQ=[{text:'DRAG A FOOD FROM THE TRAY INTO A COMPARTMENT',until:'place'},{text:'TAP A FOOD IN THE TRAY TO SPIN IT',until:'rotate'},{text:'FILL A WHOLE COMPARTMENT TO PACK IT!',until:'pack'},{text:'MIX 3 FOOD GROUPS IN ONE SPOT = BALANCED x2',until:'bal'},{text:'DRAG A FOOD ONTO THE BROWN BAG TO SAVE IT',until:'stash'}];SAVE.seen.tut=1;persist()}
  else if(S.L.tip&&!SAVE.seen['tip'+S.L.tip]){hintQ=[{text:TIPS[S.L.tip],until:'_',dur:7}];SAVE.seen['tip'+S.L.tip]=1;persist()}
@@ -608,7 +650,7 @@ function endPtr(e){const p=toLogical(e);if(drag&&drag.id===e.pointerId){const d=
    else{const sn=snap(d);if(sn){place(S,slotIdx(d.k),sn.gx,sn.gy);handleEvents();afterAction()}
     else if(d.k>0&&overBag(d,p)){stash(S,d.k-1);handleEvents();afterAction()}
     else if(p.y<GY+CS*8+10){sfx('bad')}}}}
- if(pressBtn){const b=hitBtn(p);if(b===pressBtn){sfx(b.back?'back':'click');b.cb()}pressBtn=null}}
+ if(pressBtn){const b=hitBtn(p);if(adBusy||adLock){pressBtn=null;return}if(b===pressBtn){sfx(b.back?'back':'click');b.cb()}pressBtn=null}}
 cv.addEventListener('pointerup',endPtr);cv.addEventListener('pointercancel',e=>{drag=null;pressBtn=null});
 function afterAction(){if(!S)return;if(S.left!==Infinity&&S.left<=3&&S.left>0&&!S.complete&&!bellWarned){bellWarned=true;sfx('warn');showHint('ONLY '+S.left+' FOODS LEFT BEFORE THE BELL!',3,true)}
  if(S.left!==Infinity&&S.left>3)bellWarned=false;
@@ -635,7 +677,7 @@ function navKeys(k){const n=BTN.length;if(!n)return;if(k==='ArrowDown'||k==='Arr
  else if((k==='Enter'||k===' ')&&BTN[focus]){sfx('click');BTN[focus].cb()}else if(k==='Escape'||k==='Backspace'){const b=BTN.find(b=>b.back);if(b){sfx('back');b.cb()}}}
 function pauseGame(){if(scene!=='play'||paused)return;paused=true;sfx('pause');drag=null;BTN=[];focus=-1}
 function resumeGame(){paused=false;BTN=[];last=performance.now()}
-document.addEventListener('visibilitychange',()=>{if(document.hidden){pauseGame();if(AU.ctx)AU.ctx.suspend().catch(()=>{})}else if(AU.ctx&&started)AU.ctx.resume().catch(()=>{})});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){if(!adBusy)pauseGame();if(AU.ctx)AU.ctx.suspend().catch(()=>{})}else{last=performance.now();if(AU.ctx&&started)AU.ctx.resume().catch(()=>{})}});
 /* ---------- update ---------- */
 function update(dt){T+=dt;sessionT+=dt;if(toastT>0)toastT-=dt;shakeA*=Math.pow(.02,dt);if(shakeA<.1)shakeA=0;
  for(const p of P){p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=1-2*dt;p.vy=p.vy*(1-2*dt)+(p.k==='conf'?180:90)*dt;p.r+=dt*8}P=P.filter(p=>p.life>0);if(P.length>500)P.splice(0,P.length-500);
@@ -811,7 +853,7 @@ function drawIntro(c){const L=S.L;menuBg(c,S.endless?1:L.w);panel(c,16,60,328,47
  txt(c,'BEST',290,yy,1,'#8a5530','center');const best=S.endless?SAVE.endBest:(SAVE.best[S.idx]||0);txt(c,best.toLocaleString('en-US'),290,yy+12,1.5,OL,'center');
  if(!S.endless)for(let s=0;s<3;s++)starShape(c,270+s*20,yy+34,7,s<(SAVE.stars[S.idx]||0)?'#ffd23f':'rgba(0,0,0,.2)');
  if(!BTN.length){B(50,368,260,54,'START!',()=>startLevel(selIdx,false),{col:'#e63946',px:3});
-  B(50,430,260,52,'SNACK PACK',async()=>{const ok=await adRewarded('snack_pack','Snack Pack +3 Foods +1 Spork');if(ok){track('rewarded',{kind:'snack'});startLevel(selIdx,true)}else BTN=[]},{col:'#ff9a3c',sub:'WATCH AN AD: +3 FOODS +1 SPORK'});
+  B(50,430,260,52,'SNACK PACK',async()=>{if(adBusy||adLock)return;const ok=await adRewarded('snack_pack','Snack Pack +3 Foods +1 Spork');if(ok)applyRewarded('snack_pack');else BTN=[]},{col:'#ff9a3c',sub:'WATCH AN AD: +3 FOODS +1 SPORK'});
   B(50,490,260,32,'BACK',()=>go(S.endless?'title':'select'),{col:'#8a5cc0',back:1,px:1.5})}
  drawBtns(c);if(!snackReady)txt(c,runHost()?'AD LOADING...':'(ADS ONLY ON RUN.WORLD)',180,474,1,'rgba(255,255,255,.0)','center')}
 /* ----- complete ----- */
@@ -823,8 +865,8 @@ function drawComplete(c){menuBg(c,S.endless?1:S.L.w);const t=tally;panel(c,20,96
  rows.forEach((r,i)=>{if(t.t<.4*(i+1)-.2)return;txt(c,r[0],44,252+i*18,1.5,OL);txt(c,r[1].toLocaleString('en-US'),316,252+i*18,1.5,OL,'right')});
  if(t.t>1.7){c.fillStyle=OL;c.fillRect(44,328,272,2);txtO(c,'TOTAL',44,338,2,'#e63946','left',OL);txtO(c,t.total.toLocaleString('en-US'),316,338,2,'#e63946','right',OL);if(t.newBest&&Math.floor(T*3)%2)txtO(c,'NEW BEST!',180,362,2,'#ff9a3c','center',OL)}
  txt(c,'2 STARS '+S.L.stars[0].toLocaleString('en-US')+'   3 STARS '+S.L.stars[1].toLocaleString('en-US'),180,384,1,'#8a5530','center');
- if(t.t>2&&!BTN.length){const next=S.idx+1<LEVELS.length;B(50,402,260,50,next?'NEXT DAY':'GRADUATE!',async()=>{await adInterstitial();if(next)openIntro(S.idx+1);else go('credits')},{col:'#e63946',px:2.5});
-  B(50,460,126,40,'RETRY',async()=>{await adInterstitial();startLevel(S.idx,false)},{col:'#ff9a3c'});B(184,460,126,40,'MENU',()=>go('select'),{col:'#8a5cc0',back:1})}
+ if(t.t>2&&!BTN.length){const next=S.idx+1<LEVELS.length;B(50,402,260,50,next?'NEXT DAY':'GRADUATE!',async()=>{if(adBusy||adLock)return;await adInterstitial();if(next)openIntro(S.idx+1);else go('credits')},{col:'#e63946',px:2.5});
+  B(50,460,126,40,'RETRY',async()=>{if(adBusy||adLock)return;await adInterstitial();startLevel(S.idx,false)},{col:'#ff9a3c'});B(184,460,126,40,'MENU',()=>go('select'),{col:'#8a5cc0',back:1})}
  drawBtns(c);if(t.allDone)txtO(c,'YOU PACKED THE WHOLE SCHOOL YEAR!',180,512,1,'#4f9a3a','center',OL)}
 /* ----- game over ----- */
 function drawOver(c){menuBg(c,S.endless?1:S.L.w);panel(c,20,96,320,450,S.endless?'LUNCH RUSH OVER':S.reason==='bell'?'LUNCH BELL RANG!':'LUNCHBOX JAMMED!');
@@ -832,8 +874,8 @@ function drawOver(c){menuBg(c,S.endless?1:S.L.w);panel(c,20,96,320,450,S.endless
  txt(c,S.reason==='bell'?'OUT OF FOOD BEFORE THE ORDER WAS DONE':'NO FOOD FITS ANYWHERE',180,200,1,'#8a5530','center');
  txtO(c,'SCORE '+S.score.toLocaleString('en-US'),180,218,2,'#e63946','center',OL);
  if(S.endless){txt(c,S.lunches+' KIDS FED  -  BEST '+SAVE.endBest.toLocaleString('en-US'),180,240,1,OL,'center')}else drawOrders(c,48,240,264,S.orders);
- if(!BTN.length){if(!S.cont)B(50,320,260,60,'CONTINUE',async()=>{const ok=await adRewarded('continue','Continue +5 Foods +2 Sporks');if(ok){resurrect(S);endT=0;track('rewarded',{kind:'continue'});go('play');showHint('BACK IN BUSINESS! +5 FOODS +2 SPORKS',3,true)}else BTN=[]},{col:'#ff9a3c',sub:'WATCH AN AD: +5 FOODS +2 SPORKS',px:2.5});
-  B(50,392,260,48,'TRY AGAIN',async()=>{await adInterstitial();startLevel(S.idx,false)},{col:'#e63946'});B(50,450,260,40,'MENU',()=>go(S.endless?'title':'select'),{col:'#8a5cc0',back:1})}
+ if(!BTN.length){if(!S.cont)B(50,320,260,60,'CONTINUE',async()=>{if(adBusy||adLock||S.cont)return;const ok=await adRewarded('continue','Continue +5 Foods +2 Sporks');if(ok)applyRewarded('continue');else BTN=[]},{col:'#ff9a3c',sub:'WATCH AN AD: +5 FOODS +2 SPORKS',px:2.5});
+  B(50,392,260,48,'TRY AGAIN',async()=>{if(adBusy||adLock)return;await adInterstitial();startLevel(S.idx,false)},{col:'#e63946'});B(50,450,260,40,'MENU',()=>go(S.endless?'title':'select'),{col:'#8a5cc0',back:1})}
  drawBtns(c);if(S.cont)txt(c,'CONTINUE USED - ONE PER LUNCH',180,350,1,'#8a5530','center')}
 /* ----- scores ----- */
 function drawScores(c){menuBg(c,2);panel(c,16,60,328,470,'LUNCH LEDGER');
@@ -869,7 +911,7 @@ window.LB={get S(){return S},get scene(){return scene},get howPage(){return howP
  setBag:(it)=>{if(!S)return;S.bag=it?mkPiece(S,it):null},
  stash,place,mkPiece,ITEMS,ROTS,canPlace,get BTN(){return BTN},get tally(){return tally},get hint(){return hint},get paused(){return paused},get adBusy(){return adBusy},get kb(){return kb},go,startLevel,openIntro,pauseGame,resumeGame,SAVE:()=>SAVE,VERSION,LEVELS,
  place:(slot,x,y)=>{const r=place(S,slot,x,y);handleEvents();afterAction();return r},stash:k=>{const r=stash(S,k);handleEvents();return r},spork:i=>{const r=spork(S,i);handleEvents();return r},
- bot:(n,noise)=>{for(let i=0;i<(n||1);i++){if(!S||S.over||S.complete)break;botTurn(S,noise||0);handleEvents()}},adRewarded,adInterstitial,runHost,adClock:v=>{sessionT=v;lastAdAt=0;levelsSinceAd=5},T:()=>T,idle:v=>{idleT=v},started:()=>started,
+ bot:(n,noise)=>{for(let i=0;i<(n||1);i++){if(!S||S.over||S.complete)break;botTurn(S,noise||0);handleEvents()}},adRewarded,adInterstitial,runHost,rewardOk,adResult,applyRewarded,gameOver,resurrect,adClock:v=>{sessionT=v;lastAdAt=0;levelsSinceAd=5},T:()=>T,idle:v=>{idleT=v},started:()=>started,get adHangMs(){return adHangMs},set adHangMs(v){adHangMs=+v||180000},get interstitialHangMs(){return interstitialHangMs},set interstitialHangMs(v){interstitialHangMs=+v||120000},get lunchSeq(){return lunchSeq},get adLock(){return adLock},get toast(){return toastM},
  findPos:slot=>{const p=slot===3?S.bag:S.tray[slot];if(!p)return null;for(let y=0;y<8;y++)for(let x=0;x<8;x++)if(canPlace(S,p.cells,x,y))return{x,y,cells:p.cells};return null}};
 
 </script>

@@ -60,7 +60,9 @@ const ITEMS={
  sandwich:{n:'SANDWICH',g:'G',s:[[0,0],[1,0],[0,1],[1,1]]},celery:{n:'CELERY',g:'V',s:[[0,0],[1,0],[2,0],[3,0]]},broccoli:{n:'BROCCOLI',g:'V',s:[[0,0],[1,0],[2,0],[1,1]]},
  nugget:{n:'NUGGETS',g:'P',s:[[1,0],[2,0],[0,1],[1,1]]},yogurt:{n:'YOGURT',g:'D',s:[[0,0],[0,1],[0,2],[1,2]]},juice:{n:'JUICE BOX',g:'F',s:[[1,0],[1,1],[1,2],[0,2]]},
  thermos:{n:'THERMOS SOUP',g:'V',s:[[0,0],[1,0],[0,1],[1,1],[0,2]]},pizza:{n:'PIZZA',g:'G',s:[[0,0],[1,0],[2,0],[1,1],[1,2]]},hoagie:{n:'HOAGIE',g:'G',s:[[0,0],[1,0],[2,0],[3,0],[4,0]]},
- cupcake:{n:'CUPCAKE',g:'T',s:[[0,0],[1,0],[0,1],[1,1]]}};
+ cupcake:{n:'CUPCAKE',g:'T',s:[[0,0],[1,0],[0,1],[1,1]]},
+ salami:{n:'SALAMI',g:'P',s:[[0,0]]},drumstick:{n:'DRUMSTICK',g:'P',s:[[0,0],[0,1],[1,1]]},meatballs:{n:'MEATBALLS',g:'P',s:[[0,0],[1,0],[0,1],[1,1]]},
+ turkey:{n:'TURKEY ROLL',g:'P',s:[[0,0],[1,0],[2,0]]}};
 const LAY={
  quad:['AAAABBBB','AAAABBBB','AAAABBBB','AAAABBBB','CCCCDDDD','CCCCDDDD','CCCCDDDD','CCCCDDDD'],
  halves:['AAABBBBB','AAABBBBB','AAABBBBB','CCCCCDDD','CCCCCDDD','EEEFFFFF','EEEFFFFF','EEEFFFFF'],
@@ -72,10 +74,11 @@ const LAY={
  rounded:['#AAABBB#','AAAABBBB','AAAABBBB','CCCDDEEE','CCCDDEEE','FFFDDGGG','FFFFGGGG','#FFFGGG#'],
  tall:['AABBBBCC','AABBBBCC','AABBBBCC','AADDDDCC','AADDDDCC','EEDDDDFF','EEGGGGFF','EEGGGGFF'],
  maze:['AAAABBBB','ACCCCDDB','ACCCCDDB','AEEEEDDB','FEEEEDDG','FHHHHHHG','FHHHHHHG','FFFFGGGG']};
-const P_SMALL={grape:3,cheese:3,egg:2,apple:3,milk:3,cracker:3,carrot:3,banana:3,pretzel:3,ham:2,sandwich:3,celery:2};
+const P_SMALL={grape:2,cheese:3,egg:2,apple:2,milk:3,cracker:3,carrot:3,banana:2,pretzel:3,ham:2,sandwich:3,celery:2,salami:2,drumstick:2};
 function pool(base,add){return Object.assign({},base,add||{})}
-const P_STD=pool(P_SMALL,{broccoli:2,nugget:2,yogurt:2,juice:2});
+const P_STD=pool(P_SMALL,{broccoli:2,nugget:2,yogurt:2,juice:2,meatballs:2,turkey:2});
 const P_TREAT=pool(P_STD,{cookie:3,brownie:2,cupcake:2});
+const CAT_W={F:15,V:16,G:16,P:22,D:16,T:8};
 const WEEKS=[{n:'BACK TO SCHOOL',col:'#e63946',bg:'#ffd9a8',bg2:'#ffc48a',music:'week1'},{n:'PICKY EATERS',col:'#2a9d8f',bg:'#c8f0e2',bg2:'#a4e0cb',music:'week2'},
  {n:'FIELD TRIP',col:'#3a86ff',bg:'#cfe4ff',bg2:'#aecdfa',music:'week3'},{n:'BAKE SALE',col:'#c2477a',bg:'#ffd6ea',bg2:'#f9b8d6',music:'week4'}];
 const DAYS=['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY'];
@@ -108,6 +111,40 @@ const ENDLESS={kid:'LUNCH RUSH',say:'HOW MANY LUNCHES CAN YOU PACK?',lay:'school
 const KIDS_E=['TIMMY','ROSA','MAX','PRIYA','LEO','JUNE','OMAR','BEA','SAM','KAI','NINA','OTTO','IVY','RAY','ZOE','BEN','LILA','GUS','MAE'];
 const TIPS=['','DRAG FOOD INTO A COMPARTMENT. FILL IT TO PACK IT!','ICE PACKS FILL A SPOT FOR YOU AND MELT FOR +50.','ONLY-FRUIT COMPARTMENT = FRUIT CUP!','SUPER LUNCH = 4 OR MORE FOOD GROUPS IN ONE COMPARTMENT!','ANTS WALK AROUND AND RUIN BONUSES. TAP THE SPORK, THEN AN ANT!','PACK A COMPARTMENT ON A GOLD STICKER TO COLLECT IT.','PACK A BALANCED OR SUPER LUNCH TO EARN A SPORK! UP TO 3 EXTRA PER DAY. USE THEM TO SQUISH ANTS.'];
 
+/* How to Play diagrams: layouts + pieces that must fit legally (validated by howDemoLegal) */
+const HOW_DEMOS={
+ pack:{lay:['AAABBB','AAABBB','AAABBB'],pieces:[
+  {it:'sandwich',x:0,y:0,cells:[[0,0],[1,0],[0,1],[1,1]]},
+  {it:'milk',x:2,y:0,cells:[[0,0],[0,1]]},
+  {it:'carrot',x:0,y:2,cells:[[0,0],[1,0],[2,0]]},
+  {it:'apple',x:3,y:0,cells:[[0,0],[1,0]]},
+  {it:'cracker',x:3,y:1,cells:[[0,0],[1,0]]},
+  {it:'carrot',x:3,y:2,cells:[[0,0],[1,0],[2,0]]},
+  {it:'cheese',x:5,y:0,cells:[[0,0]]},
+  {it:'grape',x:5,y:1,cells:[[0,0]]}
+ ],drop:'apple'},
+ tools:{lay:['AAA','AAA','AAA'],pieces:[
+  {it:'yogurt',x:0,y:0,cells:[[0,0],[0,1],[0,2],[1,2]]},
+  {it:'egg',x:1,y:0,cells:[[0,0]]},
+  {it:'salami',x:2,y:0,cells:[[0,0]]},
+  {it:'apple',x:1,y:1,cells:[[0,0],[1,0]]}
+ ]},
+ groups:{lay:['AAA','AAA','AAA'],pieces:[
+  {it:'apple',x:0,y:0,cells:[[0,0],[1,0]]},
+  {it:'egg',x:2,y:0,cells:[[0,0]]},
+  {it:'cracker',x:0,y:1,cells:[[0,0],[1,0]]},
+  {it:'cheese',x:2,y:1,cells:[[0,0]]},
+  {it:'carrot',x:0,y:2,cells:[[0,0],[1,0],[2,0]]}
+ ]},
+ orders:{lay:[],pieces:[]},
+ haz:{lay:['AA','AA'],pieces:[
+  {it:'grape',x:1,y:0,cells:[[0,0]]},
+  {it:'egg',x:0,y:1,cells:[[0,0]]},
+  {it:'cookie',x:1,y:1,cells:[[0,0]]}
+ ],ice:[[0,0]]},
+ keys:{lay:[],pieces:[]}
+};
+
 /* ---------- core rules (pure; no DOM) ---------- */
 function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
 function norm(cells){let mx=99,my=99;for(const [x,y] of cells){mx=Math.min(mx,x);my=Math.min(my,y)}return cells.map(([x,y])=>[x-mx,y-my]).sort((a,b)=>a[1]-b[1]||a[0]-b[0])}
@@ -125,23 +162,36 @@ function pdim(cells){let w=0,h=0;for(const [x,y] of cells){w=Math.max(w,x+1);h=M
 function mkPiece(S,it){return{it,cells:ROTS[it][0],r:0,id:++S.pidN}}
 function rotatePiece(p){const R=ROTS[p.it];p.r=(p.r+1)%R.length;p.cells=R[p.r];return p}
 function lvDef(idx){return idx<0?ENDLESS:LEVELS[idx]}
-function newState(idx,seed){const L=lvDef(idx),lay=LAY[L.lay];const S={idx,L,endless:!!L.endless,seed,rng:mulberry(seed*9301+49297),pidN:0,
- comp:new Array(64).fill(-1),comps:[],grid:new Array(64).fill(null),stk:new Array(64).fill(0),tray:[null,null,null],bag:null,
+function parseOrd(o){return{t:o[0],g:typeof o[1]==='string'?o[1]:null,n:typeof o[1]==='string'?o[2]:o[1],have:0}}
+function newState(idx,seed){return newStateFrom(lvDef(idx),seed,{idx})}
+function newStateFrom(L,seed,extra){extra=extra||{};const lay=LAY[L.lay];if(!lay)throw new Error('unknown layout '+L.lay);const S={idx:extra.idx!=null?extra.idx:-2,L,endless:!!L.endless,seed,rng:mulberry((seed||1)*9301+49297),pidN:0,
+ comp:new Array(64).fill(-1),comps:[],grid:new Array(64).fill(null),stk:new Array(64).fill(0),tray:[null,null,null],bag:null,recent:[],
  left:L.pieces,sp:L.sp,spEarned:0,score:0,combo:0,sincePack:9,bestCombo:0,placed:0,packs:0,ev:[],over:false,complete:false,reason:'',ants:0,antTimer:0,cont:false,bonus:false,
- orders:L.ord.map(o=>({t:o[0],g:typeof o[1]==='string'?o[1]:null,n:typeof o[1]==='string'?o[2]:o[1],have:0})),
+ orders:(L.ord||[]).map(parseOrd),
  st:{packs:0,bal:0,sup:0,cups:0,ants:0,stk:0,ice:0,cells:0,placed:0,sporks:0,rot:0},kidN:0,lunches:0};
- const ids={};for(let y=0;y<8;y++)for(let x=0;x<8;x++){const ch=lay[y][x];if(ch==='#')continue;if(!(ch in ids)){ids[ch]=S.comps.length;S.comps.push({id:S.comps.length,cells:[]})}S.comp[y*8+x]=ids[ch];S.comps[ids[ch]].cells.push(y*8+x)}
+ const ids={};const rows=lay.length,cols=lay[0].length;
+ for(let y=0;y<8;y++)for(let x=0;x<8;x++){const ch=(y<rows&&x<cols)?lay[y][x]:'#';if(!ch||ch==='#')continue;if(!(ch in ids)){ids[ch]=S.comps.length;S.comps.push({id:S.comps.length,cells:[]})}S.comp[y*8+x]=ids[ch];S.comps[ids[ch]].cells.push(y*8+x)}
  for(const [x,y] of (L.ice||[]))S.grid[y*8+x]={ice:2,pid:0};
  for(const [x,y] of (L.stk||[]))S.stk[y*8+x]=1;
  if(S.endless){S.orders=[];nextKid(S)}
- for(let i=0;i<3;i++)S.tray[i]=draw(S);return S}
+ if(!extra.noTray)for(let i=0;i<3;i++)S.tray[i]=draw(S);return S}
 function nextKid(S){S.kidN++;S.spEarned=0;const r=S.rng,k=S.kidN;const opts=[['pack',2+Math.min(3,k>>1)],['bal',1+Math.min(3,k>>2)],['eat',HEALTHY[Math.floor(r()*5)],4+Math.min(8,k)],['grp',HEALTHY[Math.floor(r()*5)],1]];
  if(k>3){const maxA=achievableSporks(S);if(maxA>0)opts.push(['ant',Math.min(maxA,1+Math.min(3,k>>2))])}if(k>5)opts.push(['sup',1]);
  const o=opts[Math.floor(r()*opts.length)];S.orders=[{t:o[0],g:typeof o[1]==='string'?o[1]:null,n:typeof o[1]==='string'?o[2]:o[1],have:0}];S.kid=KIDS_E[(k-1)%KIDS_E.length]}
-function endlessPool(S){const p=Object.assign({},P_STD);const k=S.placed;if(k>25)Object.assign(p,{cookie:2,brownie:2,cupcake:1});if(k>45)Object.assign(p,{thermos:2,pizza:2});if(k>80){p.grape=1;p.cheese=1;p.egg=1;p.hoagie=1}return p}
-function pickItem(S){const pool=Object.assign({},S.endless?endlessPool(S):S.L.pool);for(const o of S.orders)if((o.t==='grp'||o.t==='eat')&&o.have<o.n)for(const k in pool)if(ITEMS[k].g===o.g)pool[k]*=1.7;let tot=0;for(const k in pool)tot+=pool[k];let v=S.rng()*tot;for(const k in pool){v-=pool[k];if(v<=0)return k}return Object.keys(pool)[0]}
-function fitsAnywhere(S,it){for(const cells of ROTS[it])for(let y=0;y<8;y++)for(let x=0;x<8;x++)if(canPlace(S,cells,x,y))return true;return false}
-function draw(S){const tries=S.endless?(S.placed>60?2:3):(S.L.mercy||4);let it;for(let i=0;i<tries;i++){it=pickItem(S);if(fitsAnywhere(S,it))break}return mkPiece(S,it)}
+function endlessPool(S){const p=Object.assign({},P_STD);const k=S.placed;if(k>25)Object.assign(p,{cookie:2,brownie:2,cupcake:1});if(k>45)Object.assign(p,{thermos:2,pizza:2,drumstick:2,meatballs:2});if(k>80){p.grape=1;p.cheese=1;p.egg=2;p.hoagie=1;p.salami=2;p.turkey=2}return p}
+function pickItem(S){const pool=Object.assign({},S.endless?endlessPool(S):S.L.pool);const need=new Set();for(const o of S.orders)if((o.t==='grp'||o.t==='eat')&&o.have<o.n)need.add(o.g);
+ for(const k in pool){if(!ITEMS[k]){delete pool[k];continue}if(need.has(ITEMS[k].g))pool[k]*=2.5}
+ const by={};for(const k in pool){const g=ITEMS[k].g;(by[g]=by[g]||{})[k]=pool[k]}
+ const recent=S.recent||[];const cw={};let tot=0;for(const g in by){let w=(typeof CAT_W!=='undefined'&&CAT_W[g])||10;
+  if(recent.length>=2&&recent[recent.length-1]===g&&recent[recent.length-2]===g)w*=.12;
+  else if(recent.length>=1&&recent[recent.length-1]===g)w*=.45;
+  if(need.has(g))w*=1.8;cw[g]=w;tot+=w}
+ let v=S.rng()*tot,pickG=Object.keys(cw)[0];for(const g in cw){v-=cw[g];if(v<=0){pickG=g;break}}
+ const items=by[pickG]||pool;let itot=0;for(const k in items)itot+=items[k];let iv=S.rng()*itot,it=Object.keys(items)[0];
+ for(const k in items){iv-=items[k];if(iv<=0){it=k;break}}return it}
+function fitsAnywhere(S,it){if(!ROTS[it])return false;for(const cells of ROTS[it])for(let y=0;y<8;y++)for(let x=0;x<8;x++)if(canPlace(S,cells,x,y))return true;return false}
+function draw(S){const tries=S.endless?(S.placed>60?3:5):(S.L.mercy||6);let it;for(let i=0;i<tries;i++){it=pickItem(S);if(fitsAnywhere(S,it))break}
+ S.recent=S.recent||[];if(it&&ITEMS[it]){S.recent.push(ITEMS[it].g);if(S.recent.length>8)S.recent.shift()}return mkPiece(S,it)}
 function canPlace(S,cells,x,y){let cid=-2;for(const [dx,dy] of cells){const cx=x+dx,cy=y+dy;if(cx<0||cy<0||cx>7||cy>7)return false;const i=cy*8+cx;if(S.comp[i]<0||S.grid[i])return false;if(cid===-2)cid=S.comp[i];else if(S.comp[i]!==cid)return false}return true}
 function anyMove(S){for(const p of S.tray.concat([S.bag]))if(p&&fitsAnywhere(S,p.it))return true;return false}
 function compFull(S,c){return c.cells.every(i=>S.grid[i])}
@@ -165,7 +215,7 @@ function packComp(S,cid){const c=S.comps[cid];const food=c.cells.map(i=>S.grid[i
  let mult=1,label='PACKED!',kind='pack';
  if(ant){mult=.5;label='ANTS! YUCK!';kind='ants'}
  else if(groups.size>=4){mult=3;label='SUPER LUNCH!';kind='sup'}
- else if(all.size===1&&food.length>=2){mult=2;label=GROUPS[[...all][0]].cup;kind='cup'}
+ else if(all.size===1&&food.length>=1){mult=2;label=GROUPS[[...all][0]].cup;kind='cup'}
  else if(groups.size>=3){mult=2;label='BALANCED!';kind='bal'}
  S.combo=S.sincePack<=3?S.combo+1:1;S.sincePack=0;S.bestCombo=Math.max(S.bestCombo,S.combo);const cm=1+.25*Math.min(8,S.combo-1);
  const base=c.cells.length*20,pts=Math.round(base*mult*cm/5)*5+ice*50+ant*25+stk*150;S.score+=pts;
@@ -174,8 +224,9 @@ function packComp(S,cid){const c=S.comps[cid];const food=c.cells.map(i=>S.grid[i
  let earned=0;if((kind==='bal'||kind==='sup')&&remainingEarnable(S)>0){S.sp++;S.spEarned=(S.spEarned||0)+1;earned=1}
  S.ev.push({type:'pack',cid,cells:c.cells.slice(),gs:c.cells.map(i=>S.grid[i].g||'I'),label,kind,pts,combo:S.combo,ice,ant,stk,mult,sporkEarned:earned});
  if(earned)S.ev.push({type:'sporkearn',cid,sp:S.sp,earned:S.spEarned});
- for(const o of S.orders){if(o.t==='pack')o.have++;if(o.t==='bal'&&(kind==='bal'||kind==='sup'))o.have++;if(o.t==='sup'&&kind==='sup')o.have++;if(o.t==='grp'&&kind==='cup'&&all.has(o.g))o.have++;
-  if(o.t==='eat'&&!ant)o.have+=eat[o.g]||0;if(o.t==='stk')o.have+=stk;if(o.t==='ant')o.have+=ant}
+ for(const o of S.orders){if(o.t==='pack')o.have++;if(o.t==='bal'&&(kind==='bal'||kind==='sup'))o.have++;if(o.t==='sup'&&kind==='sup')o.have++;
+  if(o.t==='grp'&&food.length>=1&&all.size===1&&all.has(o.g))o.have++;
+  if(o.t==='eat')o.have+=eat[o.g]||0;if(o.t==='stk')o.have+=stk;if(o.t==='ant')o.have+=ant}
  for(const i of c.cells){const g=S.grid[i];if(g.ice===2&&false){}S.grid[i]=null;S.stk[i]=0}}
 function checkOrders(S){if(S.endless){if(S.orders.every(o=>o.have>=o.n)){const b=500+S.kidN*100;S.score+=b;S.lunches++;S.ev.push({type:'kid',pts:b,kid:S.kid});nextKid(S)}return}
  if(!S.complete&&S.orders.every(o=>o.have>=o.n)){S.complete=true;S.ev.push({type:'complete'})}}
@@ -202,8 +253,8 @@ function botEval(S,p,cells,x,y){const T=cloneLite(S);const ic=[];for(const [dx,d
  const c=S.comps[S.comp[ic[0]]];let v=0;const full=c.cells.every(i=>T.grid[i]);
  const food=c.cells.map(i=>T.grid[i]).filter(g=>g&&g.it),groups=new Set(food.filter(f=>f.g!=='T').map(f=>f.g)),all=new Set(food.map(f=>f.g));
  const fillFrac=c.cells.filter(i=>T.grid[i]).length/c.cells.length;const before=c.cells.filter(i=>S.grid[i]).length/c.cells.length;v+=fillFrac*fillFrac*6+before*3-(c.cells.length>12?.6:0);
- if(full){v+=10;const ant=c.cells.some(i=>T.grid[i].ant);if(!ant){if(groups.size>=4)v+=8;else if(all.size===1&&food.length>=2)v+=4;else if(groups.size>=3)v+=4}else v-=2;
-  for(const o of S.orders){if(o.have>=o.n)continue;if(o.t==='pack')v+=4;if(o.t==='bal'&&groups.size>=3&&!ant)v+=6;if(o.t==='sup'&&groups.size>=4)v+=12;if(o.t==='grp'&&all.size===1&&all.has(o.g))v+=10;if(o.t==='stk')v+=c.cells.filter(i=>S.stk[i]).length*6;if(o.t==='ant')v+=c.cells.filter(i=>T.grid[i].ant).length*4;if(o.t==='eat'&&!ant)v+=food.filter(f=>f.g===o.g).length*.6}}
+ if(full){v+=10;const ant=c.cells.some(i=>T.grid[i].ant);if(!ant){if(groups.size>=4)v+=8;else if(all.size===1&&food.length>=1)v+=4;else if(groups.size>=3)v+=4}else v-=2;
+  for(const o of S.orders){if(o.have>=o.n)continue;if(o.t==='pack')v+=4;if(o.t==='bal'&&groups.size>=3&&!ant)v+=6;if(o.t==='sup'&&groups.size>=4)v+=12;if(o.t==='grp'&&all.size===1&&all.has(o.g))v+=10;if(o.t==='stk')v+=c.cells.filter(i=>S.stk[i]).length*6;if(o.t==='ant')v+=c.cells.filter(i=>T.grid[i].ant).length*4;if(o.t==='eat')v+=food.filter(f=>f.g===o.g).length*.6}}
  else{for(const o of S.orders){if(o.have>=o.n)continue;if(o.t==='grp'){if(all.size===1&&all.has(o.g))v+=4*fillFrac*(c.cells.length<=9?1:.4);else if(all.has(o.g)&&c.cells.length<=6)v-=1.5}const ng=ITEMS[p.it].g!=='T'&&!S.comps[c.id].cells.some(i=>S.grid[i]&&S.grid[i].g===ITEMS[p.it].g);if(o.t==='bal'&&ng)v+=.8;if(o.t==='sup'&&ng&&c.cells.length>=9)v+=2.2;if(o.t==='stk'&&c.cells.some(i=>S.stk[i]))v+=fillFrac*2.5;if(o.t==='ant'&&c.cells.some(i=>T.grid[i]&&T.grid[i].ant))v+=fillFrac*2;if(o.t==='eat'&&ITEMS[p.it].g===o.g)v+=.7}}
  let contact=0;for(const i of ic){const x0=i%8,y0=i>>3;for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=x0+dx,ny=y0+dy;if(nx<0||ny<0||nx>7||ny>7){contact++;continue}const j=ny*8+nx;if(S.comp[j]!==c.id||T.grid[j])contact++}}
  v+=contact*.15;
@@ -219,6 +270,21 @@ function botTurn(S,noise){if(S.over||S.complete)return false;let m=botMove(S,noi
  else if(S.sp>0&&S.ants>0){for(let i=0;i<64;i++){const g=S.grid[i];if(g&&g.ant){const c=S.comps[S.comp[i]];if(c.cells.filter(k=>!S.grid[k]).length===0){spork(S,i);break}}}}
  if(S.over&&S.reason==='jam')return false;return true}
 function botPlay(idx,seed,noise,maxT){const S=newState(idx,seed);let n=0;while(!S.over&&!S.complete&&n<(maxT||400)){if(!botTurn(S,noise))break;S.ev.length=0;n++;if(S.over&&S.reason==='jam'&&S.sp>0){S.over=false}}return S}
+
+function cellsInRot(it,cells){const n=JSON.stringify(norm(cells));return (ROTS[it]||[]).some(r=>JSON.stringify(r)===n)}
+function howDemoLegal(demo){if(!demo||!demo.lay||!demo.lay.length)return{ok:true,skip:1};const lay=demo.lay,rows=lay.length,cols=lay[0].length;
+ const comp=new Array(rows*cols).fill(-1),ids={};let nC=0;
+ for(let y=0;y<rows;y++){if(lay[y].length!==cols)return{ok:false,err:'ragged layout'};for(let x=0;x<cols;x++){const ch=lay[y][x];if(!ch||ch==='#')continue;if(!(ch in ids))ids[ch]=nC++;comp[y*cols+x]=ids[ch]}}
+ const occ={};const issues=[];
+ for(const p of (demo.pieces||[])){if(!ITEMS[p.it]){issues.push(p.it+' unknown item');continue}
+  const cells=p.cells||ROTS[p.it][0];if(!cellsInRot(p.it,cells))issues.push(p.it+' cells are not a legal rotation');
+  let cid=-2;for(const [dx,dy] of cells){const x=p.x+dx,y=p.y+dy;if(x<0||y<0||x>=cols||y>=rows){issues.push(p.it+' out of bounds at '+x+','+y);continue}
+   const i=y*cols+x;if(comp[i]<0)issues.push(p.it+' sits on a divider/empty at '+x+','+y);
+   if(cid===-2)cid=comp[i];else if(comp[i]!==cid)issues.push(p.it+' crosses dividers at '+x+','+y);
+   const k=x+','+y;if(occ[k])issues.push(p.it+' overlaps '+occ[k]+' at '+k);else occ[k]=p.it}}
+ for(const [x,y] of (demo.ice||[])){if(x<0||y<0||x>=cols||y>=rows||comp[y*cols+x]<0)issues.push('ice out of a compartment at '+x+','+y);
+  const k=x+','+y;if(occ[k])issues.push('ice overlaps '+occ[k]+' at '+k);else occ[k]='ice'}
+ return{ok:issues.length===0,issues}}
 
 /* ---------- drawing helpers + food art (original vector) ---------- */
 const OL='#2a1a14';
@@ -247,10 +313,14 @@ function foodMotif(c,it,x,y,s,t){const u=s/38;c.save();c.translate(x,y);c.scale(
  case'juice':rr(c,-9,-11,18,24,2);c.fillStyle='#ff9a3c';c.fill();c.strokeStyle=OL;c.lineWidth=lw;c.stroke();circ(c,0,3,5.5,'#ffd23f',OL,1.2);c.fillStyle='#5fb33e';c.fillRect(-2,-4,4,3);c.strokeStyle='#fff';c.lineWidth=2;c.beginPath();c.moveTo(4,-11);c.lineTo(4,-15);c.lineTo(9,-17);c.stroke();break;
  case'thermos':ell(c,0,4,13,9,'#f6f2e6',OL,lw);ell(c,0,1,11,5,'#e07a2f',null);for(const [a,b] of [[-4,0],[3,2],[5,-1]])circ(c,a,b,1.8,'#7fbf5a');c.fillStyle='#ffe066';c.fillRect(-1,-1,3,2);c.strokeStyle='rgba(255,255,255,.7)';c.lineWidth=1.6;c.beginPath();c.moveTo(-4,-8);c.quadraticCurveTo(-1,-12,-4,-15);c.moveTo(3,-7);c.quadraticCurveTo(6,-11,3,-14);c.stroke();break;
  case'pizza':poly(c,[-13,-10,13,-10,0,14],'#ffd76a',OL,lw);rr(c,-14,-13,28,6,3);c.fillStyle='#c98a3f';c.fill();c.strokeStyle=OL;c.lineWidth=1.4;c.stroke();for(const [a,b] of [[-5,-3],[4,-2],[0,5]])circ(c,a,b,2.6,'#e63946',OL,1);break;
- case'milk':break;case'sandwich':break;case'carrot':break;case'celery':break;case'hoagie':break;case'ham':break;case'cupcake':break;
+ case'milk':break;case'sandwich':break;case'carrot':break;case'celery':break;case'hoagie':break;case'ham':break;case'cupcake':break;case'turkey':break;
+ case'salami':circ(c,0,0,12,'#e07070',OL,lw);circ(c,0,0,9,'#f08a8a');for(const [a,b] of [[-4,-3],[3,-5],[5,2],[-3,4],[0,0],[4,6],[-6,1]])circ(c,a,b,1.3,'#7a3030');circ(c,-3,-4,1.5,'#fff4e0');break;
+ case'meatballs':circ(c,0,1,11,'#9a4a28',OL,lw);ell(c,-2,-2,7,5,'#c4693a',null,0,-.3);circ(c,-4,-3,1.5,'#6b2e14');circ(c,3,2,1.2,'#6b2e14');c.fillStyle='#e63946';c.globalAlpha=.7;c.beginPath();c.ellipse(4,8,5,2,0,0,Math.PI*2);c.fill();c.globalAlpha=1;break;
+ case'drumstick':c.rotate(-.4);ell(c,-2,4,11,9,'#d48a3a',OL,lw,.15);ell(c,-3,2,7,5,'#e8ae5c',null,0,.15);rr(c,6,-2,12,5,2);c.fillStyle='#fff4d6';c.fill();c.strokeStyle=OL;c.lineWidth=lw;c.stroke();circ(c,18,0.5,3.2,'#fff4d6',OL,lw);circ(c,18,0.5,1.4,'#e8d7a8');break;
  }c.restore()}
 /* spanned motifs for rectangular pieces: (x,y,w,h) rect, long axis horizontal if w>=h */
-const SPAN={milk:1,sandwich:1,carrot:1,celery:1,hoagie:1,ham:1,cupcake:1};
+const SPAN={milk:1,sandwich:1,carrot:1,celery:1,hoagie:1,ham:1,cupcake:1,turkey:1};
+const WHOLE={drumstick:1};
 function spanMotif(c,it,x,y,w,h,s){const u=s/38;c.save();c.translate(x+w/2,y+h/2);let L=Math.max(w,h)/u,Sh=Math.min(w,h)/u;if(h>w)c.rotate(Math.PI/2);c.scale(u,u);const lw=1.8;
  switch(it){
  case'milk':{c.rotate(h>w?-Math.PI/2:0);const W2=h>w?Sh:L,H2=h>w?L:Sh;const bw=Math.min(W2*.55,24),bh=H2*.78;poly(c,[-bw/2,-bh/2+8,0,-bh/2,bw/2,-bh/2+8,bw/2,bh/2,-bw/2,bh/2],'#fbfbff',OL,lw);c.fillStyle='#3a86ff';c.fillRect(-bw/2+1,-2,bw-2,12);c.strokeStyle=OL;c.lineWidth=1.4;c.beginPath();c.moveTo(-bw/2,-bh/2+8);c.lineTo(bw/2,-bh/2+8);c.stroke();txt(c,'MILK',0,1,1,'#fff','center');circ(c,0,bh/2-9,3,'#ffd23f',OL,1);break}
@@ -263,6 +333,7 @@ function spanMotif(c,it,x,y,w,h,s){const u=s/38;c.save();c.translate(x+w/2,y+h/2
  case'hoagie':{rr(c,-L/2+4,-13,L-8,26,13);c.fillStyle='#e0a45a';c.fill();c.strokeStyle=OL;c.lineWidth=lw;c.stroke();c.fillStyle='#7fbf5a';c.fillRect(-L/2+10,-2,L-20,4);c.fillStyle='#e63946';for(let i=0;i<5;i++)c.fillRect(-L/2+14+i*(L-28)/4-5,1,10,3);c.fillStyle='#ffd23f';c.fillRect(-L/2+12,-5,L-24,3);
   c.strokeStyle='#b77a33';c.lineWidth=1.5;for(let i=0;i<4;i++){c.beginPath();c.moveTo(-L/2+24+i*(L-48)/3,-11);c.lineTo(-L/2+30+i*(L-48)/3,-7);c.stroke()}break}
  case'ham':{const n=Math.round(L/38);for(let i=0;i<n;i++){const cx=-L/2+19+i*38;ell(c,cx,0,15,11,'#f4a3a8',OL,lw);c.beginPath();c.ellipse(cx,0,9,6,0,0,Math.PI*2);c.strokeStyle='#d66f78';c.lineWidth=2;c.stroke();ell(c,cx,0,4,3,'#ffe066',null)}break}
+ case'turkey':{rr(c,-L/2+4,-11,L-8,22,10);c.fillStyle='#f0c49a';c.fill();c.strokeStyle=OL;c.lineWidth=lw;c.stroke();c.fillStyle='#7fbf5a';c.fillRect(-L/2+12,-2,L-24,3);c.fillStyle='#e07070';c.fillRect(-L/2+14,2,L-28,3);c.strokeStyle='#c4923a';c.lineWidth=1.5;for(let i=0;i<3;i++){c.beginPath();c.moveTo(-L/2+22+i*(L-40)/2,-8);c.lineTo(-L/2+28+i*(L-40)/2,-4);c.stroke()}rr(c,-L/2+2,-6,8,12,4);c.fillStyle='#f6d2b5';c.fill();c.strokeStyle=OL;c.lineWidth=1.4;c.stroke();break}
  case'cupcake':{const r=Sh*.4;poly(c,[-r*.8,0,r*.8,0,r*.6,r,-r*.6,r],'#ff8fa3',OL,lw);c.strokeStyle='#e0566f';c.lineWidth=1.5;for(let i=-2;i<=2;i++){c.beginPath();c.moveTo(i*r*.28,2);c.lineTo(i*r*.22,r-2);c.stroke()}
   c.beginPath();c.arc(0,0,r*.9,Math.PI,0);c.closePath();c.fillStyle='#fff4f8';c.fill();c.strokeStyle=OL;c.lineWidth=lw;c.stroke();circ(c,0,-r*.75,4.5,'#e63946',OL,1.3);for(const [a,b,col] of [[-8,-6,'#3a86ff'],[6,-9,'#ffd23f'],[10,-3,'#2ec4b6'],[-12,-2,'#ff9a3c']]){c.fillStyle=col;c.fillRect(a,b,3,1.5)}break}
  }c.restore()}
@@ -276,8 +347,19 @@ function drawPiece(c,p,px,py,s,o){o=o||{};const cells=p.cells||p;const it=p.it,g
  c.strokeStyle=o.stroke||OL;c.lineWidth=Math.max(1.2,s*.06);c.lineCap='round';c.beginPath();
  for(const [x,y] of cells){const l=set.has((x-1)+','+y),r=set.has((x+1)+','+y),u=set.has(x+','+(y-1)),d=set.has(x+','+(y+1));const x0=px+x*s+(l?0:ins),y0=py+y*s+(u?0:ins),x1=px+(x+1)*s-(r?0:ins),y1=py+(y+1)*s-(d?0:ins);
   if(!u){c.moveTo(x0,y0);c.lineTo(x1,y0)}if(!d){c.moveTo(x0,y1);c.lineTo(x1,y1)}if(!l){c.moveTo(x0,y0);c.lineTo(x0,y1)}if(!r){c.moveTo(x1,y0);c.lineTo(x1,y1)}}c.stroke();
- if(!o.noMotif){const [w,h]=pdim(cells);if(SPAN[it]&&cells.length===w*h)spanMotif(c,it,px,py,w*s,h*s,s);else for(const [x,y] of cells)foodMotif(c,it,px+(x+.5)*s,py+(y+.5)*s,s*.92)}
+ if(!o.noMotif){const [w,h]=pdim(cells);if(WHOLE[it]){foodMotif(c,it,px+w*s/2,py+h*s/2,s*Math.max(1.15,Math.max(w,h)*.72))}else if(SPAN[it]&&cells.length===w*h)spanMotif(c,it,px,py,w*s,h*s,s);else for(const [x,y] of cells)foodMotif(c,it,px+(x+.5)*s,py+(y+.5)*s,s*.92)}
  c.restore()}
+function drawMiniBox(c,ox,oy,s,demo,t){t=t||0;const lay=demo.lay,rows=lay.length,cols=lay[0].length;
+ const tints=['#fff1d9','#e3f3ff','#ffe6ee','#e6f7dc','#fff6c9','#ece3ff'];
+ const ids={};let n=0;for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){const ch=lay[y][x];if(!ch||ch==='#')continue;if(!(ch in ids))ids[ch]=n++}
+ rr(c,ox-4,oy-4,cols*s+8,rows*s+8,8);c.fillStyle='#e9e4d6';c.fill();c.strokeStyle=OL;c.lineWidth=2;c.stroke();
+ for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){const ch=lay[y][x],px=ox+x*s,py=oy+y*s;if(!ch||ch==='#'){c.fillStyle='#cfc8b6';c.fillRect(px,py,s,s);continue}c.fillStyle=tints[ids[ch]%tints.length];c.fillRect(px,py,s,s)}
+ const seg=(x0,y0,x1,y1)=>{c.strokeStyle='#7d7566';c.lineWidth=Math.max(4,s*.22);c.beginPath();c.moveTo(x0,y0+1);c.lineTo(x1,y1+1);c.stroke();c.strokeStyle='#fbf8f0';c.lineWidth=Math.max(2.5,s*.14);c.beginPath();c.moveTo(x0,y0);c.lineTo(x1,y1);c.stroke()};
+ for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){const ch=lay[y][x]||'#';if(x<cols-1&&(lay[y][x+1]||'#')!==ch)seg(ox+(x+1)*s,oy+y*s,ox+(x+1)*s,oy+(y+1)*s);if(y<rows-1&&(lay[y+1][x]||'#')!==ch)seg(ox+x*s,oy+(y+1)*s,ox+(x+1)*s,oy+(y+1)*s)}
+ rr(c,ox-4,oy-4,cols*s+8,rows*s+8,8);c.strokeStyle=OL;c.lineWidth=2.2;c.stroke();
+ for(const [x,y] of (demo.ice||[]))drawIce(c,ox+x*s,oy+y*s,s,t);
+ const drop=demo.drop;
+ for(const p of (demo.pieces||[])){let py=oy+p.y*s;if(drop&&p.it===drop){const u=(t%2)/2;py+= (1-Math.min(1,u*1.5))*-.9*s}drawPiece(c,{it:p.it,cells:p.cells||[[0,0]]},ox+p.x*s,py,s)}}
 function drawIce(c,x,y,s,t){rr(c,x+3,y+3,s-6,s-6,6);c.fillStyle='#7fd0ff';c.fill();c.strokeStyle=OL;c.lineWidth=2;c.stroke();rr(c,x+6,y+6,s-12,(s-12)*.35,4);c.fillStyle='rgba(255,255,255,.55)';c.fill();
  c.save();c.translate(x+s/2,y+s/2+2);c.strokeStyle='#fff';c.lineWidth=2;for(let k=0;k<3;k++){c.rotate(Math.PI/3);c.beginPath();c.moveTo(-8,0);c.lineTo(8,0);c.stroke()}c.restore();
  if(Math.sin(t*2+x)>.9){circ(c,x+s*.75,y+s*.25,2,'#fff')}}
@@ -421,7 +503,7 @@ function sfx(name,v){const c=AU.ctx;if(!c||c.state!=='running')return;const t=c.
  }}
 
 /* ---------- save ---------- */
-const VERSION='1.0.1',SKEY='lunchboxtetrispack_v1',W=360,H=640;
+const VERSION='1.0.2',SKEY='lunchboxtetrispack_v1',W=360,H=640;
 function defSave(){return{v:1,set:{music:.7,sfx:.8,mute:false,shake:true,tips:true},best:[],stars:[],unlocked:1,endBest:0,seen:{},top:[],
  stats:{packs:0,bal:0,sup:0,cups:0,ants:0,stk:0,ice:0,placed:0,sporks:0,levels:0,overs:0,time:0,bestCombo:0,lunches:0,cells:0}}}
 let SAVE=defSave();try{const s=JSON.parse(localStorage.getItem(SKEY)||'null');if(s&&s.v===1){SAVE=Object.assign(defSave(),s);SAVE.set=Object.assign(defSave().set,s.set||{});SAVE.stats=Object.assign(defSave().stats,s.stats||{})}}catch(e){}
@@ -688,13 +770,11 @@ const HOW=[{t:'PACK THE LUNCHBOX',l:['DRAG A FOOD FROM THE TRAY INTO THE','LUNCH
 function drawHow(c){menuBg(c,1);const pg=HOW[howPage];panel(c,16,60,328,450,'HOW TO PLAY');txtO(c,pg.t,180,88,2,'#e63946','center',OL);
  pg.l.forEach((l,i)=>txt(c,l,30,112+i*13,1,OL));
  const y0=232;c.save();
- if(pg.d==='pack'){for(let i=0;i<8;i++){c.fillStyle=i<4?'#fff8ec':'#f3fbff';c.fillRect(60+i*30,y0+30,30,90)}c.strokeStyle='#8f8878';c.lineWidth=5;c.beginPath();c.moveTo(180,y0+30);c.lineTo(180,y0+120);c.stroke();rr(c,60,y0+30,240,90,6);c.strokeStyle=OL;c.lineWidth=2;c.stroke();
-  drawPiece(c,{it:'sandwich',cells:[[0,0],[1,0],[0,1],[1,1]]},60,y0+30,30);drawPiece(c,{it:'carrot',cells:[[0,0],[1,0],[2,0]]},60,y0+90,30);const t=(T%2)/2;drawPiece(c,{it:'apple',cells:[[0,0],[1,0]]},120,y0+30+(1-Math.min(1,t*1.5))*-40,30);drawPiece(c,{it:'grape',cells:[[0,0]]},150,y0+90,30);
-  drawPiece(c,{it:'milk',cells:[[0,0],[0,1]]},150,y0+30,30);drawPiece(c,{it:'cheese',cells:[[0,0]]},120,y0+60,30);if(t>.7){txtO(c,'PACKED!',120,y0+136,2,'#ffe066','center',OL)}}
- if(pg.d==='tools'){drawBag(c,50,y0+40,80,90,0);drawPiece(c,{it:'yogurt',cells:ROTS.yogurt[Math.floor(T)%4]},150,y0+50,22);c.strokeStyle=OL;c.lineWidth=2;c.beginPath();c.arc(170,y0+130,10,-.5,4.2);c.stroke();txt(c,'TAP!',158,y0+146,1,OL);c.save();c.translate(270,y0+80);c.scale(3,3);drawSporkIcon(c,0,0,Math.floor(T*2)%2);c.restore()}
- if(pg.d==='groups'){const its=['apple','carrot','cracker','ham','milk','cookie'];its.forEach((it,i)=>{const g=GROUPS[ITEMS[it].g];drawPiece(c,{it,cells:[[0,0]]},34+i*50,y0+40,38);txt(c,g.n,53+i*50,y0+86,1,g.d,'center')});txtO(c,'BALANCED! x2',180,y0+108,2,'#4f9a3a','center',OL);txtO(c,'SUPER LUNCH! x3',180,y0+130,2,'#e0a92a','center',OL)}
+ if(pg.d==='pack'){const d=HOW_DEMOS.pack,s=28,bx=60,by=y0+28;drawMiniBox(c,bx,by,s,d,T);if((T%2)/2>.7)txtO(c,'PACKED!',bx+3*s,by+3*s+16,2,'#ffe066','center',OL)}
+ if(pg.d==='tools'){drawBag(c,28,y0+40,72,88,0);txt(c,'BAG',64,y0+136,1,OL,'center');drawMiniBox(c,118,y0+32,26,HOW_DEMOS.tools,T);c.save();c.translate(304,y0+86);c.scale(2.6,2.6);drawSporkIcon(c,0,0,Math.floor(T*2)%2);c.restore();txt(c,'SPORK',304,y0+136,1,OL,'center')}
+ if(pg.d==='groups'){const its=['apple','carrot','cracker','ham','milk','cookie'];its.forEach((it,i)=>{const g=GROUPS[ITEMS[it].g];drawPiece(c,{it,cells:[[0,0]]},28+i*52,y0+16,32);txt(c,g.n,44+i*52,y0+54,1,g.d,'center')});drawMiniBox(c,132,y0+68,26,HOW_DEMOS.groups,T);txtO(c,'SUPER LUNCH! x3',246,y0+92,1.5,'#e0a92a','left',OL);txt(c,'5 GROUPS, ALL FIT',246,y0+110,1,OL,'left')}
  if(pg.d==='orders'){drawKid(c,'ROSA',70,y0+80,28,1,T);rr(c,110,y0+40,210,80,8);c.fillStyle='#fff8ec';c.fill();c.strokeStyle=OL;c.lineWidth=2;c.stroke();drawOrders(c,116,y0+52,200,[{t:'pack',n:2,have:2},{t:'bal',n:1,have:0},{t:'eat',g:'F',n:6,have:4}]);drawSchoolBell(c,140,y0+140,Math.sin(T*20)*.3);txt(c,'BELL IN 5 FOODS',156,y0+136,1,OL)}
- if(pg.d==='haz'){drawIce(c,50,y0+50,44,T);drawAnt(c,160,y0+72,T,Math.sin(T)*2,1.6);drawSticker(c,240,y0+50,44,T);txt(c,'ICE',72,y0+104,1,OL,'center');txt(c,'ANT',160,y0+104,1,OL,'center');txt(c,'STICKER',262,y0+104,1,OL,'center')}
+ if(pg.d==='haz'){drawMiniBox(c,48,y0+40,32,HOW_DEMOS.haz,T);txt(c,'ICE',80,y0+114,1,OL,'center');drawAnt(c,176,y0+72,T,Math.sin(T)*2,1.6);txt(c,'ANT',176,y0+114,1,OL,'center');drawSticker(c,230,y0+48,40,T);txt(c,'STICKER',250,y0+114,1,OL,'center')}
  if(pg.d==='keys'){const keys=[['ARROWS',60],['1-4',140],['R',196],['SPACE',250]];keys.forEach(([k,x])=>{const w=textW(k,1)+14;rr(c,x-w/2,y0+60,w,22,4);c.fillStyle='#fff';c.fill();c.strokeStyle=OL;c.lineWidth=2;c.stroke();txt(c,k,x,y0+68,1,OL,'center')})}
  c.restore();
  for(let i=0;i<HOW.length;i++)circ(c,180-(HOW.length-1)*7+i*14,486,4,i===howPage?'#e63946':'#d9cbb5',OL,1);
@@ -776,7 +856,7 @@ function drawCredits(c){menuBg(c,0);c.fillStyle='rgba(42,26,20,.78)';c.fillRect(
  if(!BTN.length)B(100,576,160,42,'BACK',()=>go('title'),{col:'#8a5cc0',back:1});drawBtns(c)}
 /* ---------- boot ---------- */
 resize();requestAnimationFrame(frame);
-window.LB={get S(){return S},get scene(){return scene},get BTN(){return BTN},get tally(){return tally},get hint(){return hint},get paused(){return paused},get adBusy(){return adBusy},get kb(){return kb},go,startLevel,openIntro,pauseGame,resumeGame,SAVE:()=>SAVE,VERSION,LEVELS,
+window.LB={get S(){return S},get scene(){return scene},get howPage(){return howPage},setHow(n){howPage=n|0;BTN=[];if(scene!=='howto')go('howto')},HOW_DEMOS,howDemoLegal,newStateFrom,get BTN(){return BTN},get tally(){return tally},get hint(){return hint},get paused(){return paused},get adBusy(){return adBusy},get kb(){return kb},go,startLevel,openIntro,pauseGame,resumeGame,SAVE:()=>SAVE,VERSION,LEVELS,
  place:(slot,x,y)=>{const r=place(S,slot,x,y);handleEvents();afterAction();return r},stash:k=>{const r=stash(S,k);handleEvents();return r},spork:i=>{const r=spork(S,i);handleEvents();return r},
  bot:(n,noise)=>{for(let i=0;i<(n||1);i++){if(!S||S.over||S.complete)break;botTurn(S,noise||0);handleEvents()}},adRewarded,adInterstitial,runHost,adClock:v=>{sessionT=v;lastAdAt=0;levelsSinceAd=5},T:()=>T,idle:v=>{idleT=v},started:()=>started,
  findPos:slot=>{const p=slot===3?S.bag:S.tray[slot];if(!p)return null;for(let y=0;y<8;y++)for(let x=0;x<8;x++)if(canPlace(S,p.cells,x,y))return{x,y,cells:p.cells};return null}};

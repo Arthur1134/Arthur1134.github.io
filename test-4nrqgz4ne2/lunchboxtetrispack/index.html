@@ -82,7 +82,7 @@ const CAT_W={F:15,V:16,G:16,P:22,D:16,T:8};
 const WEEKS=[{n:'BACK TO SCHOOL',col:'#e63946',bg:'#ffd9a8',bg2:'#ffc48a',music:'week1'},{n:'PICKY EATERS',col:'#2a9d8f',bg:'#c8f0e2',bg2:'#a4e0cb',music:'week2'},
  {n:'FIELD TRIP',col:'#3a86ff',bg:'#cfe4ff',bg2:'#aecdfa',music:'week3'},{n:'BAKE SALE',col:'#c2477a',bg:'#ffd6ea',bg2:'#f9b8d6',music:'week4'}];
 const DAYS=['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY'];
-/* orders: pack n | bal n (3+ food groups) | sup n (all 5 healthy groups) | grp g n (only group g) | eat g n (cells of g packed) | stk n | ant n | score n */
+/* orders: pack n | bal n (3+ food groups, all six including treat) | sup n (4+ food groups, all six including treat) | grp g n (only group g) | eat g n (cells of g packed) | stk n | ant n | score n */
 const LEVELS=[
  {kid:'TIMMY',say:'JUST PACK MY LUNCH, PLEASE!',lay:'halves',pool:P_SMALL,pieces:16,sp:2,ord:[['pack',2]],tip:1},
  {kid:'ROSA',say:'I LIKE A LITTLE OF EVERYTHING!',lay:'quad',pool:P_SMALL,pieces:20,sp:2,ord:[['pack',2],['bal',1]]},
@@ -109,7 +109,7 @@ const BELL=[14,21,33,31,28,29,36,51,35,38,33,46,24,44,38,32,47,44,28,73];const S
 LEVELS.forEach((L,i)=>{L.w=Math.floor(i/5);L.d=i%5;if(BELL[i])L.pieces=BELL[i];L.stars=STAR_T[i]||[3000,5000]});
 const ENDLESS={kid:'LUNCH RUSH',say:'HOW MANY LUNCHES CAN YOU PACK?',lay:'school',pool:P_STD,pieces:Infinity,sp:2,ord:[],endless:1};
 const KIDS_E=['TIMMY','ROSA','MAX','PRIYA','LEO','JUNE','OMAR','BEA','SAM','KAI','NINA','OTTO','IVY','RAY','ZOE','BEN','LILA','GUS','MAE'];
-const TIPS=['','DRAG FOOD INTO A COMPARTMENT. FILL IT TO PACK IT!','ICE PACKS FILL A SPOT FOR YOU AND MELT FOR +50.','ONLY-FRUIT COMPARTMENT = FRUIT CUP!','SUPER LUNCH = 4 OR MORE FOOD GROUPS IN ONE COMPARTMENT!','ANTS WALK AROUND AND RUIN BONUSES. TAP THE SPORK, THEN AN ANT!','PACK A COMPARTMENT ON A GOLD STICKER TO COLLECT IT.','PACK A BALANCED OR SUPER LUNCH TO EARN A SPORK! UP TO 3 EXTRA PER DAY. USE THEM TO SQUISH ANTS.'];
+const TIPS=['','DRAG FOOD INTO A COMPARTMENT. FILL IT TO PACK IT!','ICE PACKS FILL A SPOT FOR YOU AND MELT FOR +50.','ONLY-FRUIT COMPARTMENT = FRUIT CUP!','SUPER LUNCH = 4 OR MORE FOOD GROUPS IN ONE COMPARTMENT, INCLUDING TREATS!','ANTS WALK AROUND AND RUIN BONUSES. TAP THE SPORK, THEN AN ANT!','PACK A COMPARTMENT ON A GOLD STICKER TO COLLECT IT.','PACK A BALANCED OR SUPER LUNCH TO EARN A SPORK! UP TO 3 EXTRA PER DAY. USE THEM TO SQUISH ANTS.'];
 
 /* How to Play diagrams: layouts + pieces that must fit legally (validated by howDemoLegal) */
 const HOW_DEMOS={
@@ -214,13 +214,11 @@ function place(S,slot,x,y,cellsOverride){const p=slot===3?S.bag:S.tray[slot];if(
  if(S.left!==Infinity&&S.left<=0){if(!S.complete){S.over=true;S.reason='bell';S.ev.push({type:'over',why:'bell'})}}
  else maybeJam(S);
  return true}
-function packComp(S,cid){const c=S.comps[cid];const food=c.cells.map(i=>S.grid[i]).filter(g=>g.it);const groups=new Set(food.filter(f=>f.g!=='T').map(f=>f.g));const all=new Set(food.map(f=>f.g));
+function lunchGroups(food){const groups=new Set();for(const f of food){if(!f||!f.it)continue;const g=(ITEMS[f.it]&&ITEMS[f.it].g)||f.g;if(g)groups.add(g)}return groups}
+function packVerdict(food,hasAnt){const groups=lunchGroups(food);if(hasAnt)return{mult:.5,label:'ANTS! YUCK!',kind:'ants',groups};if(groups.size>=4)return{mult:3,label:'SUPER LUNCH!',kind:'sup',groups};if(groups.size===1&&food.length>=1)return{mult:2,label:GROUPS[[...groups][0]].cup,kind:'cup',groups};if(groups.size>=3)return{mult:2,label:'BALANCED!',kind:'bal',groups};return{mult:1,label:'PACKED!',kind:'pack',groups}}
+function packComp(S,cid){const c=S.comps[cid];const food=c.cells.map(i=>S.grid[i]).filter(g=>g.it);const v=packVerdict(food,c.cells.some(i=>S.grid[i].ant));const groups=v.groups,all=groups;
  const ant=c.cells.filter(i=>S.grid[i].ant).length,ice=c.cells.filter(i=>S.grid[i].ice).length,stk=c.cells.filter(i=>S.stk[i]).length;
- let mult=1,label='PACKED!',kind='pack';
- if(ant){mult=.5;label='ANTS! YUCK!';kind='ants'}
- else if(groups.size>=4){mult=3;label='SUPER LUNCH!';kind='sup'}
- else if(all.size===1&&food.length>=1){mult=2;label=GROUPS[[...all][0]].cup;kind='cup'}
- else if(groups.size>=3){mult=2;label='BALANCED!';kind='bal'}
+ let mult=v.mult,label=v.label,kind=v.kind;
  S.combo=S.sincePack<=3?S.combo+1:1;S.sincePack=0;S.bestCombo=Math.max(S.bestCombo,S.combo);const cm=1+.25*Math.min(8,S.combo-1);
  const base=c.cells.length*20,pts=Math.round(base*mult*cm/5)*5+ice*50+ant*25+stk*150;S.score+=pts;
  S.packs++;S.st.packs++;if(kind==='bal')S.st.bal++;if(kind==='sup'){S.st.sup++;S.st.bal++}if(kind==='cup')S.st.cups++;S.st.ants+=ant;S.st.stk+=stk;S.st.ice+=ice;S.ants-=ant;
@@ -255,7 +253,7 @@ function holeScore(S){let pen=0;for(const c of S.comps){const emp=c.cells.filter
 function cloneLite(S){return{comp:S.comp,comps:S.comps,grid:S.grid.slice(),stk:S.stk}}
 function botEval(S,p,cells,x,y){const T=cloneLite(S);const ic=[];for(const [dx,dy] of cells){const i=(y+dy)*8+x+dx;T.grid[i]={it:p.it,g:ITEMS[p.it].g,pid:p.id};ic.push(i)}
  const c=S.comps[S.comp[ic[0]]];let v=0;const full=c.cells.every(i=>T.grid[i]);
- const food=c.cells.map(i=>T.grid[i]).filter(g=>g&&g.it),groups=new Set(food.filter(f=>f.g!=='T').map(f=>f.g)),all=new Set(food.map(f=>f.g));
+ const food=c.cells.map(i=>T.grid[i]).filter(g=>g&&g.it),groups=lunchGroups(food),all=groups;
  const fillFrac=c.cells.filter(i=>T.grid[i]).length/c.cells.length;const before=c.cells.filter(i=>S.grid[i]).length/c.cells.length;v+=fillFrac*fillFrac*6+before*3-(c.cells.length>12?.6:0);
  if(full){v+=10;const ant=c.cells.some(i=>T.grid[i].ant);if(!ant){if(groups.size>=4)v+=8;else if(all.size===1&&food.length>=1)v+=4;else if(groups.size>=3)v+=4}else v-=2;
   for(const o of S.orders){if(o.have>=o.n)continue;if(o.t==='pack')v+=4;if(o.t==='bal'&&groups.size>=3&&!ant)v+=6;if(o.t==='sup'&&groups.size>=4)v+=12;if(o.t==='grp'&&all.size===1&&all.has(o.g))v+=10;if(o.t==='stk')v+=c.cells.filter(i=>S.stk[i]).length*6;if(o.t==='ant')v+=c.cells.filter(i=>T.grid[i].ant).length*4;if(o.t==='eat')v+=food.filter(f=>f.g===o.g).length*.6}}
@@ -509,7 +507,7 @@ function sfx(name,v){const c=AU.ctx;if(!c||c.state!=='running')return;const t=c.
  }}
 
 /* ---------- save ---------- */
-const VERSION='1.0.4',SKEY='lunchboxtetrispack_v1',W=360,H=640;
+const VERSION='1.0.5',SKEY='lunchboxtetrispack_v1',W=360,H=640;
 function defSave(){return{v:1,set:{music:.7,sfx:.8,mute:false,shake:true,tips:true},best:[],stars:[],unlocked:1,endBest:0,seen:{},top:[],
  stats:{packs:0,bal:0,sup:0,cups:0,ants:0,stk:0,ice:0,placed:0,sporks:0,levels:0,overs:0,time:0,bestCombo:0,lunches:0,cells:0}}}
 let SAVE=defSave();try{const s=JSON.parse(localStorage.getItem(SKEY)||'null');if(s&&s.v===1){SAVE=Object.assign(defSave(),s);SAVE.set=Object.assign(defSave().set,s.set||{});SAVE.stats=Object.assign(defSave().stats,s.stats||{})}}catch(e){}
@@ -812,7 +810,7 @@ function drawTitle(c){menuBg(c,0);drawLogo(c,58,1);
 /* ----- how to ----- */
 const HOW=[{t:'PACK THE LUNCHBOX',l:['DRAG A FOOD FROM THE TRAY INTO THE','LUNCHBOX. EVERY FOOD MUST FIT INSIDE','ONE COMPARTMENT - NO CROSSING THE','DIVIDERS!','','FILL A COMPARTMENT COMPLETELY','AND IT GETS PACKED: POINTS, SPARKLES','AND ROOM FOR MORE FOOD.'],d:'pack'},
  {t:'SPIN, STASH, SPORK',l:['TAP A FOOD IN THE TRAY TO SPIN IT.','DRAG A FOOD ONTO THE BROWN BAG TO','SAVE IT FOR LATER. DRAG IT BACK OUT','ANY TIME.','STUCK? TAP THE SPORK, THEN A PACKED','FOOD TO EAT IT AND FREE THE SPACE.','PACK A BALANCED OR SUPER LUNCH TO','EARN +1 SPORK (UP TO 3 PER DAY).'],d:'tools'},
- {t:'FOOD GROUPS = BONUSES',l:['3+ FOOD GROUPS IN ONE COMPARTMENT','   = BALANCED!  x2  AND +1 SPORK','4+ FOOD GROUPS = SUPER LUNCH!  x3','   AND +1 SPORK (MAX 3 PER DAY)','ALL ONE GROUP = FRUIT CUP, VEGGIE','   TRAY, CARB LOAD...  x2','PACK AGAIN WITHIN 3 FOODS FOR A','COMBO MULTIPLIER!'],d:'groups'},
+ {t:'FOOD GROUPS = BONUSES',l:['3+ FOOD GROUPS IN ONE COMPARTMENT','   = BALANCED!  x2  AND +1 SPORK','4+ FOOD GROUPS = SUPER LUNCH!  x3','   AND +1 SPORK (MAX 3 PER DAY)','ALL SIX GROUPS COUNT, INCLUDING','   TREATS. ALL ONE GROUP = A CUP.','PACK AGAIN WITHIN 3 FOODS FOR A','COMBO MULTIPLIER!'],d:'groups'},
  {t:'LUNCH ORDERS',l:['EACH DAY A KID PLACES AN ORDER.','FINISH EVERY ORDER BEFORE THE','LUNCH BELL RINGS (YOU HAVE A SET','NUMBER OF FOODS).','','LEFTOVER FOODS AND SPORKS ARE','BONUS POINTS. SCORE HIGH FOR 3 STARS.','ENDLESS MODE HAS NO BELL!'],d:'orders'},
  {t:'WATCH OUT!',l:['ICE PACKS FILL A SQUARE FOR YOU','AND MELT FOR +50.','ANTS WANDER INTO EMPTY SQUARES.','A COMPARTMENT PACKED WITH ANTS','IS YUCK - NO BONUS. SPORK THEM!','EARN +1 SPORK ON A BALANCED OR','SUPER PACK (UP TO 3 PER DAY).','GOLD STICKERS: PACK OVER THEM!'],d:'haz'},
  {t:'CONTROLS',l:['TOUCH / MOUSE: DRAG TO PLACE,','TAP TO SPIN, DRAG TO BAG TO SAVE.','','KEYBOARD: ARROWS MOVE, 1-4 OR TAB','PICK A FOOD, R SPIN, SPACE PLACE,','H BAG, S SPORK, P PAUSE.','','Q / E ALSO CYCLE FOODS. ESC CANCELS.'],d:'keys'}];

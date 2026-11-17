@@ -1,5 +1,5 @@
-// Grocery List v2.5 — offline support. Bump CACHE when files change.
-const CACHE = 'grocery-list-v2.5';
+// Grocery List v2.6 — offline support. Bump CACHE when files change.
+const CACHE = 'grocery-list-v2.6';
 const ASSETS = [
   './',
   './index.html',

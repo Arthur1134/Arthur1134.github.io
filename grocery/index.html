@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#8FA78E">
-    <meta name="description" content="Cottage-style grocery list with totals, shopping mode and a calculator. By Retro Gaming Dad.">
+    <meta name="description" content="Cottage-style grocery list with totals, a shopping list, a Costco list and a calculator. By Retro Gaming Dad.">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -172,18 +172,25 @@
             background: linear-gradient(to bottom, var(--sage) 0%, var(--sage-mid) 100%);
             border-top: 2px solid var(--sage-dark); box-shadow: 0 -4px 14px rgba(0,0,0,0.18);
         }
-        .bottom-inner { max-width: 800px; margin: 0 auto; display: flex; align-items: center; gap: 10px; min-height: 56px; }
+        .bottom-inner { max-width: 800px; margin: 0 auto; display: flex; align-items: center; gap: 8px; min-height: 56px; }
         .bb-total { flex: 1; color: #fff; min-width: 0; text-shadow: 0 1px 2px rgba(0,0,0,0.35); }
         .bb-label { font-size: .85em; letter-spacing: .5px; }
         .bb-amount { font-size: 1.7em; font-weight: bold; line-height: 1.1; }
         .bb-sub { font-size: .8em; }
         .bb-btn {
-            min-height: 52px; min-width: 52px; padding: 6px 14px; border-radius: 10px;
+            min-height: 52px; min-width: 44px; padding: 6px 12px; border-radius: 10px;
             background: var(--cream); color: var(--ink); border: 2px solid var(--sage-dark);
-            font-weight: bold; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.12);
+            font-weight: bold; display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.12); flex: 0 0 auto; white-space: nowrap;
         }
         .bb-btn[aria-pressed="true"] { background: #F3E6CF; border-color: var(--tan-dark); }
-        .bb-btn .ico { font-size: 1.35em; }
+        .bb-btn .ico { font-size: 1.35em; line-height: 1; }
+        .bb-btn .txt-short { display: none; }
+        .bb-list-btn { padding: 6px 10px; }
+        .costco-item { grid-template-columns: 44px minmax(0,1fr) auto auto auto; grid-template-areas: "chk name qty price del"; }
+        .costco-item .delete-item-btn { grid-area: del; }
+        .costco-item.purchased .item-name, .costco-item.purchased .item-price, .costco-item.purchased .qty-display { text-decoration: line-through; color: #8A7A64; }
+        .costco-item.purchased { background: #F6F2EA; }
         .save-indicator {
             position: fixed; left: 50%; bottom: calc(var(--bar-h) + 18px + env(safe-area-inset-bottom));
             transform: translate(-50%, 20px); background: var(--sage-dark); color: #fff; padding: 10px 18px;
@@ -314,11 +321,31 @@
             .delete-item-btn { justify-self: end; }
             .shop-item { grid-template-columns: 44px minmax(0,1fr) auto auto; grid-template-areas: "chk name qty price"; }
             .bb-amount { font-size: 1.45em; }
-            .bb-btn { padding: 6px 10px; }
-            .bb-btn .txt { font-size: .9em; }
+            .bb-btn { padding: 6px 8px; }
+            .bb-btn .txt { font-size: .85em; }
+            .bottom-inner { gap: 6px; }
         }
-        @media (max-width: 360px) { .bb-btn .txt { display: none; } }
-        @media (max-width: 480px) { #calcBtn .txt, #recipesBtn .txt { display: none; } #calcBtn, #recipesBtn { padding: 6px 8px; } }
+        @media (max-width: 520px) {
+            #viewToggleBtn .txt-full { display: none; }
+            #viewToggleBtn .txt-short { display: inline; }
+        }
+        @media (max-width: 480px) {
+            #calcBtn .txt, #recipesBtn .txt { display: none; }
+            #calcBtn, #recipesBtn { padding: 6px 7px; min-width: 44px; }
+        }
+        @media (max-width: 390px) {
+            .bottom-bar { padding-left: 8px; padding-right: 8px; }
+            .bottom-inner { gap: 5px; }
+            .bb-amount { font-size: 1.28em; }
+            .bb-label { font-size: .78em; }
+            .bb-btn { min-width: 40px; min-height: 48px; padding: 5px 6px; gap: 3px; }
+            .bb-list-btn .txt { font-size: .78em; }
+        }
+        @media (max-width: 360px) {
+            .bottom-inner { gap: 4px; }
+            #viewToggleBtn .txt { display: none; }
+            /* Keep the Costco label visible; hide List text to free width. */
+        }
         @media print {
             body { background: white; padding: 0; }
             .grocery-container { box-shadow: none; border: none; }
@@ -339,7 +366,7 @@
         <div class="leaf leaf4" aria-hidden="true">🌾</div>
 
         <header>
-            <h1>Grocery List</h1>
+            <h1 id="appTitle">Grocery List</h1>
             <p class="subtitle" id="subtitle">Tick items to add them to your shopping list</p>
         </header>
 
@@ -381,6 +408,25 @@
             <div id="shopList"></div>
         </section>
 
+        <section id="costcoView" aria-label="Costco shopping list" hidden>
+            <div class="shop-progress">
+                <div class="shop-progress-row">
+                    <span class="shop-progress-count" id="costcoCount" aria-live="polite">0 of 0 crossed off</span>
+                    <label class="switch"><input type="checkbox" id="hideCostcoPurchased"> Hide crossed-off</label>
+                </div>
+                <progress id="costcoProgress" max="1" value="0" aria-label="Costco shopping progress"></progress>
+                <div class="shop-progress-row" style="margin-top:8px">
+                    <span>Left to buy: <strong id="costcoLeft">$0.00</strong></span>
+                    <span>Trip total: <strong id="costcoTripTotal">$0.00</strong></span>
+                </div>
+            </div>
+            <div class="toolbar" id="costcoToolbar">
+                <button type="button" class="btn btn-green" id="costcoAddBtn">➕ Add Item</button>
+                <button type="button" class="btn" id="costcoClearBtn" hidden>Clear Crossed-Off</button>
+            </div>
+            <div id="costcoList"></div>
+        </section>
+
         <div class="divider"></div>
 
         <section class="tools" aria-labelledby="toolsTitle">
@@ -403,7 +449,7 @@
 
         <footer>
             <p class="footer-note">🌻 Check items to add to your shopping list 🌻</p>
-            <p class="credit">Grocery List <span id="versionLabel">v2.3</span> · Made by Retro Gaming Dad 🎮</p>
+            <p class="credit">Grocery List <span id="versionLabel">v2.5</span> · Made by Retro Gaming Dad 🎮</p>
         </footer>
     </div>
 
@@ -416,7 +462,8 @@
             </div>
             <button type="button" class="bb-btn" id="calcBtn" aria-label="Calculator" aria-haspopup="dialog" aria-controls="calcDialog"><span class="ico" aria-hidden="true">🧮</span><span class="txt">Calc</span></button>
             <button type="button" class="bb-btn" id="recipesBtn" aria-label="Recipes" aria-haspopup="dialog" aria-controls="recipesDialog"><span class="ico" aria-hidden="true">📖</span><span class="txt">Recipes</span></button>
-            <button type="button" class="bb-btn" id="viewToggleBtn" aria-pressed="false"><span class="ico" aria-hidden="true">🛒</span><span class="txt" id="viewToggleTxt">Shopping List</span></button>
+            <button type="button" class="bb-btn bb-list-btn" id="viewToggleBtn" aria-pressed="false" aria-label="Shopping list"><span class="ico" aria-hidden="true">🛒</span><span class="txt" id="viewToggleTxt"><span class="txt-full" id="viewToggleTxtFull">Shopping List</span><span class="txt-short" id="viewToggleTxtShort">List</span></span></button>
+            <button type="button" class="bb-btn bb-list-btn" id="costcoBtn" aria-pressed="false" aria-label="Costco list"><span class="ico" aria-hidden="true">🏬</span><span class="txt">Costco</span></button>
         </div>
     </nav>
 
@@ -433,7 +480,7 @@
                 <label for="fPrice">Price each ($)</label>
                 <input id="fPrice" inputmode="decimal" autocomplete="off" placeholder="0.00" enterkeyhint="done" required>
             </div>
-            <div class="field">
+            <div class="field" id="fCatField">
                 <label for="fCat">Section</label>
                 <select id="fCat"></select>
                 <p class="field-hint" id="fCatHint" hidden>Built-in items stay in their section.</p>
@@ -535,7 +582,7 @@
     <script>
     'use strict';
     (function () {
-        const APP_VERSION = '2.4';
+        const APP_VERSION = '2.5';
         const STORE_KEY = 'groceryApp.v2';
         const CALC_KEY = 'groceryApp.calc';
         const LEGACY_BACKUP_KEY = 'groceryApp.legacyBackup';
@@ -717,9 +764,17 @@
 
         let lastT = 0;
         function tick() { lastT = Math.max(Date.now(), lastT + 1); return lastT; }
-        function observeT(d) { for (const r of Object.values(d.items)) for (const f of FIELDS) if (r[f] && r[f][1] > lastT) lastT = r[f][1]; }
+        const COSTCO_FIELDS = ['name', 'price', 'qty', 'purchased', 'del'];
+        const COSTCO_CONTENT_FIELDS = ['name', 'price', 'qty', 'purchased'];
+        const COSTCO_ID = /^k:[a-z0-9]{4,38}$/;
+        function newCostcoId() { return 'k:' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 
-        function emptyDoc() { return { v: 3, items: {} }; }
+        function observeT(d) {
+            for (const r of Object.values(d.items || {})) for (const f of FIELDS) if (r[f] && r[f][1] > lastT) lastT = r[f][1];
+            for (const r of Object.values(d.costco || {})) for (const f of COSTCO_FIELDS) if (r[f] && r[f][1] > lastT) lastT = r[f][1];
+        }
+
+        function emptyDoc() { return { v: 3, items: {}, costco: {} }; }
         function validId(id) { return BUILTIN_BY_ID.has(id) || CUSTOM_ID.test(id); }
         function cleanReg(f, reg, isCustom) {
             if (!Array.isArray(reg) || reg.length !== 2) return null;
@@ -734,15 +789,42 @@
             }
             return [v, t];
         }
+        function cleanCostcoReg(f, reg) {
+            if (!Array.isArray(reg) || reg.length !== 2) return null;
+            let v = reg[0]; const t = reg[1];
+            if (typeof t !== 'number' || !Number.isFinite(t) || t < 0 || t > Date.now() + MAX_SKEW) return null;
+            switch (f) {
+                case 'name': v = cleanName(v); if (!v) return null; break;
+                case 'price': v = toPrice(v); if (v === null) return null; break;
+                case 'qty': v = clampQty(v); break;
+                default: if (typeof v !== 'boolean') return null;
+            }
+            return [v, t];
+        }
+        function normalizeCostcoMap(raw) {
+            const out = {};
+            if (!raw || typeof raw !== 'object') return out;
+            for (const [id, r] of Object.entries(raw)) {
+                if (!COSTCO_ID.test(id) || !r || typeof r !== 'object') continue;
+                const rec = {};
+                for (const f of COSTCO_FIELDS) { const c = cleanCostcoReg(f, r[f]); if (c) rec[f] = c; }
+                if (Object.keys(rec).length) out[id] = rec;
+            }
+            return out;
+        }
         function normalizeDoc(raw) {
             const d = emptyDoc();
-            if (!raw || typeof raw !== 'object' || !raw.items || typeof raw.items !== 'object') return d;
-            for (const [id, r] of Object.entries(raw.items)) {
-                if (!validId(id) || !r || typeof r !== 'object') continue;
-                const isCustom = !BUILTIN_BY_ID.has(id), out = {};
-                for (const f of FIELDS) { const c = cleanReg(f, r[f], isCustom); if (c) out[f] = c; }
-                if (Object.keys(out).length) d.items[id] = out;
+            // Older saves (v2.4 and earlier) have no costco map — that stays empty and the grocery list still loads.
+            if (!raw || typeof raw !== 'object') return d;
+            if (raw.items && typeof raw.items === 'object') {
+                for (const [id, r] of Object.entries(raw.items)) {
+                    if (!validId(id) || !r || typeof r !== 'object') continue;
+                    const isCustom = !BUILTIN_BY_ID.has(id), out = {};
+                    for (const f of FIELDS) { const c = cleanReg(f, r[f], isCustom); if (c) out[f] = c; }
+                    if (Object.keys(out).length) d.items[id] = out;
+                }
             }
+            d.costco = normalizeCostcoMap(raw.costco);
             return d;
         }
         // Pure merge: commutative, associative and idempotent (safe to repeat, in any order).
@@ -754,16 +836,25 @@
         }
         function mergeDocs(a, b) {
             const out = emptyDoc();
-            const ids = new Set([...Object.keys(a.items), ...Object.keys(b.items)]);
+            const ids = new Set([...Object.keys(a.items || {}), ...Object.keys(b.items || {})]);
             for (const id of ids) {
                 const ra = a.items[id] || {}, rb = b.items[id] || {}, r = {};
                 for (const f of FIELDS) { const w = newer(ra[f], rb[f]); if (w) r[f] = [w[0], w[1]]; }
                 out.items[id] = r;
             }
+            const cids = new Set([...Object.keys(a.costco || {}), ...Object.keys(b.costco || {})]);
+            for (const id of cids) {
+                const ra = (a.costco || {})[id] || {}, rb = (b.costco || {})[id] || {}, r = {};
+                for (const f of COSTCO_FIELDS) { const w = newer(ra[f], rb[f]); if (w) r[f] = [w[0], w[1]]; }
+                out.costco[id] = r;
+            }
             return out;
         }
         function canonical(d) {
-            return JSON.stringify(Object.keys(d.items).sort().map(id => [id, FIELDS.map(f => d.items[id][f] || 0)]));
+            return JSON.stringify({
+                items: Object.keys(d.items || {}).sort().map(id => [id, FIELDS.map(f => d.items[id][f] || 0)]),
+                costco: Object.keys(d.costco || {}).sort().map(id => [id, COSTCO_FIELDS.map(f => d.costco[id][f] || 0)])
+            });
         }
         // What an item looks like right now (null = not a valid item)
         function effRec(d, id) {
@@ -789,7 +880,12 @@
             return m;
         }
         function effSignature(d) {
-            return JSON.stringify([...effAll(d).values()].map(e => [e.id, e.name, e.price, e.cat, e.del, e.checked, e.qty, e.purchased]));
+            const grocery = [...effAll(d).values()].map(e => [e.id, e.name, e.price, e.cat, e.del, e.checked, e.qty, e.purchased]);
+            const costco = Object.keys(d.costco || {}).sort().map(id => {
+                const e = costcoEffRec(d, id);
+                return e ? [e.id, e.name, e.price, e.qty, e.purchased, e.del] : [id, null];
+            });
+            return JSON.stringify({ grocery, costco });
         }
 
         // v2 state -> v3 document (the upgrade, v2 backups and v1 data all come through here)
@@ -836,9 +932,29 @@
         }
 
         let doc = emptyDoc();
-        let localPrefs = { hidePurchased: false };
+        let localPrefs = { hidePurchased: false, hideCostcoPurchased: false };
         let changeSeq = 0;
         function setReg(id, f, v) { (doc.items[id] = doc.items[id] || {})[f] = [v, tick()]; }
+        function setCostcoReg(id, f, v) { (doc.costco[id] = doc.costco[id] || {})[f] = [v, tick()]; }
+        function costcoEffRec(d, id) {
+            const r = (d.costco || {})[id] || {};
+            const g = (f, dflt) => r[f] ? r[f][0] : dflt;
+            const name = g('name', null), price = g('price', null);
+            if (!name || typeof price !== 'number') return null;
+            const qty = clampQty(g('qty', 1));
+            const purchased = g('purchased', false) === true;
+            let del = g('del', false) === true;
+            if (del && r.del && COSTCO_CONTENT_FIELDS.some(f => r[f] && r[f][1] > r.del[1])) del = false;
+            return { id, name, price, qty, purchased, del };
+        }
+        function effCostcoAll(d) {
+            const m = new Map();
+            for (const id of Object.keys(d.costco || {})) { const e = costcoEffRec(d, id); if (e) m.set(id, e); }
+            return m;
+        }
+        function allCostcoItems() { return [...effCostcoAll(doc).values()].filter(e => e && !e.del).sort(byName); }
+        function costcoById(id) { const e = costcoEffRec(doc, id); return e && !e.del ? e : null; }
+
         function persist() { return storage.set(DOC_KEY, JSON.stringify(doc)); }
         function commit(msg) {
             const ok = persist();
@@ -884,6 +1000,30 @@
                 if (!c || c.del) setReg(id, 'del', false);
             }
         }
+        function applyCostcoTarget(target) {
+            const cur = effCostcoAll(doc);
+            for (const id of new Set([...cur.keys(), ...target.keys()])) {
+                const c = cur.get(id), t = target.get(id);
+                if (!t || t.del) {
+                    if (c && !c.del) setCostcoReg(id, 'del', true);
+                    continue;
+                }
+                if (!c || c.name !== t.name) setCostcoReg(id, 'name', t.name);
+                if (!c || c.price !== t.price) setCostcoReg(id, 'price', t.price);
+                if (!c || c.qty !== t.qty) setCostcoReg(id, 'qty', t.qty);
+                if (!c || c.purchased !== t.purchased) setCostcoReg(id, 'purchased', !!t.purchased);
+                if (!c || c.del) setCostcoReg(id, 'del', false);
+            }
+        }
+        function costcoTotals() {
+            const t = { total: 0, left: 0, count: 0, done: 0 };
+            for (const it of allCostcoItems()) {
+                const line = it.price * it.qty;
+                t.total += line; t.count++;
+                if (it.purchased) t.done++; else t.left += line;
+            }
+            return t;
+        }
         const byName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
         function groupByCat(items) {
             const m = new Map(CATS.map(c => [c.id, []]));
@@ -905,6 +1045,7 @@
 
         // ---------- rendering ----------
         const mainView = $('mainView'), shopView = $('shopView'), shopList = $('shopList');
+        const costcoView = $('costcoView'), costcoList = $('costcoList');
         let view = 'main', mainScrollY = 0, rowSeq = 0;
 
         function renderRow(it) {
@@ -975,6 +1116,24 @@
             const delCount = deletedBuiltins().length;
             $('restoreDeletedBtn').hidden = delCount === 0;
             $('restoreDeletedBtn').textContent = '↺ Restore Deleted Items (' + delCount + ')';
+
+            const c = costcoTotals();
+            $('costcoCount').textContent = c.done + ' of ' + c.count + ' crossed off';
+            $('costcoProgress').max = Math.max(1, c.count);
+            $('costcoProgress').value = c.done;
+            $('costcoLeft').textContent = money(c.left);
+            $('costcoTripTotal').textContent = money(c.total);
+            const crossed = allCostcoItems().filter(i => i.purchased).length;
+            $('costcoClearBtn').hidden = crossed === 0;
+            if (view === 'costco') {
+                $('bbLabel').textContent = 'Costco Total';
+                $('runningTotal').textContent = money(c.total);
+                $('calcTotalVal').textContent = money(c.total);
+                sub.hidden = false;
+                sub.textContent = 'Left to buy: ' + money(c.left);
+            } else {
+                $('bbLabel').textContent = 'Shopping Total';
+            }
         }
 
         function renderShopping() {
@@ -1013,7 +1172,42 @@
             updateTotals();
         }
 
-        function render() { renderMain(); if (view === 'shop') renderShopping(); }
+        function renderCostcoRow(it) {
+            const cb = 'cc' + (++rowSeq);
+            return el('li', { class: 'item costco-item' + (it.purchased ? ' purchased' : ''), 'data-id': it.id },
+                el('input', { type: 'checkbox', class: 'check', id: cb, 'data-action': 'purchase', checked: it.purchased }),
+                el('label', { for: cb, class: 'item-name', text: it.name }),
+                el('div', { class: 'qty', role: 'group', 'aria-label': 'Quantity of ' + it.name },
+                    el('button', { type: 'button', class: 'qty-btn', 'data-action': 'dec', 'aria-label': 'Decrease ' + it.name, disabled: it.qty <= 1, text: '−' }),
+                    el('span', { class: 'qty-display', text: String(it.qty) }),
+                    el('button', { type: 'button', class: 'qty-btn', 'data-action': 'inc', 'aria-label': 'Increase ' + it.name, disabled: it.qty >= MAX_QTY, text: '+' })),
+                el('button', { type: 'button', class: 'item-price', 'data-action': 'edit', title: 'Edit name or price',
+                               'aria-label': 'Edit ' + it.name + ', ' + money(it.price) + ' each' },
+                    el('span', { class: 'line-total', text: money(it.price * it.qty) }),
+                    it.qty > 1 ? el('span', { class: 'unit', text: it.qty + ' × ' + money(it.price) }) : null),
+                el('button', { type: 'button', class: 'delete-item-btn', 'data-action': 'delete', title: 'Delete item', 'aria-label': 'Delete ' + it.name, text: '✕' }));
+        }
+
+        function renderCostco() {
+            const hide = localPrefs.hideCostcoPurchased;
+            $('hideCostcoPurchased').checked = hide;
+            const items = allCostcoItems();
+            const frag = document.createDocumentFragment();
+            const visible = items.filter(i => !(hide && i.purchased));
+            if (!items.length) {
+                frag.append(el('p', { class: 'shop-empty', text: 'No Costco items yet. Tap Add Item to start this list.' }));
+            } else if (!visible.length) {
+                frag.append(el('p', { class: 'shop-empty', text: 'All done — everything is crossed off! 🎉' }));
+            } else {
+                const ul = el('ul', { class: 'item-list' });
+                visible.forEach(it => ul.append(renderCostcoRow(it)));
+                frag.append(ul);
+            }
+            costcoList.replaceChildren(frag);
+            updateTotals();
+        }
+
+        function render() { renderMain(); if (view === 'shop') renderShopping(); if (view === 'costco') renderCostco(); }
 
         function setView(v) {
             if (v === view) return;
@@ -1022,12 +1216,22 @@
             mainView.hidden = v !== 'main';
             $('toolbar').hidden = v !== 'main';
             shopView.hidden = v !== 'shop';
+            costcoView.hidden = v !== 'costco';
             const btn = $('viewToggleBtn');
             btn.setAttribute('aria-pressed', String(v === 'shop'));
             btn.querySelector('.ico').textContent = v === 'shop' ? '📋' : '🛒';
-            $('viewToggleTxt').textContent = v === 'shop' ? 'Full List' : 'Shopping List';
-            $('subtitle').textContent = v === 'shop' ? 'Tick items off as they go in the cart' : 'Tick items to add them to your shopping list';
+            $('viewToggleTxtFull').textContent = v === 'shop' ? 'Full List' : 'Shopping List';
+            $('viewToggleTxtShort').textContent = v === 'shop' ? 'Full' : 'List';
+            const cbtn = $('costcoBtn');
+            cbtn.setAttribute('aria-pressed', String(v === 'costco'));
+            $('appTitle').textContent = v === 'costco' ? 'Costco List' : 'Grocery List';
+            $('subtitle').textContent = v === 'costco' ? 'A separate list for Costco runs — add items and tick them off'
+                : (v === 'shop' ? 'Tick items off as they go in the cart' : 'Tick items to add them to your shopping list');
+            $('searchInput').placeholder = v === 'costco' ? 'Search Costco items...' : 'Search sections or items...';
+            $('searchInput').setAttribute('aria-label', v === 'costco' ? 'Search Costco items' : 'Search sections or items');
+            hideSearch();
             if (v === 'shop') { renderShopping(); window.scrollTo(0, 0); }
+            else if (v === 'costco') { renderCostco(); window.scrollTo(0, 0); }
             else { updateTotals(); window.scrollTo(0, mainScrollY); }
         }
 
@@ -1095,7 +1299,44 @@
         $('hidePurchased').addEventListener('change', (e) => {
             localPrefs.hidePurchased = e.target.checked; storage.set(LOCAL_KEY, JSON.stringify(localPrefs)); renderShopping();
         });
-        $('viewToggleBtn').addEventListener('click', () => setView(view === 'main' ? 'shop' : 'main'));
+        $('viewToggleBtn').addEventListener('click', () => setView(view === 'shop' ? 'main' : 'shop'));
+        $('costcoBtn').addEventListener('click', () => setView(view === 'costco' ? 'main' : 'costco'));
+
+        costcoList.addEventListener('change', (e) => {
+            const t = e.target;
+            if (t.dataset.action !== 'purchase') return;
+            const id = t.closest('li[data-id]').dataset.id;
+            setCostcoReg(id, 'purchased', t.checked);
+            commit(); renderCostco();
+            const row = findRow(costcoList, id);
+            if (row && t.checked) row.scrollIntoView({ block: 'nearest' });
+        });
+        costcoList.addEventListener('click', (e) => {
+            const btn = e.target.closest('button[data-action]');
+            if (!btn) return;
+            const li = btn.closest('li[data-id]'); if (!li) return;
+            const id = li.dataset.id, it = costcoById(id); if (!it) return;
+            const action = btn.dataset.action;
+            if (action === 'inc') { setCostcoReg(id, 'qty', clampQty(it.qty + 1)); commit(); renderCostco(); }
+            else if (action === 'dec') { setCostcoReg(id, 'qty', clampQty(it.qty - 1)); commit(); renderCostco(); }
+            else if (action === 'edit') openItemDialog('costco-edit', id);
+            else if (action === 'delete') {
+                if (!confirm('Delete "' + it.name + '" from the Costco list?')) return;
+                setCostcoReg(id, 'del', true); commit('Deleted ' + it.name); renderCostco();
+            }
+        });
+        $('hideCostcoPurchased').addEventListener('change', (e) => {
+            localPrefs.hideCostcoPurchased = e.target.checked; storage.set(LOCAL_KEY, JSON.stringify(localPrefs)); renderCostco();
+        });
+        $('costcoAddBtn').addEventListener('click', () => openItemDialog('costco-add'));
+        $('costcoClearBtn').addEventListener('click', () => {
+            const gone = allCostcoItems().filter(i => i.purchased);
+            if (!gone.length) return;
+            if (!confirm('Remove ' + gone.length + ' crossed-off Costco item' + (gone.length > 1 ? 's' : '') + ' from the list?')) return;
+            gone.forEach(i => setCostcoReg(i.id, 'del', true));
+            commit('Cleared crossed-off Costco items'); renderCostco();
+        });
+
 
         // ---------- toolbar ----------
         $('addItemBtn').addEventListener('click', () => openItemDialog('add', null, CATS[0].id));
@@ -1113,22 +1354,31 @@
         $('fCat').replaceChildren(...CATS.map(c => el('option', { value: c.id, text: c.title })));
 
         function openItemDialog(mode, id, cat) {
-            const it = id ? itemById(id) : null;
-            if (mode === 'edit' && !it) return;
+            const costcoMode = mode === 'costco-add' || mode === 'costco-edit';
+            const it = id ? (costcoMode ? costcoById(id) : itemById(id)) : null;
+            if ((mode === 'edit' || mode === 'costco-edit') && !it) return;
             dialogCtx = { mode, id };
-            $('itemDialogTitle').textContent = mode === 'add' ? 'Add Item' : 'Edit Item';
-            $('fSave').textContent = mode === 'add' ? 'Add' : 'Save';
+            const adding = mode === 'add' || mode === 'costco-add';
+            $('itemDialogTitle').textContent = costcoMode ? (adding ? 'Add Costco Item' : 'Edit Costco Item') : (adding ? 'Add Item' : 'Edit Item');
+            $('fSave').textContent = adding ? 'Add' : 'Save';
             $('fName').value = it ? it.name : '';
             $('fPrice').value = it ? it.price.toFixed(2) : '';
-            $('fCat').value = it ? it.cat : (cat || CATS[0].id);
-            const builtin = !!(it && !it.custom);
-            $('fCat').disabled = builtin;
-            $('fCatHint').hidden = !builtin;
-            $('fRestore').hidden = !(builtin && (it.name !== it.orig.name || it.price !== it.orig.price));
+            $('fCatField').hidden = costcoMode;
+            if (!costcoMode) {
+                $('fCat').value = it ? it.cat : (cat || CATS[0].id);
+                const builtin = !!(it && !it.custom);
+                $('fCat').disabled = builtin;
+                $('fCatHint').hidden = !builtin;
+                $('fRestore').hidden = !(builtin && (it.name !== it.orig.name || it.price !== it.orig.price));
+            } else {
+                $('fCat').disabled = true;
+                $('fCatHint').hidden = true;
+                $('fRestore').hidden = true;
+            }
             $('fError').textContent = '';
             itemDialog.showModal();
             $('fName').focus();
-            if (mode === 'edit') $('fName').select();
+            if (!adding) $('fName').select();
         }
         function closeItemDialog() { itemDialog.close(); }
         $('fCancel').addEventListener('click', closeItemDialog);
@@ -1150,6 +1400,34 @@
                 return $('fPrice').focus();
             }
             const price = Math.round(parseFloat(priceRaw) * 100) / 100;
+            const costcoMode = dialogCtx && (dialogCtx.mode === 'costco-add' || dialogCtx.mode === 'costco-edit');
+            if (costcoMode) {
+                const editing = dialogCtx.mode === 'costco-edit' ? costcoById(dialogCtx.id) : null;
+                const dup = allCostcoItems().find(i => (!editing || i.id !== editing.id) && i.name.toLowerCase() === name.toLowerCase());
+                if (dup) { err.textContent = '"' + dup.name + '" is already on the Costco list.'; return $('fName').focus(); }
+                let focusId;
+                if (!editing) {
+                    const id = newCostcoId();
+                    setCostcoReg(id, 'name', name); setCostcoReg(id, 'price', price);
+                    focusId = id;
+                    commit('Added ' + name + ' to Costco');
+                } else {
+                    if (name !== editing.name) setCostcoReg(editing.id, 'name', name);
+                    if (price !== editing.price) setCostcoReg(editing.id, 'price', price);
+                    focusId = editing.id;
+                    commit('Saved ' + name);
+                }
+                closeItemDialog();
+                renderCostco();
+                const row = findRow(costcoList, focusId);
+                if (row) {
+                    row.scrollIntoView({ block: 'center' });
+                    row.classList.add('search-highlight');
+                    const priceBtn = row.querySelector('.item-price');
+                    if (priceBtn) priceBtn.focus({ preventScroll: true });
+                }
+                return;
+            }
             if (!CAT_IDS.has(cat)) { err.textContent = 'Please choose a section.'; return; }
             const editing = dialogCtx && dialogCtx.mode === 'edit' ? itemById(dialogCtx.id) : null;
             const targetCat = editing && !editing.custom ? editing.cat : cat;
@@ -1193,8 +1471,12 @@
             const q = searchInput.value.trim().toLowerCase();
             if (!q) { hideSearch(); return; }
             searchResults = [];
-            CATS.forEach(c => { if (c.title.toLowerCase().includes(q)) searchResults.push({ type: 'Section', label: c.title, cat: c.id }); });
-            allItems().sort(byName).forEach(i => { if (i.name.toLowerCase().includes(q)) searchResults.push({ type: CAT_TITLE[i.cat], label: i.name, id: i.id }); });
+            if (view === 'costco') {
+                allCostcoItems().forEach(i => { if (i.name.toLowerCase().includes(q)) searchResults.push({ type: 'Costco', label: i.name, id: i.id, costco: true }); });
+            } else {
+                CATS.forEach(c => { if (c.title.toLowerCase().includes(q)) searchResults.push({ type: 'Section', label: c.title, cat: c.id }); });
+                allItems().sort(byName).forEach(i => { if (i.name.toLowerCase().includes(q)) searchResults.push({ type: CAT_TITLE[i.cat], label: i.name, id: i.id }); });
+            }
             if (!searchResults.length) {
                 resultsEl.replaceChildren(el('li', { class: 'search-empty', text: 'No results found' }));
             } else {
@@ -1206,6 +1488,15 @@
         }
         function goToResult(r) {
             searchInput.value = ''; hideSearch();
+            if (r.costco) {
+                if (view !== 'costco') setView('costco');
+                const target = findRow(costcoList, r.id);
+                if (!target) return;
+                target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                target.classList.remove('search-highlight'); void target.offsetWidth; target.classList.add('search-highlight');
+                const chk = target.querySelector('.check'); if (chk) chk.focus({ preventScroll: true });
+                return;
+            }
             setView('main');
             const target = r.cat ? [...mainView.querySelectorAll('section[data-cat]')].find(s => s.dataset.cat === r.cat) : findRow(mainView, r.id);
             if (!target) return;
@@ -1254,7 +1545,7 @@
             if (!next) return alert("That file doesn't look like a Grocery List backup.");
             if (!confirm('Replace your current list with the backup "' + file.name + '"?' + (Sync.signedIn() ? '\n\nYour other synced devices will get this list too.' : ''))) return;
             storage.set(PRE_RESET_KEY, JSON.stringify({ savedAt: new Date().toISOString(), reason: 'before import', doc }));
-            applyTarget(effAll(next)); commit('Backup imported'); render();
+            applyTarget(effAll(next)); applyCostcoTarget(effCostcoAll(next)); commit('Backup imported'); render();
         });
         $('restoreDeletedBtn').addEventListener('click', () => {
             const gone = deletedBuiltins(), n = gone.length;
@@ -1262,9 +1553,9 @@
             gone.forEach(b => setReg(b.id, 'del', false)); commit('Restored deleted items'); render();
         });
         $('resetBtn').addEventListener('click', () => {
-            if (!confirm('Reset the whole app?\n\nThis removes your added items, edits, deletions and ticks, and puts the original list back.' + (Sync.signedIn() ? ' Your other synced devices will be reset too.' : '') + '\n\nTip: press Cancel and Export a backup first if you might want them later.')) return;
+            if (!confirm('Reset the whole app?\n\nThis removes your added items, Costco list, edits, deletions and ticks, and puts the original list back.' + (Sync.signedIn() ? ' Your other synced devices will be reset too.' : '') + '\n\nTip: press Cancel and Export a backup first if you might want them later.')) return;
             storage.set(PRE_RESET_KEY, JSON.stringify({ savedAt: new Date().toISOString(), reason: 'before reset', doc }));
-            applyTarget(effAll(emptyDoc())); commit('App reset to the original list'); render();
+            applyTarget(effAll(emptyDoc())); applyCostcoTarget(effCostcoAll(emptyDoc())); commit('App reset to the original list'); render();
         });
 
         // ---------- calculator ----------
@@ -1871,8 +2162,10 @@
         doc = loaded.doc; observeT(doc);
         try {
             const lp = JSON.parse(storage.get(LOCAL_KEY) || 'null');
-            if (lp && typeof lp === 'object') localPrefs.hidePurchased = lp.hidePurchased === true;
-            else if (loaded.hide) localPrefs.hidePurchased = true;
+            if (lp && typeof lp === 'object') {
+                localPrefs.hidePurchased = lp.hidePurchased === true;
+                localPrefs.hideCostcoPurchased = lp.hideCostcoPurchased === true;
+            } else if (loaded.hide) localPrefs.hidePurchased = true;
         } catch (e) { /* defaults */ }
         if (loaded.upgraded) {
             persist();
@@ -2031,6 +2324,8 @@
             version: APP_VERSION, evaluate, mergeDocs, normalizeDoc, effSignature, canonical,
             getDoc: () => JSON.parse(JSON.stringify(doc)),
             visible: () => allItems().map(i => ({ id: i.id, name: i.name, price: i.price, cat: i.cat, checked: i.checked, qty: i.qty, purchased: i.purchased })),
+            visibleCostco: () => allCostcoItems().map(i => ({ id: i.id, name: i.name, price: i.price, qty: i.qty, purchased: i.purchased })),
+            setView, newCostcoId,
             sync: () => Sync.info()
         });
     })();

@@ -1,7 +1,7 @@
 {
   "name": "Grocery List — Retro Gaming Dad",
   "short_name": "Grocery List",
-  "description": "Cottage-style grocery list with totals, shopping mode and a calculator.",
+  "description": "Cottage-style grocery list with totals, a shopping list, a Costco list and a calculator.",
   "id": "./index.html",
   "start_url": "./index.html",
   "scope": "./",

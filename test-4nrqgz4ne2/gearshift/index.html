@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Gear Shift — Retro Gaming Dad</title>
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" href="favicon.png" type="image/png" sizes="32x32">
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: #12100e;
+      color: #f6f1e7;
+      overflow: hidden;
+      font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+      --accent: #ffb03a;
+    }
+    #frame {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      background: #0e0c0a;
+      overflow: hidden;
+    }
+    #frame canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    #hud, #pauseLayer, #portrait, #hint {
+      position: absolute;
+      pointer-events: none;
+    }
+    #hud { inset: 0; z-index: 2; }
+    .plate {
+      background: rgba(12, 10, 8, 0.72);
+      border-left: 4px solid var(--accent);
+      padding: 8px 12px 10px;
+    }
+    #leftStack {
+      position: absolute;
+      top: 16px;
+      left: 18px;
+      z-index: 3;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+      max-width: 280px;
+      pointer-events: none;
+    }
+    #brandBlock {
+      position: static;
+    }
+    #brand {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      line-height: 1;
+    }
+    #lap, #time {
+      margin-top: 4px;
+      font-size: 13px;
+      letter-spacing: 0.16em;
+      color: var(--accent);
+    }
+    #time {
+      font-variant-numeric: tabular-nums;
+    }
+    #picker {
+      position: absolute;
+      left: 50%;
+      top: 16px;
+      transform: translateX(-50%);
+      z-index: 3;
+      display: flex;
+      gap: 6px;
+      pointer-events: auto;
+    }
+    #picker button {
+      pointer-events: auto;
+      border: 0;
+      background: rgba(12, 10, 8, 0.78);
+      color: #f6f1e7;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      padding: 6px 8px;
+      cursor: pointer;
+    }
+    #picker button.on {
+      background: var(--accent);
+      color: #1a120c;
+    }
+    #creditBlock {
+      position: absolute;
+      top: 16px;
+      right: 18px;
+      text-align: right;
+      border-left: none;
+      border-right: 4px solid var(--accent);
+    }
+    #credit {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+    }
+    #trackName {
+      margin-top: 4px;
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      color: #d9c7a4;
+    }
+    #muteChip {
+      position: absolute;
+      top: 78px;
+      right: 18px;
+      background: var(--accent);
+      color: #1a120c;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      font-size: 13px;
+      padding: 4px 8px;
+    }
+    #muteChip[hidden] { display: none !important; }
+    #speedBlock {
+      position: absolute;
+      left: 18px;
+      bottom: 16px;
+    }
+    #speed {
+      font-size: 44px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      font-variant-numeric: tabular-nums;
+      line-height: 0.9;
+    }
+    #speedUnit, #gearLabel {
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      color: var(--accent);
+    }
+    #gearBlock {
+      position: absolute;
+      right: 18px;
+      bottom: 12px;
+      text-align: right;
+      border-left: none;
+      border-right: 4px solid var(--accent);
+    }
+    #gear {
+      display: inline-block;
+      font-family: Impact, "Arial Black", "Segoe UI", sans-serif;
+      font-size: 78px;
+      line-height: 0.78;
+      color: var(--accent);
+      text-shadow: 0 4px 0 #140e0a, 0 0 16px rgba(8, 6, 4, 0.65);
+      transform-origin: 100% 80%;
+    }
+    #gear.slam { animation: gearSlam 0.32s cubic-bezier(.15, 1.35, .3, 1) both; }
+    @keyframes gearSlam {
+      0% { transform: translateY(-22px) scale(1.7); }
+      70% { transform: translateY(3px) scale(0.96); }
+      100% { transform: translateY(0) scale(1); }
+    }
+    #msg.finish {
+      font-size: 72px;
+      letter-spacing: 0.1em;
+      animation: finishSlam 0.48s cubic-bezier(.15, 1.4, .3, 1) both;
+    }
+    @keyframes finishSlam {
+      0% { transform: translateX(-50%) translateY(-22px) scale(1.45); }
+      70% { transform: translateX(-50%) translateY(4px) scale(0.96); }
+      100% { transform: translateX(-50%) translateY(0) scale(1); }
+    }
+    #bloom {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+      mix-blend-mode: screen;
+      background: radial-gradient(ellipse at 50% 58%, rgba(255, 196, 96, 0.22), transparent 62%);
+      opacity: 0;
+    }
+    #screenLayer.alive .kicker {
+      animation: titleIdle 2.8s ease-in-out infinite;
+    }
+    #screenLayer.is-results .kicker,
+    #screenLayer.is-cup .kicker {
+      animation: finishSlamCard 0.5s cubic-bezier(.15, 1.4, .3, 1) both, titleIdle 2.8s ease-in-out 0.5s infinite;
+    }
+    @keyframes titleIdle {
+      0%, 100% { filter: brightness(1); }
+      50% { filter: brightness(1.14); }
+    }
+    @keyframes finishSlamCard {
+      0% { transform: translateY(-16px) scale(1.28); }
+      70% { transform: translateY(3px) scale(0.97); }
+      100% { transform: translateY(0) scale(1); }
+    }
+    .screenMedal {
+      animation: medalPop 0.55s cubic-bezier(.2, 1.35, .3, 1) both;
+    }
+    @keyframes medalPop {
+      0% { transform: scale(0.42); opacity: 0; }
+      70% { transform: scale(1.1); opacity: 1; }
+      100% { transform: scale(1); }
+    }
+    .setRow.heading {
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(246, 241, 231, 0.14);
+      letter-spacing: 0.18em;
+      color: var(--accent);
+    }
+    .setRow.heading > span:first-child {
+      font-family: Impact, "Arial Black", "Segoe UI", sans-serif;
+      font-size: 18px;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #screenLayer.alive .kicker,
+      #screenLayer.is-results .kicker,
+      #screenLayer.is-cup .kicker,
+      .screenMedal,
+      #msg.finish { animation: none; }
+    }
+    #gearName, #gravLine {
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      color: var(--accent);
+    }
+    #gearPips {
+      display: flex;
+      gap: 4px;
+      justify-content: flex-end;
+      margin-top: 6px;
+    }
+    #gearPips i {
+      display: block;
+      width: 18px;
+      height: 6px;
+      background: rgba(246, 241, 231, 0.28);
+    }
+    #gearPips i.on { background: var(--accent); }
+    #prompt {
+      position: absolute;
+      left: 50%;
+      top: 16%;
+      transform: translateX(-50%);
+      z-index: 3;
+      font-family: Impact, "Arial Black", "Segoe UI", sans-serif;
+      font-size: 52px;
+      letter-spacing: 0.14em;
+      color: #f7f4ee;
+      text-shadow: 0 3px 0 #120e0a;
+      pointer-events: none;
+      opacity: 0;
+    }
+    #prompt.live {
+      opacity: 1;
+      animation: promptIn 0.22s ease-out both;
+    }
+    #prompt.live.up { text-shadow: 0 3px 0 #120e0a, 0 0 16px #ffb03a; }
+    #prompt.live.flip { text-shadow: 0 3px 0 #041014, 0 0 16px #7ef0ff; }
+    #prompt.live.down { text-shadow: 0 3px 0 #04140c, 0 0 16px #b6ff9a; }
+    @keyframes promptIn {
+      from { transform: translateX(-50%) scale(1.16); opacity: 0; }
+      to { transform: translateX(-50%) scale(1); opacity: 1; }
+    }
+    #coach {
+      position: absolute;
+      left: 18px;
+      bottom: 118px;
+      width: min(340px, 42%);
+      z-index: 3;
+      pointer-events: none;
+      background: rgba(12, 10, 8, 0.92);
+      border-left: 4px solid var(--accent);
+      padding: 10px 12px 12px;
+    }
+    #coach[hidden] { display: none !important; }
+    #coachKicker {
+      font-size: 12px;
+      letter-spacing: 0.16em;
+      color: var(--accent);
+    }
+    #coachTitle {
+      font-family: Impact, "Arial Black", "Segoe UI", sans-serif;
+      font-size: 28px;
+      letter-spacing: 0.06em;
+      line-height: 0.95;
+      margin-top: 2px;
+    }
+    #coachBody {
+      margin: 6px 0 8px;
+      font-size: 14px;
+      line-height: 1.35;
+      color: #f6f1e7;
+    }
+    #coachSkip {
+      pointer-events: auto;
+      border: 0;
+      background: var(--accent);
+      color: #1a120c;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      padding: 6px 10px;
+      cursor: pointer;
+    }
+    #flash, #chroma, #failVeil {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0;
+    }
+    #flash {
+      z-index: 1;
+      background: #ffe6b0;
+      mix-blend-mode: screen;
+    }
+    #chroma {
+      z-index: 1;
+      background: linear-gradient(90deg, rgba(255, 42, 64, 0.55), transparent 12%, transparent 88%, rgba(40, 220, 255, 0.5));
+      mix-blend-mode: screen;
+    }
+    #failVeil {
+      z-index: 1;
+      background: radial-gradient(ellipse at center, transparent 46%, rgba(255, 48, 32, 0.72) 100%);
+    }
+    #hint {
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%);
+      width: min(640px, 54%);
+      text-align: center;
+      font-size: 13px;
+      line-height: 1.35;
+      letter-spacing: 0.03em;
+      background: rgba(12, 10, 8, 0.72);
+      padding: 8px 12px;
+      z-index: 2;
+    }
+    #hint.hide { display: none; }
+    #hint.compact {
+      bottom: 92px;
+      width: min(760px, 70%);
+      font-size: 12px;
+      letter-spacing: 0.02em;
+      padding: 5px 10px;
+    }
+    #gearBtn {
+      position: static;
+      z-index: 3;
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border: 0;
+      background: rgba(12, 10, 8, 0.78);
+      color: var(--accent);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      padding: 6px 8px;
+      cursor: pointer;
+    }
+    #gearBtn svg { display: block; }
+    #toast {
+      position: absolute;
+      left: 50%;
+      top: 58px;
+      transform: translateX(-50%);
+      z-index: 9;
+      pointer-events: none;
+      background: rgba(12, 10, 8, 0.94);
+      border-top: 3px solid var(--accent);
+      color: #f6f1e7;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      font-size: 14px;
+      padding: 8px 14px;
+      white-space: nowrap;
+    }
+    #toast[hidden] { display: none !important; }
+    #pauseLayer .card { pointer-events: auto; }
+    #pauseActions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 18px;
+    }
+    #pauseActions button,
+    #settingsList button,
+    #settingsLayer .chip {
+      pointer-events: auto;
+      border: 0;
+      background: rgba(246, 241, 231, 0.08);
+      color: #f6f1e7;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      padding: 8px 12px;
+      cursor: pointer;
+    }
+    #pauseActions button.focus,
+    #pauseActions button:hover,
+    #settingsList .setRow.focus {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    #pauseActions button.focus {
+      background: var(--accent);
+      color: #1a120c;
+    }
+    #settingsLayer {
+      position: absolute;
+      inset: 0;
+      z-index: 7;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(10, 8, 6, 0.72);
+      pointer-events: auto;
+      overflow: auto;
+    }
+    #settingsLayer.show { display: flex; }
+    #settingsLayer .card {
+      width: min(860px, 94%);
+      max-height: 94%;
+      overflow: auto;
+      text-align: left;
+      background: rgba(12, 10, 8, 0.96);
+      border-top: 4px solid var(--accent);
+      padding: 18px 20px 16px;
+    }
+    #settingsLayer .kicker {
+      font-family: Impact, "Arial Black", "Segoe UI", sans-serif;
+      font-size: 42px;
+      letter-spacing: 0.12em;
+      color: var(--accent);
+      line-height: 0.9;
+      text-align: center;
+    }
+    #padTitle, #settingsHelp, #invertNote, #bindWarn {
+      text-align: center;
+      color: #d9c7a4;
+      letter-spacing: 0.04em;
+      font-size: 13px;
+    }
+    #bindWarn { color: var(--accent); min-height: 1.2em; font-weight: 800; }
+    #invertNote[hidden] { display: none !important; }
+    #settingsBody {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      margin-top: 10px;
+    }
+    #settingsList { flex: 1 1 auto; min-width: 0; }
+    .setRow {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 4px 4px;
+      margin: 2px 0;
+    }
+    .setRow > span:first-child {
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+    }
+    .choices { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+    .chip.hot, .chip.on { background: var(--accent); color: #1a120c; }
+    .choices.slide input[type="range"] { width: 140px; accent-color: var(--accent); touch-action: none; }
+    .val { min-width: 7.5em; text-align: right; color: var(--accent); font-size: 12px; }
+    #padTest {
+      width: 230px;
+      flex: 0 0 230px;
+      background: rgba(246, 241, 231, 0.05);
+      padding: 10px 12px 12px;
+    }
+    #padTest h2 {
+      margin: 0 0 8px;
+      font-size: 13px;
+      letter-spacing: 0.14em;
+    }
+    .testRow {
+      display: grid;
+      grid-template-columns: 42px 1fr 46px;
+      gap: 6px;
+      align-items: center;
+      margin: 4px 0;
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+    .bar {
+      position: relative;
+      height: 8px;
+      background: rgba(246, 241, 231, 0.15);
+    }
+    .bar i {
+      position: absolute;
+      top: 0;
+      height: 100%;
+      width: 0;
+      background: var(--accent);
+    }
+    #testButtons, #testSteer { margin-top: 8px; font-size: 12px; letter-spacing: 0.04em; }
+    @media (max-width: 820px) {
+      #settingsBody { flex-direction: column; }
+      #padTest { width: auto; flex-basis: auto; }
+    }
+    #place, #delta, #modeLine {
+      margin-top: 4px;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      color: var(--accent);
+    }
+    #place { font-size: 18px; }
+    #delta.ahead { color: #b6ff9a; }
+    #delta.behind { color: #ffb4a2; }
+    #place[hidden], #delta[hidden] { display: none !important; }
+    #hud.menu { z-index: 6; }
+    #hud.menu .plate,
+    #hud.menu #picker,
+    #hud.menu #prompt,
+    #hud.menu #msg,
+    #hud.menu #coach,
+    #hud.quiet .plate,
+    #hud.quiet #picker,
+    #hud.quiet #prompt,
+    #hud.quiet #msg,
+    #hud.quiet #coach { visibility: hidden; }
+    #screenLayer {
+      position: absolute;
+      inset: 0;
+      z-index: 5;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(10, 8, 6, 0.62);
+      pointer-events: auto;
+    }
+    #screenLayer.show { display: flex; }
+    #screenLayer .card {
+      width: min(560px, 92%);
+      max-height: 90%;
+      overflow: auto;
+      text-align: center;
+      background: rgba(12, 10, 8, 0.94);
+      border-top: 4px solid var(--accent);
+      padding: 22px 28px 18px;
+      pointer-events: auto;
+    }
+    #screenLayer .kicker {
+      font-family: Impact, "Arial Black", "Segoe UI", sans-serif;
+      font-size: 54px;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+      line-height: 0.9;
+    }
+    #screenCredit {
+      letter-spacing: 0.14em;
+      margin-top: 4px;
+      color: #d9c7a4;
+    }
+    #screenCopy { margin-top: 12px; }
+    .screenLine {
+      margin: 3px 0;
+      letter-spacing: 0.06em;
+      color: #f6f1e7;
+    }
+    .screenBig {
+      font-family: Impact, "Arial Black", "Segoe UI", sans-serif;
+      font-size: 48px;
+      letter-spacing: 0.06em;
+      color: var(--accent);
+      line-height: 0.95;
+    }
+    .screenMedal {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      margin-top: 4px;
+    }
+    .medal-gold { color: #ffd35a; }
+    .medal-silver { color: #e7e9ef; }
+    .medal-bronze { color: #e39b62; }
+    .medal-none { color: #d9c7a4; }
+    .screenSub { color: #d9c7a4; font-size: 14px; }
+    #screenActions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 16px;
+    }
+    #screenActions button {
+      pointer-events: auto;
+      border: 0;
+      background: rgba(246, 241, 231, 0.08);
+      color: #f6f1e7;
+      font: inherit;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      padding: 10px 12px;
+      cursor: pointer;
+    }
+    #screenActions button.focus,
+    #screenActions button:hover {
+      background: var(--accent);
+      color: #1a120c;
+    }
+    #screenActions button.locked {
+      opacity: 0.55;
+    }
+    #screenHelp {
+      margin-top: 12px;
+      color: #d9c7a4;
+      letter-spacing: 0.04em;
+      font-size: 12px;
+    }
+    #msg {
+      position: absolute;
+      left: 50%;
+      top: 22%;
+      transform: translateX(-50%);
+      font-family: Impact, "Arial Black", "Segoe UI", sans-serif;
+      font-size: 42px;
+      letter-spacing: 0.12em;
+      color: var(--accent);
+      text-shadow: 0 2px 0 #1a120c;
+    }
+    #msg.warn {
+      color: #ff5a3c;
+      font-size: 64px;
+    }
+    #pauseLayer {
+      inset: 0;
+      z-index: 4;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(10, 8, 6, 0.55);
+    }
+    #pauseLayer.show { display: flex; }
+    #pauseLayer .card {
+      text-align: center;
+      background: rgba(12, 10, 8, 0.92);
+      border-top: 4px solid var(--accent);
+      padding: 28px 48px 32px;
+      min-width: 280px;
+    }
+    #pauseLayer .kicker {
+      font-family: Impact, "Arial Black", "Segoe UI", sans-serif;
+      font-size: 64px;
+      letter-spacing: 0.12em;
+      color: var(--accent);
+      line-height: 0.9;
+    }
+    #pauseBrand { font-size: 22px; font-weight: 800; letter-spacing: 0.08em; margin-top: 8px; }
+    #pauseCredit { letter-spacing: 0.14em; margin-top: 4px; }
+    #pauseLayer .sub { margin-top: 16px; color: #d9c7a4; letter-spacing: 0.08em; }
+    html.touch-ui, html.touch-ui body { touch-action: none; overscroll-behavior: none; }
+    #logoMark { display: none; width: min(520px, 100%); height: auto; margin: 0 auto 6px; }
+    #screenLayer.is-title #logoMark { display: block; }
+    #screenLayer.is-title #screenKicker { display: none; }
+    #screenLayer.is-howto .card, #screenLayer.is-credits .card { width: min(680px, 94%); }
+    #screenArt { margin-top: 10px; }
+    #screenArt svg { width: min(440px, 100%); height: auto; display: block; margin: 0 auto; }
+    #screenActions button, #pauseActions button { min-height: 44px; }
+    #setTabs {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin: 8px 0 4px;
+    }
+    #setTabs button {
+      border: 0;
+      background: rgba(246, 241, 231, 0.08);
+      color: #f6f1e7;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      padding: 8px 12px;
+      cursor: pointer;
+      min-height: 40px;
+    }
+    #setTabs button.on, #setTabs button:hover { background: var(--accent); color: #1a120c; }
+    #setTabs button.focus { outline: 2px solid #fff6e8; outline-offset: 2px; }
+    #padTest[hidden] { display: none !important; }
+    #frame canvas#minimap {
+      position: absolute;
+      right: 18px;
+      top: 118px;
+      z-index: 3;
+      width: 148px;
+      height: 96px;
+      background: rgba(12, 10, 8, 0.72);
+      border-right: 4px solid var(--accent);
+      pointer-events: none;
+    }
+    #minimap[hidden] { display: none !important; }
+    #soundNudge {
+      position: absolute;
+      left: 50%;
+      top: 12px;
+      transform: translateX(-50%);
+      z-index: 9;
+      pointer-events: none;
+      background: rgba(12, 10, 8, 0.92);
+      border-top: 3px solid var(--accent);
+      color: #f6f1e7;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      font-size: 13px;
+      padding: 6px 10px;
+      white-space: nowrap;
+    }
+    #soundNudge[hidden] { display: none !important; }
+    #touchLayer {
+      position: absolute;
+      inset: 0;
+      z-index: 6;
+      display: none;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    #touchLayer.show { display: block; }
+    #touchLayer[hidden] { display: none !important; }
+    #touchLayer button, #steerZone {
+      position: absolute;
+      touch-action: none;
+      border: 2px solid rgba(255, 176, 58, 0.9);
+      color: #f6f1e7;
+      background: rgba(12, 10, 8, 0.38);
+      font: inherit;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+    }
+    #steerZone {
+      left: 0;
+      top: 168px;
+      bottom: 18px;
+      width: 38%;
+      border: 0;
+      border-right: 2px solid rgba(255, 176, 58, 0.35);
+      background: rgba(12, 10, 8, 0.12);
+    }
+    #steerPuck {
+      position: absolute;
+      left: 50%;
+      top: 58%;
+      width: 76px;
+      height: 76px;
+      border-radius: 50%;
+      border: 3px solid var(--accent);
+      background: rgba(255, 176, 58, 0.28);
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+    #steerZone span {
+      position: absolute;
+      left: 12px;
+      bottom: 8px;
+      font-size: 12px;
+      letter-spacing: 0.16em;
+      color: var(--accent);
+      pointer-events: none;
+    }
+    #touchAccel {
+      right: 14px;
+      bottom: 14px;
+      width: 24%;
+      height: 30%;
+      font-size: 22px;
+      background: rgba(255, 176, 58, 0.9);
+      color: #1a120c;
+    }
+    #touchBrake {
+      right: 14px;
+      bottom: calc(30% + 26px);
+      width: 16%;
+      height: 13%;
+    }
+    #touchHand {
+      right: calc(16% + 26px);
+      bottom: calc(30% + 26px);
+      width: 14%;
+      height: 13%;
+    }
+    #touchUp { right: 8px; top: 46px; width: 70px; height: 52px; }
+    #touchDown { left: 10px; bottom: 12px; width: 74px; height: 64px; z-index: 3; }
+    #touchPause { right: 8px; top: 8px; width: 70px; height: 32px; font-size: 12px; }
+    #landHint {
+      position: absolute;
+      left: 50%;
+      top: 8px;
+      transform: translateX(-50%);
+      pointer-events: none;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      color: #f6f1e7;
+      background: rgba(12, 10, 8, 0.72);
+      padding: 4px 8px;
+    }
+    #landHint[hidden] { display: none !important; }
+    #touchLayer.portrait #steerZone {
+      top: auto;
+      left: 0;
+      bottom: 0;
+      width: 46%;
+      height: 36%;
+      border-right: 2px solid rgba(255, 176, 58, 0.45);
+    }
+    #touchLayer.portrait #touchAccel {
+      right: 8px;
+      bottom: 8px;
+      width: 46%;
+      height: 15%;
+    }
+    #touchLayer.portrait #touchBrake {
+      right: 8px;
+      bottom: calc(15% + 14px);
+      width: 28%;
+      height: 10%;
+    }
+    #touchLayer.portrait #touchHand {
+      right: auto;
+      left: 48%;
+      bottom: calc(15% + 14px);
+      width: 22%;
+      height: 10%;
+    }
+    #touchLayer.portrait #touchDown {
+      left: 8px;
+      top: auto;
+      bottom: calc(36% + 8px);
+      width: 28%;
+      height: 9%;
+    }
+    #touchLayer.portrait #touchUp {
+      right: 8px;
+      top: auto;
+      bottom: calc(36% + 8px);
+      width: 24%;
+      height: 9%;
+    }
+    #touchLayer.portrait #touchPause { top: 8px; right: 8px; }
+    #frame.touch-on #hint { display: none; }
+    #frame.touch-on #picker { display: none; }
+    #frame.touch-on #leftStack { top: 8px; max-width: 168px; }
+    #frame.touch-on #brand { font-size: 16px; }
+    #frame.touch-on:not(.touch-portrait) #steerZone {
+      top: 220px;
+      left: 96px;
+      right: auto;
+      bottom: 12px;
+      width: calc(38% - 96px);
+      height: auto;
+    }
+    #frame.touch-on:not(.touch-portrait) #touchDown {
+      left: 10px;
+      right: auto;
+      top: auto;
+      bottom: 12px;
+      width: 74px;
+      height: 64px;
+    }
+    #frame.touch-on:not(.touch-portrait) #touchPause {
+      top: 8px;
+      right: 8px;
+      width: 70px;
+      height: 32px;
+    }
+    #frame.touch-on:not(.touch-portrait) #touchUp {
+      top: 46px;
+      right: 8px;
+      left: auto;
+      bottom: auto;
+      width: 70px;
+      height: 52px;
+    }
+    #frame.touch-on #speedBlock { top: 148px; bottom: auto; left: 18px; }
+    #frame.touch-on:not(.touch-portrait) #gearBlock {
+      top: 8px;
+      bottom: auto;
+      left: auto;
+      right: 88px;
+      text-align: right;
+      border-left: none;
+      border-right: 4px solid var(--accent);
+    }
+    #frame.touch-on:not(.touch-portrait) #creditBlock {
+      top: 8px;
+      right: auto;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      border-right: none;
+      border-left: 4px solid var(--accent);
+      max-width: 200px;
+      padding: 4px 8px;
+    }
+    #frame.touch-on #gear { font-size: 40px; }
+    #frame.touch-on #speed { font-size: 28px; }
+    #frame.touch-on #gearBtn { font-size: 0; gap: 0; padding: 8px; }
+    #frame.touch-on #gearBtn svg { width: 18px; height: 18px; }
+    #steerZone span { top: 8px; bottom: auto; }
+    #frame.touch-on #minimap { display: none; }
+    #frame.touch-portrait #leftStack { top: 8px; left: 8px; max-width: 42%; }
+    #frame.touch-portrait #speedBlock { top: 188px; left: 12px; right: auto; bottom: auto; }
+    #frame.touch-portrait #creditBlock {
+      top: 8px;
+      right: 88px;
+      left: auto;
+      transform: none;
+      text-align: right;
+      border-left: none;
+      border-right: 4px solid var(--accent);
+      max-width: 34%;
+      padding: 4px 6px;
+    }
+    #frame.touch-portrait #credit { font-size: 12px; letter-spacing: 0.05em; }
+    #frame.touch-portrait #modeLine { font-size: 11px; letter-spacing: 0.08em; }
+    #frame.touch-portrait #trackName { display: none; }
+    #frame.touch-portrait #gearBlock {
+      top: 118px;
+      right: 12px;
+      left: auto;
+      bottom: auto;
+      height: auto;
+      text-align: right;
+      border-left: none;
+      border-right: 4px solid var(--accent);
+    }
+    #frame.touch-portrait #gear { font-size: 42px; }
+    #frame.touch-portrait #steerZone { top: auto; left: 0; right: auto; bottom: 0; width: 46%; height: 36%; }
+    #frame.touch-portrait #coach { top: 250px; bottom: auto; max-height: 16%; overflow: auto; }
+    #touchLayer.portrait #landHint {
+      top: auto;
+      bottom: calc(36% + 9% + 16px);
+      left: 12px;
+      transform: none;
+      font-size: 11px;
+      letter-spacing: 0.04em;
+    }
+    /* Portrait comes last and uses an extra id so it beats the landscape
+       steer rule (#frame.touch-on:not(.touch-portrait) is more specific
+       than #touchLayer.portrait and was pinning the zone mid-screen). */
+    @media (orientation: portrait) {
+      #frame.touch-on #touchLayer #steerZone {
+        top: auto;
+        left: 0;
+        right: auto;
+        bottom: 0;
+        width: 46%;
+        height: 36%;
+      }
+      #frame.touch-on #touchLayer #touchDown {
+        left: 8px;
+        right: auto;
+        top: auto;
+        bottom: calc(36% + 8px);
+        width: 28%;
+        height: 9%;
+      }
+      #frame.touch-on #touchLayer #touchUp {
+        right: 8px;
+        left: auto;
+        top: auto;
+        bottom: calc(36% + 8px);
+        width: 24%;
+        height: 9%;
+      }
+      #frame.touch-on #touchLayer #touchAccel {
+        right: 8px;
+        left: auto;
+        top: auto;
+        bottom: 8px;
+        width: 46%;
+        height: 15%;
+      }
+      #frame.touch-on #touchLayer #touchBrake {
+        right: 8px;
+        left: auto;
+        top: auto;
+        bottom: calc(15% + 14px);
+        width: 28%;
+        height: 10%;
+      }
+      #frame.touch-on #touchLayer #touchHand {
+        right: auto;
+        left: 48%;
+        top: auto;
+        bottom: calc(15% + 14px);
+        width: 22%;
+        height: 10%;
+      }
+      #frame.touch-on #touchLayer #touchPause {
+        top: 8px;
+        right: 8px;
+        left: auto;
+        bottom: auto;
+        width: 72px;
+        height: 36px;
+      }
+      #frame.touch-portrait #speedBlock {
+        top: 188px;
+        left: 12px;
+        right: auto;
+        bottom: auto;
+      }
+    }
+    #portrait {
+      inset: 0;
+      z-index: 8;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      background: #16120f;
+      padding: 24px;
+    }
+    #portrait.show { display: flex; }
+    #portrait h1 { margin: 0 0 8px; letter-spacing: 0.08em; }
+    #fallback {
+      min-height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 24px;
+    }
+    #fallback[hidden] { display: none !important; }
+    #fallback h1 { margin: 0 0 8px; letter-spacing: 0.08em; }
+    .by { letter-spacing: 0.14em; color: var(--accent); }
+    #stage[hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <div id="fallback" hidden>
+    <div>
+      <h1>Gear Shift</h1>
+      <p class="by">Retro Gaming Dad</p>
+      <p id="fallbackMsg">This game needs WebGL, and this browser does not have it.</p>
+    </div>
+  </div>
+  <div id="stage">
+    <div id="frame">
+      <canvas id="c" tabindex="0"></canvas>
+      <div id="hud">
+        <div id="leftStack">
+          <div id="brandBlock" class="plate">
+            <div id="brand">Gear Shift</div>
+            <div id="lap">LAP 1/3</div>
+            <div id="place" hidden>1ST</div>
+            <div id="time">0:00.00</div>
+            <div id="delta" hidden>0.00</div>
+          </div>
+          <button id="gearBtn" type="button" title="Settings">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <path fill="currentColor" d="M19.4 13.5a7.7 7.7 0 0 0 .06-1.5 7.7 7.7 0 0 0-.06-1.5l2.02-1.57a.5.5 0 0 0 .12-.64l-1.91-3.3a.5.5 0 0 0-.6-.22l-2.38.96a7.4 7.4 0 0 0-2.6-1.5l-.36-2.53A.5.5 0 0 0 13.2 1h-3.4a.5.5 0 0 0-.49.42l-.36 2.53a7.4 7.4 0 0 0-2.6 1.5l-2.38-.96a.5.5 0 0 0-.6.22L1.46 8.01a.5.5 0 0 0 .12.64L3.6 10.22a7.7 7.7 0 0 0 0 3.56l-2.02 1.57a.5.5 0 0 0-.12.64l1.91 3.3a.5.5 0 0 0 .6.22l2.38-.96a7.4 7.4 0 0 0 2.6 1.5l.36 2.53a.5.5 0 0 0 .49.42h3.4a.5.5 0 0 0 .49-.42l.36-2.53a7.4 7.4 0 0 0 2.6-1.5l2.38.96a.5.5 0 0 0 .6-.22l1.91-3.3a.5.5 0 0 0-.12-.64L19.4 13.5zM11.5 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/>
+            </svg>
+            F2
+          </button>
+        </div>
+        <div id="picker">
+          <button type="button" data-track="warmup">1 YARD</button>
+          <button type="button" data-track="coastal">2 COAST</button>
+          <button type="button" data-track="skyway">3 SKYWAY</button>
+        </div>
+        <div id="creditBlock" class="plate">
+          <div id="credit">Retro Gaming Dad</div>
+          <div id="modeLine">TIME TRIAL</div>
+          <div id="trackName">WARM-UP YARD</div>
+        </div>
+        <div id="muteChip" hidden>MUTED</div>
+        <div id="toast" hidden></div>
+        <div id="speedBlock" class="plate">
+          <div id="speedUnit">KM/H</div>
+          <div id="speed">000</div>
+        </div>
+        <div id="gearBlock" class="plate">
+          <div id="gearLabel">GEAR</div>
+          <div id="gear">1</div>
+          <div id="gearName">DRIVE</div>
+          <div id="gravLine">FULL G ↓</div>
+          <div id="gearPips" aria-hidden="true"><i class="on"></i><i></i><i></i><i></i></div>
+        </div>
+        <div id="prompt"></div>
+        <div id="msg"></div>
+        <canvas id="minimap" width="148" height="96" hidden></canvas>
+        <div id="soundNudge" hidden>Press any key, click, or tap for sound</div>
+        <div id="coach" hidden>
+          <div id="coachKicker">WARM-UP  1 / 3</div>
+          <div id="coachTitle">SHIFT ON THE GROUND</div>
+          <p id="coachBody">Gear 1 is planted. Shift up once while the tires are down.</p>
+          <button id="coachSkip" type="button">Skip warm-up</button>
+        </div>
+      </div>
+      <div id="flash"></div>
+      <div id="chroma"></div>
+      <div id="bloom"></div>
+      <div id="failVeil"></div>
+      <div id="hint">Click the game, then drive. W accelerate · S brake · A D steer · Space handbrake · Q E shift (speed, gravity, color) · P pause · M mute. Tracks: 1 Warm-Up Yard · 2 Coastal Switchback · 3 Skyway Split · R restart. F2 opens settings. The menu picks Time Trial, Arcade Cup, or Quick Race. Arrows and Enter work there, and so does a gamepad. The first visit to Warm-Up Yard walks through one shift, one gear-3 jump, and one Flip.</div>
+      <div id="screenLayer">
+        <div class="card">
+          <img id="logoMark" src="assets/ui/gear-shift-logo-v1.svg" alt="Gear Shift">
+          <div class="kicker" id="screenKicker">GEAR SHIFT</div>
+          <div id="screenCredit">Retro Gaming Dad</div>
+          <div id="screenArt"></div>
+          <div id="screenCopy"></div>
+          <div id="screenActions"></div>
+          <div id="screenHelp"></div>
+        </div>
+      </div>
+      <div id="pauseLayer">
+        <div class="card">
+          <div class="kicker">PAUSED</div>
+          <div id="pauseBrand">Gear Shift</div>
+          <div id="pauseCredit">Retro Gaming Dad</div>
+          <div id="pauseActions">
+            <button type="button" data-pause="resume">Resume</button>
+            <button type="button" data-pause="howto">How to Play</button>
+            <button type="button" data-pause="settings">Settings</button>
+            <button type="button" data-pause="restart">Restart</button>
+            <button type="button" data-pause="menu">Quit to menu</button>
+          </div>
+          <div class="sub" id="pauseHelp">P or Esc to resume</div>
+        </div>
+      </div>
+      <div id="settingsLayer">
+        <div class="card" role="dialog" aria-labelledby="settingsTitle">
+          <div class="kicker" id="settingsTitle">SETTINGS</div>
+          <div id="setTabs">
+            <button type="button" data-tab="audio">Audio</button>
+            <button type="button" data-tab="video">Video</button>
+            <button type="button" data-tab="controls">Controls</button>
+          </div>
+          <div id="padTitle">No controller · keyboard still works</div>
+          <div id="settingsHelp"></div>
+          <div id="bindWarn"></div>
+          <div id="invertNote" hidden>Paddles are swapped while driving. The buttons above stay as saved.</div>
+          <div id="settingsBody">
+            <div id="settingsList"></div>
+            <div id="padTest">
+              <h2>INPUT TEST</h2>
+              <div class="testRow"><span>LS X</span><div class="bar"><i id="barLX"></i></div><b id="valLX">0.00</b></div>
+              <div class="testRow"><span>LS Y</span><div class="bar"><i id="barLY"></i></div><b id="valLY">0.00</b></div>
+              <div class="testRow"><span>LT</span><div class="bar"><i id="barLT"></i></div><b id="valLT">0.00</b></div>
+              <div class="testRow"><span>RT</span><div class="bar"><i id="barRT"></i></div><b id="valRT">0.00</b></div>
+              <div id="testButtons">Buttons: none</div>
+              <div id="testSteer">Steer out 0.00</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="touchLayer" hidden>
+        <div id="landHint" hidden>Landscape plays best</div>
+        <div id="steerZone" data-touch="steer"><div id="steerPuck"></div><span>STEER</span></div>
+        <button type="button" id="touchDown" data-touch="down">L</button>
+        <button type="button" id="touchUp" data-touch="up">R</button>
+        <button type="button" id="touchPause" data-touch="pause">PAUSE</button>
+        <button type="button" id="touchBrake" data-touch="brake">BRAKE</button>
+        <button type="button" id="touchHand" data-touch="hand">DRIFT</button>
+        <button type="button" id="touchAccel" data-touch="accel">GAS</button>
+      </div>
+      <div id="portrait" hidden></div>
+    </div>
+  </div>
+  <noscript>
+    <p>Gear Shift by Retro Gaming Dad needs JavaScript and WebGL.</p>
+  </noscript>
+  <script src="vendor/three.min.js"></script>
+  <script src="src/basis.js"></script>
+  <script src="src/save.js"></script>
+  <script src="src/input.js"></script>
+  <script src="src/touch.js"></script>
+  <script src="src/audio.js"></script>
+  <script src="src/controller.js"></script>
+  <script src="src/track.js"></script>
+  <script src="src/car.js"></script>
+  <script src="src/ai.js"></script>
+  <script src="src/game.js"></script>
+</body>
+</html>

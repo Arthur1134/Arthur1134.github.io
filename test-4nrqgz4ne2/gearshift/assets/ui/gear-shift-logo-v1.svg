@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 168" role="img" aria-label="Gear Shift">
+  <title>Gear Shift</title>
+  <polygon points="10,16 52,84 10,152 32,152 74,84 32,16" fill="#ffb03a"/>
+  <polygon points="46,16 88,84 46,152 68,152 110,84 68,16" fill="#7ef0ff"/>
+  <text x="132" y="116" font-family="Impact, Arial Black, sans-serif" font-size="104" fill="#f6f1e7" letter-spacing="1">GEAR SHIFT</text>
+</svg>

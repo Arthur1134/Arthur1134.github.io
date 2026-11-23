@@ -268,9 +268,9 @@ function drawEnemy(c,e,T){const x=e.x,y=e.y,d=ENEMIES[e.type],s=d.r/9,face=e.fac
  if(e.flash>0){c.globalAlpha=e.flash*.6;c.fillStyle='#fff';circ(c,x,y-(d.air?6:2),d.r*1.1);c.fill();c.globalAlpha=1}
  if(e.hp<e.max){const bw=d.boss?34:16,by=y-d.r*(d.air?2.4:2.1)-(d.boss?12:0);c.fillStyle='rgba(50,30,10,.35)';c.fillRect(x-bw/2+1,by+1,bw,3.4);c.fillStyle='#fdf6e6';c.fillRect(x-bw/2,by,bw,3.4);c.fillStyle=e.hp/e.max>.4?'#5fb04f':'#e0563f';c.fillRect(x-bw/2+.6,by+.6,(bw-1.2)*Math.max(0,e.hp/e.max),2.2)}}
 /* ------- towers ------- */
-function drawPad(c,x,y,sel,T,can){pfill(c,cc=>ell(cc,x,y,16,11),sel?'#fff7dd':'#f3e9cf',{d:2.4});c.save();c.setLineDash([3,3]);c.strokeStyle=sel?'#c8443a':'rgba(120,90,50,.55)';c.lineWidth=1.1;ell(c,x,y,12,8);c.stroke();c.restore();
- c.strokeStyle=can?'rgba(120,90,50,.75)':'rgba(120,90,50,.35)';c.lineWidth=1.8;c.beginPath();c.moveTo(x-4,y);c.lineTo(x+4,y);c.moveTo(x,y-3);c.lineTo(x,y+3);c.stroke();
- if(sel){c.strokeStyle='rgba(200,68,58,'+(0.5+Math.sin(T*6)*.3)+')';c.lineWidth=2;ell(c,x,y,19,13.5);c.stroke()}}
+function drawPad(c,x,y,sel,T,can){pfill(c,cc=>ell(cc,x,y,18,12.5),sel?'#fff7dd':'#f3e9cf',{d:2.4});c.save();c.setLineDash([3,3]);c.strokeStyle=sel?'#c8443a':'rgba(120,90,50,.55)';c.lineWidth=1.2;ell(c,x,y,14,9.5);c.stroke();c.restore();
+ c.strokeStyle=can?'rgba(120,90,50,.75)':'rgba(120,90,50,.35)';c.lineWidth=1.8;c.beginPath();c.moveTo(x-5,y);c.lineTo(x+5,y);c.moveTo(x,y-3.5);c.lineTo(x,y+3.5);c.stroke();
+ if(sel){c.strokeStyle='rgba(200,68,58,'+(0.5+Math.sin(T*6)*.3)+')';c.lineWidth=2;ell(c,x,y,22,15.5);c.stroke()}}
 function towerBase(c,x,y,col){pfill(c,cc=>poly(cc,[x-15,y,x-8,y-6,x+8,y-6,x+15,y,x+8,y+7,x-8,y+7]),col,{d:3});pfill(c,cc=>poly(cc,[x-15,y,x-8,y+7,x+8,y+7,x+15,y,x+15,y+3,x+8,y+10,x-8,y+10,x-15,y+3]),shade(col,-.22),{d:0})}
 function flag(c,x,y,b,T,sz){sz=sz||1;c.strokeStyle='#5b4030';c.lineWidth=1.2;c.beginPath();c.moveTo(x,y);c.lineTo(x,y-14*sz);c.stroke();const w=Math.sin(T*5+x)*1.5;pfill(c,cc=>poly(cc,[x,y-14*sz,x+10*sz,y-11.5*sz+w,x,y-8*sz]),b.c,{d:1.2});pfill(c,cc=>circ(cc,x+3.5*sz,y-11*sz,1.3*sz),b.c2,{d:0,edge:false})}
 function lvlStars(c,x,y,l){for(let i=0;i<=l;i++){const sx=x-(l*4)+i*8;pfill(c,cc=>star(cc,sx,y,3.4,1.5),'#f4c542',{d:1})}}
@@ -429,7 +429,7 @@ function botThink(S,unl){if(S.result)return;if(S.phase==='ready')startWave(S);
  if(S.wall.cd<=0&&unl.includes('wall')){const lead=S.en.filter(e=>!e.air&&!e.boss).sort((a,b)=>b.d/b.path.len-a.d/a.path.len)[0];if(lead&&lead.d/lead.path.len>.5){const q=lead.path.at(lead.d+30);placeWall(S,q.x,q.y)}}}
 
 /* ---------- save ---------- */
-const VERSION='1.0.0',SKEY='paperkingdomsiege_v1',W=360,H=640;
+const VERSION='1.0.1',SKEY='paperkingdomsiege_v1',W=360,H=640;
 function defSave(){return{v:1,set:{music:.7,sfx:.8,mute:false,shake:true,tips:true,fast:false},seals:0,up:{},banner:'red',owned:['red'],stars:[],unlocked:1,endBest:0,daily:{k:0,best:0,plays:0,won:0},seen:{},
  stats:{plays:0,wins:0,losses:0,folds:0,built:0,ink:0,walls:0,time:0,leaks:0,bosses:0,seals:0}}}
 let SAVE=defSave();try{const s=JSON.parse(localStorage.getItem(SKEY)||'null');if(s&&s.v===1){SAVE=Object.assign(defSave(),s);SAVE.set=Object.assign(defSave().set,s.set||{});SAVE.stats=Object.assign(defSave().stats,s.stats||{});SAVE.up=Object.assign({},s.up||{});SAVE.daily=Object.assign(defSave().daily,s.daily||{});SAVE.seen=Object.assign({},s.seen||{})}}catch(e){}
@@ -720,16 +720,35 @@ function drawCredits(){const c=ctx;deskBG(c,'#4f5f7a',81);credY+=.4;const lines=
  header('CREDITS',null);btn('back',10,596,96,34,'< BACK',()=>{sfx('back');go('title')},{fs:13})}
 
 /* ---------- input ---------- */
-function toLogical(ev){return{x:(ev.clientX-OX)/SCL,y:(ev.clientY-OY)/SCL}}
+function toLogical(ev){const r=cv.getBoundingClientRect();return{x:(ev.clientX-r.left-OX)/SCL,y:(ev.clientY-r.top-OY)/SCL}}
+/* Finger-sized hit radius in logical units: at least 44 CSS px across, and never tighter than 24 logical. */
+function fingerR(){return Math.max(24,26/SCL)}
+function hitBtnAt(x,y){const min=44/SCL;let best=null,bd=1e9;
+ for(let i=BTN.length-1;i>=0;i--){const b=BTN[i],cx=b.x+b.w/2,cy=b.y+b.h/2,hw=Math.max(b.w,min)/2,hh=Math.max(b.h,min)/2;
+  if(x>=cx-hw&&x<=cx+hw&&y>=cy-hh&&y<=cy+hh){const d=Math.hypot(x-cx,y-cy);if(d<bd){bd=d;best=b}}}
+ return best}
+function nearestPad(x,y,r){let best=null,bd=r;if(!S)return null;for(const p of S.pads){if(p.t)continue;const d=Math.hypot(p.x-x,p.y-y);if(d<bd){bd=d;best=p}}return best}
+function nearestTower(x,y,r){let best=null,bd=r;if(!S)return null;for(const t of S.towers){const d=Math.min(Math.hypot(t.x-x,t.y-12-y),Math.hypot(t.x-x,t.y-y));if(d<bd){bd=d;best=t}}return best}
 let downAt=null;
-cv.addEventListener('pointerdown',ev=>{audioInit();if(AU.ctx&&AU.curName==='')playMusic(AU.want||'title',true);const p=toLogical(ev);downAt=p;const b=hitBtn(p.x,p.y);press=b&&!b.dis?b:(b?{id:b.id,fn:b.fn,dis:1}:null);ev.preventDefault()});
-cv.addEventListener('pointerup',ev=>{const p=toLogical(ev);const b=hitBtn(p.x,p.y);const pr=press;press=null;if(pr&&b&&b.id===pr.id){b.fn&&b.fn();return}if(pr)return;if(downAt&&Math.hypot(p.x-downAt.x,p.y-downAt.y)<14)fieldTap(p.x,p.y);downAt=null});
+cv.addEventListener('pointerdown',ev=>{audioInit();if(AU.ctx&&AU.curName==='')playMusic(AU.want||'title',true);const p=toLogical(ev);downAt=p;const b=hitBtnAt(p.x,p.y);press=b&&!b.dis?b:(b?{id:b.id,fn:b.fn,dis:1}:null);ev.preventDefault()});
+cv.addEventListener('pointerup',ev=>{const p=toLogical(ev);const pr=press;press=null;const moved=downAt&&Math.hypot(p.x-downAt.x,p.y-downAt.y)*SCL>20;downAt=null;if(moved)return;
+ if(scene==='play'&&S&&!paused&&!S.result){handlePlayTap(p.x,p.y,pr);return}
+ const b=hitBtnAt(p.x,p.y);if(pr&&b&&b.id===pr.id){b.fn&&b.fn();return}});
 cv.addEventListener('pointercancel',()=>{press=null;downAt=null});
-function fieldTap(x,y){if(scene!=='play'||!S||paused||S.result)return;if(notice){notice=null;sfx('click');return}if(hint&&y<100&&!aim){hint=null;return}
+function handlePlayTap(x,y,pr){if(notice){notice=null;sfx('click');return}
  if(aim){if(aim==='ink'){if(castInk(S,x,y)){sfx('ink');aim=null}}else{if(placeWall(S,x,y)){sfx('wall');aim=null}else{sfx('nope');toast('TAP ON THE ROAD (NOT TOO CLOSE TO THE GATE)')}}return}
- for(const t of S.towers)if(Math.hypot(t.x-x,t.y-12-y)<20||Math.hypot(t.x-x,t.y-y)<16){sel={t};pick=null;sfx('open');return}
- for(const p of S.pads)if(!p.t&&Math.hypot(p.x-x,p.y-y)<20){sel={p};pick=null;sfx('open');return}
- if(sel){sel=null;pick=null;sfx('back')}}
+ const r=fingerR();const pad=nearestPad(x,y,r),tw=nearestTower(x,y,r),b=hitBtnAt(x,y);
+ const cand=[];
+ if(pad)cand.push({k:'pad',d:Math.hypot(pad.x-x,pad.y-y),pad});
+ if(tw)cand.push({k:'tower',d:Math.min(Math.hypot(tw.x-x,tw.y-12-y),Math.hypot(tw.x-x,tw.y-y)),t:tw});
+ if(b)cand.push({k:'btn',d:Math.hypot(x-(b.x+b.w/2),y-(b.y+b.h/2)),b});
+ cand.sort((a,c)=>a.d-c.d);
+ const best=cand[0];
+ if(!best){if(hint){hint=null;return}if(sel){sel=null;pick=null;sfx('back')}return}
+ if(best.k==='btn'){if(pr&&pr.id!==best.b.id)return;if(!best.b.dis&&best.b.fn)best.b.fn();return}
+ if(best.k==='tower'){sel={t:best.t};pick=null;sfx('open');return}
+ sel={p:best.pad};pick=null;sfx('open')}
+function fieldTap(x,y){handlePlayTap(x,y,null)}
 window.addEventListener('keydown',ev=>{audioInit();const k=ev.key;
  if(k==='ArrowDown'||k==='ArrowRight'||k==='Tab'){focus=BTN.length?(focus+1)%BTN.length:-1;ev.preventDefault();return}
  if(k==='ArrowUp'||k==='ArrowLeft'){focus=BTN.length?(focus-1+BTN.length)%BTN.length:-1;ev.preventDefault();return}
@@ -754,9 +773,20 @@ function render(){ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#4a3a28';ctx.fill
  if(scene!=='play'&&toastT>0)drawToast();if(focus>=BTN.length)focus=-1;ctx.restore()}
 resize();requestAnimationFrame(frame);
 /* ---------- test hooks (headless QA) ---------- */
-window.PKS={go,get scene(){return scene},get S(){return S},get SAVE(){return SAVE},startGame,openIntro,finish,
+window.PKS={go,get scene(){return scene},get S(){return S},get SAVE(){return SAVE},get sel(){return sel},get hint(){return hint},get SCL(){return SCL},get OX(){return OX},get OY(){return OY},fingerR,startGame,openIntro,finish,
  sim(sec,bot){const unl=unlockedTowers(S).concat(wallUnlocked(S)?['wall']:[]);let bt=0;for(let t=0;t<sec&&!S.result;t+=1/30){update(S,1/30);bt+=1/30;if(bot&&bt>=.5){bt=0;botThink(S,unl)}}EV=[];if(S.result&&scene==='play')finish();return{result:S.result,wave:S.wave,hearts:S.hearts,gold:S.gold,towers:S.towers.length}},
- tapPad(i){const p=S.pads[i];fieldTap(p.x,p.y)},tap(x,y){fieldTap(x,y)},clickBtn(id){const b=BTN.find(b=>b.id===id);if(b&&!b.dis){b.fn();return true}return false},btns(){return BTN.map(b=>b.id)},setPaused(v){paused=v},dismiss(){notice=null;hint=null},get notice(){return notice}};
+ tapPad(i){const p=S.pads[i];fieldTap(p.x,p.y)},tap(x,y){fieldTap(x,y)},clickBtn(id){const b=BTN.find(b=>b.id===id);if(b&&!b.dis){b.fn();return true}return false},btns(){return BTN.map(b=>b.id)},
+ btnBoxes(){return BTN.map(b=>({id:b.id,x:b.x,y:b.y,w:b.w,h:b.h,dis:!!b.dis}))},
+ setPaused(v){paused=v},dismiss(){notice=null;hint=null},clearSel(){sel=null;pick=null;aim=null},get notice(){return notice},
+ /* Walk every empty pad: true if a tap on its center would select it (even with a tip showing). */
+ auditPads(){if(!S)return{ok:false,reason:'no game'};const r=fingerR(),out=[];for(const p of S.pads){if(p.t){out.push({i:p.i,x:p.x,y:p.y,built:true,ok:true});continue}
+   const tw=nearestTower(p.x,p.y,r),pad=nearestPad(p.x,p.y,r),b=hitBtnAt(p.x,p.y);
+   const pd=pad?Math.hypot(pad.x-p.x,pad.y-p.y):1e9;
+   const td=tw?Math.min(Math.hypot(tw.x-p.x,tw.y-12-p.y),Math.hypot(tw.x-p.x,tw.y-p.y)):1e9;
+   const bd=b?Math.hypot(p.x-(b.x+b.w/2),p.y-(b.y+b.h/2)):1e9;
+   const winner=pd<=td&&pd<=bd?'pad':(td<=bd?'tower':'btn');
+   out.push({i:p.i,x:p.x,y:p.y,built:false,ok:winner==='pad'&&pad===p,winner,btn:b&&b.id,r})}
+  return{ok:out.every(o=>o.ok),r,count:out.length,pads:out}}};
 
 </script>
 <script>if(location.protocol!=='file:'){try{import('./rundot-ads.js').catch(function(){})}catch(_){}}</script>

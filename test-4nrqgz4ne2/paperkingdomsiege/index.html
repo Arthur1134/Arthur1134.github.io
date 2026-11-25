@@ -429,7 +429,7 @@ function botThink(S,unl){if(S.result)return;if(S.phase==='ready')startWave(S);
  if(S.wall.cd<=0&&unl.includes('wall')){const lead=S.en.filter(e=>!e.air&&!e.boss).sort((a,b)=>b.d/b.path.len-a.d/a.path.len)[0];if(lead&&lead.d/lead.path.len>.5){const q=lead.path.at(lead.d+30);placeWall(S,q.x,q.y)}}}
 
 /* ---------- save ---------- */
-const VERSION='1.0.1',SKEY='paperkingdomsiege_v1',W=360,H=640;
+const VERSION='1.0.2',SKEY='paperkingdomsiege_v1',W=360,H=640;
 function defSave(){return{v:1,set:{music:.7,sfx:.8,mute:false,shake:true,tips:true,fast:false},seals:0,up:{},banner:'red',owned:['red'],stars:[],unlocked:1,endBest:0,daily:{k:0,best:0,plays:0,won:0},seen:{},
  stats:{plays:0,wins:0,losses:0,folds:0,built:0,ink:0,walls:0,time:0,leaks:0,bosses:0,seals:0}}}
 let SAVE=defSave();try{const s=JSON.parse(localStorage.getItem(SKEY)||'null');if(s&&s.v===1){SAVE=Object.assign(defSave(),s);SAVE.set=Object.assign(defSave().set,s.set||{});SAVE.stats=Object.assign(defSave().stats,s.stats||{});SAVE.up=Object.assign({},s.up||{});SAVE.daily=Object.assign(defSave().daily,s.daily||{});SAVE.seen=Object.assign({},s.seen||{})}}catch(e){}
@@ -585,9 +585,14 @@ function drawIntro(){const c=ctx;const mode=pendingMode,li=introLi;deskBG(c,'#7a
  btn('back',10,596,96,34,'< BACK',()=>{sfx('back');go(mode==='camp'?'map':'title')},{fs:13})}
 
 /* ---------- play scene ---------- */
-let nextPrev={w:-1,types:[]};
+let nextPrev={w:-1,types:[]},SELBOX=null;
 function nextTypes(){if(nextPrev.w===S.wave)return nextPrev.types;const wd=waveDef(S.eli+(S.mode==='endless'?S.wave*.35:0),S.cfg,S.wave,S.seed,S.mods);const ts=[...new Set(wd.groups.map(g=>g.t))];nextPrev={w:S.wave,types:ts};return ts}
-function popPos(px,py,w,h){const x=Math.max(6,Math.min(354-w,px-w/2));let y=py>330?py-h-22:py+24;y=Math.max(46,Math.min(H-h-6,y));return{x,y}}
+/* Keep the sheet off the selected tower/pad (sprite sits a little above the pad point). */
+function cardOverlaps(x,y,w,h,ax,ay){const pad=36,up=24,inset=6;x-=inset;y-=inset;w+=inset*2;h+=inset*2;return !(x+w<ax-pad||x>ax+pad||y+h<ay-pad-up||y>ay+pad)}
+function popPos(px,py,w,h){const topMin=46,botMax=578;const x=Math.max(8,Math.min(W-8-w,(W-w)/2));
+ let y=botMax-h;
+ if(cardOverlaps(x,y,w,h,px,py)){y=topMin;if(cardOverlaps(x,y,w,h,px,py)){y=py-topMin>=botMax-py?Math.max(topMin,Math.min(py-h-28,botMax-h)):Math.min(botMax-h,Math.max(py+28,topMin))}}
+ y=Math.max(topMin,Math.min(botMax-h,y));return{x,y}}
 function drawPlay(){const c=ctx;bakeBG(S);c.save();if(SAVE.set.shake&&S.hit>0&&!paused){c.translate((Math.random()-.5)*S.hit*6,(Math.random()-.5)*S.hit*6)}
  c.drawImage(bgC,0,0,W,H);
  for(const d of S.decal){c.globalAlpha=Math.min(1,d.l/d.L*1.6)*.8;const R=rng(d.seed);c.fillStyle=d.c;circ(c,d.x,d.y,d.r);c.fill();for(let i=0;i<5;i++){const a=R()*TAU,rr2=d.r*(.9+R()*.6);circ(c,d.x+Math.cos(a)*rr2,d.y+Math.sin(a)*rr2*.7,d.r*(.18+R()*.25));c.fill()}c.globalAlpha=1}
@@ -607,7 +612,7 @@ function drawPlay(){const c=ctx;bakeBG(S);c.save();if(SAVE.set.shake&&S.hit>0&&!
   else if(f.k==='drops'){c.fillStyle=REALMS[S.cfg.r].ink;for(let i=0;i<8;i++){const ox=Math.cos(i*.8)*40*(i/8),dy=(1-a)*60;circ(c,f.x+ox,f.y-60+dy+i*2,3);c.fill()}}}
  c.globalAlpha=1;c.restore();
  drawHUD();
- if(sel&&!paused&&!S.result)drawSelCard();
+ SELBOX=null;if(sel&&!paused&&!S.result)drawSelCard();
  if(aim){c.save();pfill(c,cc=>tornPath(cc,40,48,280,30,5,1.5),'#3b2a1a',{d:2});ptext(c,aim==='ink'?'TAP THE MAP TO SPILL THE INK':'TAP THE ROAD TO BUILD A PAPER WALL',180,63,11,'#fbf4e2','center',{sh:false});c.restore();btn('aimx',300,82,48,24,'X',()=>{aim=null;sfx('back')},{fs:12})}
  if(hint&&!S.result&&!aim){const a=Math.min(1,hint.t*4,(hint.dur-hint.t)*2);c.save();c.globalAlpha=Math.max(0,a);const y=S.boss?78:50;c.translate(180,y+22);c.rotate(-.01);pfill(c,cc=>tornPath(cc,-150,-20,300,42,9,1.4),'#fff7c2',{d:3});tape(c,0,-20,40,0);wrapText(c,hint.text,0,-6,280,12,10,'#3b2a1a','center');c.restore()}
  if(notice)drawNotice();if(paused&&!S.result&&!notice)drawPause();if(toastT>0)drawToast()}
@@ -627,19 +632,19 @@ function drawHUD(){const c=ctx;pfill(c,cc=>tornPath(cc,-4,-6,368,46,4,1.6),'#fbf
  if(S.phase==='ready'||S.phase==='gap'){const ready=S.phase==='ready';const pul=ready?Math.sin(T*5)*2:0;
   btn('wave',240-pul,590-pul,112+pul*2,40+pul,ready?'START WAVE':'NEXT WAVE',()=>{const b=startWave(S);sfx('horn');if(b){S.fx.push({k:'pop',x:296,y:580,txt:'+'+b+' EARLY',l:1.2,L:1.2});sfx('coin')}},{fs:13,col:ready?'#fff3c9':'#efe6d0',sub:ready?'SPACE':Math.ceil(S.gap)+'s \u2022 +'+Math.ceil(S.gap)*2+' GOLD',sfs:8});
   const ts=nextTypes();ts.forEach((t,i)=>{const x=346-i*24,y=572;pfill(c,cc=>circ(cc,x,y,10),'rgba(251,244,226,.9)',{d:1.4});miniEnemy(c,t,x,y+3,.62)})}}
-function drawSelCard(){const c=ctx;if(sel.p&&!sel.p.t){const p=sel.p,w=232,h=134,{x,y}=popPos(p.x,p.y,w,h);c.save();pfill(c,cc=>tornPath(cc,x,y,w,h,11,1.4),'#fbf4e2',{d:4});grainOver(c,cc=>tornPath(cc,x,y,w,h,11,1.4),.9);tape(c,x+w/2,y+1,36,0);
+function drawSelCard(){const c=ctx;if(sel.p&&!sel.p.t){const p=sel.p,w=336,h=156,{x,y}=popPos(p.x,p.y,w,h);SELBOX={x:x-6,y:y-6,w:w+12,h:h+12,kind:'build'};c.save();pfill(c,cc=>tornPath(cc,x,y,w,h,11,1.4),'#fbf4e2',{d:4});grainOver(c,cc=>tornPath(cc,x,y,w,h,11,1.4),.9);tape(c,x+w/2,y+1,44,0);
   const un=unlockedTowers(S);if(pick){ptext(c,TOWERS[pick].name,x+w/2,y+14,11,'#3b2a1a','center',{sh:false,w:'900'});ptext(c,TOWERS[pick].tag,x+w/2,y+27,8.5,'#7a5a3a','center',{sh:false})}else{ptext(c,'BUILD A TOWER',x+w/2,y+14,11,'#3b2a1a','center',{sh:false,w:'900'});ptext(c,'TAP ONCE TO PREVIEW, AGAIN TO BUILD',x+w/2,y+27,8,'#7a5a3a','center',{sh:false})}
-  TORDER.forEach((t,i)=>{const sx=x+8+(i%3)*74,sy=y+36+Math.floor(i/3)*48,lk=!un.includes(t),cost=towerCost(S,t,0),aff=S.gold>=cost,pk=pick===t;
-   BTN.push({id:'b_'+t,x:sx,y:sy,w:68,h:44,fn:()=>{if(lk){sfx('nope');toast('UNLOCKS IN LEVEL '+(TOWERS[t].unlock+1));return}if(pick===t){if(!aff){sfx('nope');toast('NOT ENOUGH GOLD');return}const tw=build(S,p,t);if(tw){sfx('build');for(let k=0;k<10;k++)S.fx.push({k:'scrap',x:p.x,y:p.y-6,vx:(Math.random()-.5)*80,vy:-40-Math.random()*50,r:0,vr:9,l:.6,L:.6,c:k%2?'#fbf4e2':banner().c,s:2.4});sel=null;pick=null;showHint('Tap START WAVE when you are ready. Tap a tower to upgrade or sell it.','t_wave',7)}}else{pick=t;sfx('open')}}});
-   pfill(c,cc=>rr(cc,sx,sy,68,44,3),pk?'#fff3c9':(lk?'#ddd4c2':'#f3ead6'),{d:pk?1:2});if(pk){c.save();c.setLineDash([3,3]);c.strokeStyle='#c8443a';c.lineWidth=1.4;rr(c,sx+2,sy+2,64,40,3);c.stroke();c.restore()}
-   if(lk){lockIcon(c,sx+34,sy+18,1.2);ptext(c,'LV '+(TOWERS[t].unlock+1),sx+34,sy+36,8,'#6b5a48','center',{sh:false})}
-   else{c.save();if(!aff)c.globalAlpha=.55;miniTower(c,t,sx+22,sy+30,.7,0);c.restore();if(pk){ptext(c,'BUILD',sx+50,sy+14,9,'#c8443a','center',{sh:false,w:'900'})}coinIcon(c,sx+42,sy+33,.8);ptext(c,''+cost,sx+49,sy+34,10,aff?'#3b2a1a':'#c8443a','left',{sh:false,w:'900'})}});c.restore()}
- else if(sel.t){const t=sel.t,w=224,h=106,{x,y}=popPos(t.x,t.y,w,h),D=TOWERS[t.type];c.save();pfill(c,cc=>tornPath(cc,x,y,w,h,13,1.4),'#fbf4e2',{d:4});grainOver(c,cc=>tornPath(cc,x,y,w,h,13,1.4),.9);tape(c,x+w/2,y+1,36,0);
-  ptext(c,D.name,x+12,y+15,11,'#3b2a1a','left',{sh:false,w:'900'});for(let i=0;i<3;i++)pfill(c,cc=>star(cc,x+w-44+i*14,y+15,5,2.2),i<=t.lvl?'#f4c542':'#e0d6c0',{d:1});
-  const st=[];if(t.type==='glue')st.push('SLOW '+Math.round(tStat(S,t,'slow')*100)+'%');else if(t.type==='fan')st.push('PUSH '+tStat(S,t,'push'));else st.push('DMG '+Math.round(tStat(S,t,'dmg')*S.dmgMul));st.push('RANGE '+tStat(S,t,'range'));if(t.type==='crane')st.push('CHAIN '+tStat(S,t,'chain'));if(D.air)st.push('HITS FLYERS');ptext(c,st.join(' \u2022 '),x+12,y+31,8.5,'#7a5a3a','left',{sh:false});
+  TORDER.forEach((t,i)=>{const sx=x+12+(i%3)*108,sy=y+42+Math.floor(i/3)*54,lk=!un.includes(t),cost=towerCost(S,t,0),aff=S.gold>=cost,pk=pick===t;
+   BTN.push({id:'b_'+t,x:sx,y:sy,w:100,h:52,fn:()=>{if(lk){sfx('nope');toast('UNLOCKS IN LEVEL '+(TOWERS[t].unlock+1));return}if(pick===t){if(!aff){sfx('nope');toast('NOT ENOUGH GOLD');return}const tw=build(S,p,t);if(tw){sfx('build');for(let k=0;k<10;k++)S.fx.push({k:'scrap',x:p.x,y:p.y-6,vx:(Math.random()-.5)*80,vy:-40-Math.random()*50,r:0,vr:9,l:.6,L:.6,c:k%2?'#fbf4e2':banner().c,s:2.4});sel=null;pick=null;showHint('Tap START WAVE when you are ready. Tap a tower to upgrade or sell it.','t_wave',7)}}else{pick=t;sfx('open')}}});
+   pfill(c,cc=>rr(cc,sx,sy,100,52,3),pk?'#fff3c9':(lk?'#ddd4c2':'#f3ead6'),{d:pk?1:2});if(pk){c.save();c.setLineDash([3,3]);c.strokeStyle='#c8443a';c.lineWidth=1.4;rr(c,sx+2,sy+2,96,48,3);c.stroke();c.restore()}
+   if(lk){lockIcon(c,sx+50,sy+20,1.2);ptext(c,'LV '+(TOWERS[t].unlock+1),sx+50,sy+40,8,'#6b5a48','center',{sh:false})}
+   else{c.save();if(!aff)c.globalAlpha=.55;miniTower(c,t,sx+30,sy+34,.75,0);c.restore();if(pk){ptext(c,'BUILD',sx+72,sy+16,9,'#c8443a','center',{sh:false,w:'900'})}coinIcon(c,sx+62,sy+36,.8);ptext(c,''+cost,sx+69,sy+37,10,aff?'#3b2a1a':'#c8443a','left',{sh:false,w:'900'})}});c.restore()}
+ else if(sel.t){const t=sel.t,w=336,h=128,{x,y}=popPos(t.x,t.y,w,h),D=TOWERS[t.type];SELBOX={x:x-6,y:y-6,w:w+12,h:h+12,kind:'tower'};c.save();pfill(c,cc=>tornPath(cc,x,y,w,h,13,1.4),'#fbf4e2',{d:4});grainOver(c,cc=>tornPath(cc,x,y,w,h,13,1.4),.9);tape(c,x+w/2,y+1,44,0);
+  ptext(c,D.name,x+16,y+18,13,'#3b2a1a','left',{sh:false,w:'900'});for(let i=0;i<3;i++)pfill(c,cc=>star(cc,x+w-56+i*16,y+18,6,2.4),i<=t.lvl?'#f4c542':'#e0d6c0',{d:1});
+  const st=[];if(t.type==='glue')st.push('SLOW '+Math.round(tStat(S,t,'slow')*100)+'%');else if(t.type==='fan')st.push('PUSH '+tStat(S,t,'push'));else st.push('DMG '+Math.round(tStat(S,t,'dmg')*S.dmgMul));st.push('RANGE '+tStat(S,t,'range'));if(t.type==='crane')st.push('CHAIN '+tStat(S,t,'chain'));if(D.air)st.push('HITS FLYERS');ptext(c,st.join(' \u2022 '),x+16,y+38,9,'#7a5a3a','left',{sh:false});
   const max=t.lvl>=2,uc=max?0:towerCost(S,t.type,t.lvl+1),aff=S.gold>=uc;
-  btn('up',x+10,y+44,128,50,max?'MAX LEVEL':'UPGRADE',()=>{if(max)return;if(upgrade(S,t)){sfx('upgrade');S.fx.push({k:'ring',x:t.x,y:t.y-10,r0:6,r1:30,l:.4,L:.4,c:'rgba(244,197,66,.9)'})}else{sfx('nope');toast('NOT ENOUGH GOLD')}},{fs:13,dis:max||!aff,col:'#fff3c9',sub:max?'':uc+' GOLD',sfs:9});
-  const rf=Math.round(t.spent*S.refund);btn('sell',x+146,y+44,68,50,'SELL',()=>{const g=sell(S,t);sfx('sell');S.fx.push({k:'pop',x:t.x,y:t.y-20,txt:'+'+g,l:.9,L:.9});sel=null},{fs:12,sub:'+'+rf,sfs:9});c.restore()}}
+  btn('up',x+12,y+54,204,60,max?'MAX LEVEL':'UPGRADE',()=>{if(max)return;if(upgrade(S,t)){sfx('upgrade');S.fx.push({k:'ring',x:t.x,y:t.y-10,r0:6,r1:30,l:.4,L:.4,c:'rgba(244,197,66,.9)'})}else{sfx('nope');toast('NOT ENOUGH GOLD')}},{fs:15,dis:max||!aff,col:'#fff3c9',sub:max?'':uc+' GOLD',sfs:10});
+  const rf=Math.round(t.spent*S.refund);btn('sell',x+228,y+54,96,60,'SELL',()=>{const g=sell(S,t);sfx('sell');S.fx.push({k:'pop',x:t.x,y:t.y-20,txt:'+'+g,l:.9,L:.9});sel=null},{fs:14,sub:'+'+rf,sfs:10});c.restore()}}
 function drawNotice(){const c=ctx;BTN=[];c.fillStyle='rgba(30,20,10,.45)';c.fillRect(0,0,W,H);const D=ENEMIES[notice];c.save();c.translate(180,300);c.rotate(.01);card(c,-140,-120,280,240,'#fbf4e2',17);c.restore();
  ptext(c,D.boss?'BOSS INCOMING!':'NEW FOE!',180,206,13,'#c8443a','center',{sh:false,w:'900'});miniEnemy(c,notice,180,262,D.boss?2:2.6);ptext(c,D.name,180,316,15,'#3b2a1a','center',{sh:false,w:'900'});wrapText(c,D.tip,180,338,240,13,10,'#5a4030','center');
  btn('gotit',110,370,140,38,'GOT IT',()=>{notice=null;sfx('click')},{fs:15,col:'#fff3c9'})}
@@ -729,26 +734,36 @@ function hitBtnAt(x,y){const min=44/SCL;let best=null,bd=1e9;
  return best}
 function nearestPad(x,y,r){let best=null,bd=r;if(!S)return null;for(const p of S.pads){if(p.t)continue;const d=Math.hypot(p.x-x,p.y-y);if(d<bd){bd=d;best=p}}return best}
 function nearestTower(x,y,r){let best=null,bd=r;if(!S)return null;for(const t of S.towers){const d=Math.min(Math.hypot(t.x-x,t.y-12-y),Math.hypot(t.x-x,t.y-y));if(d<bd){bd=d;best=t}}return best}
+function inSelCard(x,y){if(!SELBOX)return false;const p=10;return x>=SELBOX.x-p&&x<=SELBOX.x+SELBOX.w+p&&y>=SELBOX.y-p&&y<=SELBOX.y+SELBOX.h+p}
+function isCardBtn(b){return !!(b&&/^(up|sell|b_)/.test(b.id))}
 let downAt=null;
-cv.addEventListener('pointerdown',ev=>{audioInit();if(AU.ctx&&AU.curName==='')playMusic(AU.want||'title',true);const p=toLogical(ev);downAt=p;const b=hitBtnAt(p.x,p.y);press=b&&!b.dis?b:(b?{id:b.id,fn:b.fn,dis:1}:null);ev.preventDefault()});
-cv.addEventListener('pointerup',ev=>{const p=toLogical(ev);const pr=press;press=null;const moved=downAt&&Math.hypot(p.x-downAt.x,p.y-downAt.y)*SCL>20;downAt=null;if(moved)return;
- if(scene==='play'&&S&&!paused&&!S.result){handlePlayTap(p.x,p.y,pr);return}
- const b=hitBtnAt(p.x,p.y);if(pr&&b&&b.id===pr.id){b.fn&&b.fn();return}});
+cv.addEventListener('pointerdown',ev=>{audioInit();if(AU.ctx&&AU.curName==='')playMusic(AU.want||'title',true);ev.preventDefault();ev.stopPropagation();const p=toLogical(ev);downAt=p;const b=hitBtnAt(p.x,p.y);
+ if(inSelCard(p.x,p.y)){press=b&&isCardBtn(b)?(b.dis?{id:b.id,fn:b.fn,dis:1}:b):{id:'_selcard',swallow:1};return}
+ press=b&&!b.dis?b:(b?{id:b.id,fn:b.fn,dis:1}:null)});
+cv.addEventListener('pointerup',ev=>{ev.preventDefault();ev.stopPropagation();const p=toLogical(ev);const pr=press;press=null;const moved=downAt&&Math.hypot(p.x-downAt.x,p.y-downAt.y)*SCL>20;downAt=null;
+ if(scene==='play'&&S&&!paused&&!S.result){handlePlayTap(p.x,p.y,pr,moved);return}
+ if(moved)return;const b=hitBtnAt(p.x,p.y);if(pr&&b&&b.id===pr.id){b.fn&&b.fn();return}});
 cv.addEventListener('pointercancel',()=>{press=null;downAt=null});
-function handlePlayTap(x,y,pr){if(notice){notice=null;sfx('click');return}
+function handlePlayTap(x,y,pr,moved){
+ if(notice){notice=null;sfx('click');return}
  if(aim){if(aim==='ink'){if(castInk(S,x,y)){sfx('ink');aim=null}}else{if(placeWall(S,x,y)){sfx('wall');aim=null}else{sfx('nope');toast('TAP ON THE ROAD (NOT TOO CLOSE TO THE GATE)')}}return}
- const r=fingerR();const pad=nearestPad(x,y,r),tw=nearestTower(x,y,r),b=hitBtnAt(x,y);
- const cand=[];
- if(pad)cand.push({k:'pad',d:Math.hypot(pad.x-x,pad.y-y),pad});
- if(tw)cand.push({k:'tower',d:Math.min(Math.hypot(tw.x-x,tw.y-12-y),Math.hypot(tw.x-x,tw.y-y)),t:tw});
- if(b)cand.push({k:'btn',d:Math.hypot(x-(b.x+b.w/2),y-(b.y+b.h/2)),b});
- cand.sort((a,c)=>a.d-c.d);
- const best=cand[0];
- if(!best){if(hint){hint=null;return}if(sel){sel=null;pick=null;sfx('back')}return}
- if(best.k==='btn'){if(pr&&pr.id!==best.b.id)return;if(!best.b.dis&&best.b.fn)best.b.fn();return}
- if(best.k==='tower'){sel={t:best.t};pick=null;sfx('open');return}
- sel={p:best.pad};pick=null;sfx('open')}
-function fieldTap(x,y){handlePlayTap(x,y,null)}
+ /* Popup UI is checked first. A press that started on a card button fires even if the finger lifts on the map. */
+ if(pr&&isCardBtn(pr)){if(!pr.dis&&pr.fn)pr.fn();return}
+ if(pr&&pr.swallow)return;
+ if(inSelCard(x,y)){const b=hitBtnAt(x,y);if(b&&isCardBtn(b)&&!b.dis&&b.fn)b.fn();return}
+ if(moved)return;
+ /* HUD buttons next, then the map. A HUD press that missed on the way up must not close the popup or pick a pad. */
+ const b=hitBtnAt(x,y);
+ if(pr&&b&&b.id===pr.id){if(!b.dis&&b.fn)b.fn();return}
+ if(pr)return;
+ const r=fingerR(),pad=nearestPad(x,y,r),tw=nearestTower(x,y,r);
+ const td=tw?Math.min(Math.hypot(tw.x-x,tw.y-12-y),Math.hypot(tw.x-x,tw.y-y)):1e9;
+ const pd=pad?Math.hypot(pad.x-x,pad.y-y):1e9;
+ if(tw&&td<=pd){sel={t:tw};pick=null;sfx('open');return}
+ if(pad){sel={p:pad};pick=null;sfx('open');return}
+ if(hint){hint=null;return}
+ if(sel){sel=null;pick=null;sfx('back')}}
+function fieldTap(x,y){handlePlayTap(x,y,null,false)}
 window.addEventListener('keydown',ev=>{audioInit();const k=ev.key;
  if(k==='ArrowDown'||k==='ArrowRight'||k==='Tab'){focus=BTN.length?(focus+1)%BTN.length:-1;ev.preventDefault();return}
  if(k==='ArrowUp'||k==='ArrowLeft'){focus=BTN.length?(focus-1+BTN.length)%BTN.length:-1;ev.preventDefault();return}
@@ -776,7 +791,7 @@ resize();requestAnimationFrame(frame);
 window.PKS={go,get scene(){return scene},get S(){return S},get SAVE(){return SAVE},get sel(){return sel},get hint(){return hint},get SCL(){return SCL},get OX(){return OX},get OY(){return OY},fingerR,startGame,openIntro,finish,
  sim(sec,bot){const unl=unlockedTowers(S).concat(wallUnlocked(S)?['wall']:[]);let bt=0;for(let t=0;t<sec&&!S.result;t+=1/30){update(S,1/30);bt+=1/30;if(bot&&bt>=.5){bt=0;botThink(S,unl)}}EV=[];if(S.result&&scene==='play')finish();return{result:S.result,wave:S.wave,hearts:S.hearts,gold:S.gold,towers:S.towers.length}},
  tapPad(i){const p=S.pads[i];fieldTap(p.x,p.y)},tap(x,y){fieldTap(x,y)},clickBtn(id){const b=BTN.find(b=>b.id===id);if(b&&!b.dis){b.fn();return true}return false},btns(){return BTN.map(b=>b.id)},
- btnBoxes(){return BTN.map(b=>({id:b.id,x:b.x,y:b.y,w:b.w,h:b.h,dis:!!b.dis}))},
+ btnBoxes(){return BTN.map(b=>({id:b.id,x:b.x,y:b.y,w:b.w,h:b.h,dis:!!b.dis}))},selBox(){return SELBOX?{x:SELBOX.x,y:SELBOX.y,w:SELBOX.w,h:SELBOX.h,kind:SELBOX.kind}:null},inSelCard,
  setPaused(v){paused=v},dismiss(){notice=null;hint=null},clearSel(){sel=null;pick=null;aim=null},get notice(){return notice},
  /* Walk every empty pad: true if a tap on its center would select it (even with a tip showing). */
  auditPads(){if(!S)return{ok:false,reason:'no game'};const r=fingerR(),out=[];for(const p of S.pads){if(p.t){out.push({i:p.i,x:p.x,y:p.y,built:true,ok:true});continue}

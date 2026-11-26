@@ -1,8 +1,11 @@
-/* Stage 6 audio. Web Audio only, original Retro Gaming Dad tones.
-   The AudioContext is created after the first key, click, tap, or pad
-   press so the browser autoplay policy stays quiet. One theme, four
-   gear layers. Engine pitch follows gear and RPM. Volumes live under
-   settings.audio on gearshift_v1 and merge with the rest of that save. */
+/* Stage 6 audio, v1.0.4 arrangement. Web Audio only, original Retro Gaming Dad
+   tones. The AudioContext is created after the first key, click, tap, or pad
+   press so the browser autoplay policy stays quiet. One theme: gear 1 drums,
+   gear 2 adds bass, gear 3 adds the lead, gear 4 adds a brighter flip line.
+   Layers crossfade on the beat. Flip entry and the final lap each play one
+   one-bar stinger through the music bus. Engine pitch follows gear and RPM.
+   Volumes live under settings.audio on gearshift_v1 and merge with the rest
+   of that save. The game never loads the WAV renders of these parts. */
 (function (GS) {
   'use strict';
 
@@ -16,7 +19,10 @@
     muted: false,
     shake: true,
     quality: 'mid',
-    reducedFlash: false
+    reducedFlash: false,
+    autoQuality: true,
+    targetGhost: true,
+    difficulty: 'normal'
   };
   var asked = false;
 
@@ -45,6 +51,24 @@
   var lastEventAt = 0;
   var duck = 1;
   var wantDuck = 1;
+  var layerSum = null;
+  var musicClock = 0;
+  var lastAudioNow = -1;
+  var nextGrid = 0;
+  var gridLive = false;
+  var shown = [1, 0, 0, 0];
+  var targetMix = [1, 0, 0, 0];
+  var queuedMix = [1, 0, 0, 0];
+  var fadeFrom = [1, 0, 0, 0];
+  var fadeClock = -1;
+  var liveShots = [];
+  var stingerCount = 0;
+  var lastStinger = null;
+  var finalLapFired = false;
+  var duckLeft = 0;
+  var pausedNow = false;
+  var FADE_S = 0.22;
+  var SHOT_CAP = 96;
 
   GS.audioSettings = settings;
 
@@ -95,6 +119,9 @@
     if (typeof block.shake === 'boolean') settings.shake = block.shake;
     if (block.quality === 'low' || block.quality === 'mid' || block.quality === 'high') settings.quality = block.quality;
     if (typeof block.reducedFlash === 'boolean') settings.reducedFlash = block.reducedFlash;
+    if (typeof block.autoQuality === 'boolean') settings.autoQuality = block.autoQuality;
+    if (typeof block.targetGhost === 'boolean') settings.targetGhost = block.targetGhost;
+    if (block.difficulty === 'easy' || block.difficulty === 'normal') settings.difficulty = block.difficulty;
     if (typeof block.particles === 'boolean' && !block.quality) {
       settings.quality = block.particles ? 'mid' : 'low';
     }
@@ -127,6 +154,9 @@
       prev.shake = settings.shake;
       prev.quality = settings.quality;
       prev.reducedFlash = !!settings.reducedFlash;
+      prev.autoQuality = settings.autoQuality !== false;
+      prev.targetGhost = settings.targetGhost !== false;
+      prev.difficulty = settings.difficulty === 'easy' ? 'easy' : 'normal';
       prev.particles = settings.quality !== 'low';
       data.settings.audio = prev;
     });
@@ -224,12 +254,16 @@
 
       musicFilter = ctx.createBiquadFilter();
       musicFilter.type = 'lowpass';
-      musicFilter.frequency.value = 520;
-      musicFilter.Q.value = 0.55;
+      // Hats need the top end in gear 1. The arrangement is the layers, not a mute filter.
+      musicFilter.frequency.value = 14000;
+      musicFilter.Q.value = 0.4;
       musicBus = ctx.createGain();
       musicBus.gain.value = 0;
       musicBus.connect(musicFilter);
       musicFilter.connect(master);
+      layerSum = ctx.createGain();
+      layerSum.gain.value = 1;
+      layerSum.connect(musicBus);
 
       sfxBus = ctx.createGain();
       sfxBus.gain.value = 0;
@@ -242,8 +276,8 @@
       var i;
       for (i = 0; i < 4; i++) {
         layerGain[i] = ctx.createGain();
-        layerGain[i].gain.value = 0;
-        layerGain[i].connect(musicBus);
+        layerGain[i].gain.value = i === 0 ? 1 : 0;
+        layerGain[i].connect(layerSum);
       }
 
       noiseBuf = makeNoise(1.2);
@@ -434,66 +468,337 @@
     }
   }
 
-  // One theme in D minor. Layer 0 bass, 1 arp, 2 pad, 3 flip lead.
-  var BASS = [146.83, 146.83, 110, 130.81, 146.83, 174.61, 110, 130.81];
-  var ARP = [293.66, 349.23, 440, 349.23, 220, 293.66, 349.23, 392];
-  var PAD = [146.83, 174.61, 220, 261.63];
-  var LEAD = [440, 523.25, 659.25, 587.33, 440, 392, 349.23, 523.25];
+  // One theme in D minor. Layers: 0 drums, 1 bass, 2 lead, 3 flip (brighter lead).
+  var GEAR_MIX = [
+    [1, 0, 0, 0],
+    [1, 1, 0, 0],
+    [1, 1, 1, 0],
+    [1, 1, 0.85, 1]
+  ];
+  var MENU_MIX = [0.48, 0.18, 0, 0];
+  var BASS_HZ = [146.83, 146.83, 110, 130.81, 146.83, 174.61, 110, 98];
+  var LEAD_HZ = [293.66, 349.23, 440, 349.23, 392, 349.23, 293.66, 261.63];
+  var FLIP_HZ = [587.33, 698.46, 880, 698.46, 784, 698.46, 587.33, 523.25];
 
-  function beep(layer, type, freq, peak, dur, at) {
-    if (!layerGain[layer] || peak <= 0.0002) return;
-    var osc = ctx.createOscillator();
+  function noiseBuffer(ac, seconds) {
+    var count = Math.floor(ac.sampleRate * seconds);
+    var buffer = ac.createBuffer(1, Math.max(1, count), ac.sampleRate);
+    var data = buffer.getChannelData(0);
+    var i;
+    for (i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    return buffer;
+  }
+
+  function dropNodes(nodes) {
+    var i;
+    for (i = 0; i < nodes.length; i++) {
+      try { nodes[i].disconnect(); } catch (err) {}
+    }
+  }
+
+  function trackShot(nodes, endAt, live) {
+    if (!live) return;
+    if (liveShots.length >= SHOT_CAP) {
+      dropNodes(liveShots[0].nodes);
+      liveShots.shift();
+    }
+    liveShots.push({ nodes: nodes, endAt: endAt });
+  }
+
+  function reapShots(now) {
+    var i = 0;
+    while (i < liveShots.length) {
+      if (liveShots[i].endAt <= now + 0.001) {
+        dropNodes(liveShots[i].nodes);
+        liveShots[i] = liveShots[liveShots.length - 1];
+        liveShots.pop();
+      } else {
+        i += 1;
+      }
+    }
+  }
+
+  function envHit(ac, dest, peak, attack, hold, release, at, live) {
+    var g = ac.createGain();
+    var end = at + attack + hold + release;
+    g.gain.setValueAtTime(0.0001, at);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), at + attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, end);
+    g.connect(dest);
+    return { gain: g, end: end, nodes: [g] };
+  }
+
+  function hitTone(ac, dest, type, freq, endFreq, peak, dur, at, noise, live) {
+    if (!dest || peak <= 0.0002) return;
+    var osc = ac.createOscillator();
     osc.type = type;
-    osc.frequency.setValueAtTime(freq, at);
-    var g = envGain(layerGain[layer], peak, 0.008, dur * 0.35, dur * 0.6, at);
-    osc.connect(g);
+    osc.frequency.setValueAtTime(Math.max(20, freq), at);
+    var env = envHit(ac, dest, peak, 0.008, dur * 0.42, dur * 0.5, at, live);
+    if (endFreq && endFreq !== freq) {
+      osc.frequency.exponentialRampToValueAtTime(Math.max(20, endFreq), env.end);
+    }
+    osc.connect(env.gain);
     osc.start(at);
-    osc.stop(at + dur + 0.03);
+    osc.stop(env.end + 0.02);
+    env.nodes.push(osc);
+    trackShot(env.nodes, env.end + 0.03, live);
+  }
+
+  function hitKick(ac, dest, at, noise, live) {
+    if (!dest) return;
+    var osc = ac.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(172, at);
+    osc.frequency.exponentialRampToValueAtTime(48, at + 0.1);
+    var env = envHit(ac, dest, 0.46, 0.004, 0.02, 0.12, at, live);
+    osc.connect(env.gain);
+    osc.start(at);
+    osc.stop(at + 0.18);
+    var nodes = env.nodes;
+    nodes.push(osc);
+    if (noise) {
+      var src = ac.createBufferSource();
+      src.buffer = noise;
+      var filter = ac.createBiquadFilter();
+      filter.type = 'highpass';
+      filter.frequency.setValueAtTime(1400, at);
+      var ng = ac.createGain();
+      ng.gain.setValueAtTime(0.11, at);
+      ng.gain.exponentialRampToValueAtTime(0.0001, at + 0.028);
+      src.connect(filter);
+      filter.connect(ng);
+      ng.connect(dest);
+      src.start(at);
+      src.stop(at + 0.04);
+      nodes.push(src);
+      nodes.push(filter);
+      nodes.push(ng);
+    }
+    trackShot(nodes, at + 0.2, live);
+  }
+
+  function hitHat(ac, dest, at, open, noise, live) {
+    if (!dest || !noise) return;
+    var src = ac.createBufferSource();
+    src.buffer = noise;
+    var filter = ac.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.setValueAtTime(open ? 6200 : 7600, at);
+    var g = ac.createGain();
+    var dur = open ? 0.09 : 0.032;
+    var peak = open ? 0.055 : 0.04;
+    g.gain.setValueAtTime(peak, at);
+    g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    src.connect(filter);
+    filter.connect(g);
+    g.connect(dest);
+    src.start(at);
+    src.stop(at + dur + 0.02);
+    trackShot([src, filter, g], at + dur + 0.03, live);
+  }
+
+  function layerHot(i) {
+    return shown[i] > 0.02 || targetMix[i] > 0.02 || queuedMix[i] > 0.02;
+  }
+
+  // only: null plays every hot layer, or 'drums' | 'bass' | 'lead' | 'flip' for a stem.
+  function playStepInto(ac, dests, at, s, only, noise, live) {
+    var q = s >> 2;
+    var drums = dests[0];
+    var bass = dests[1];
+    var lead = dests[2];
+    var flip = dests[3];
+    var sixteenth = 60 / bpm / 4;
+    if ((!only || only === 'drums') && (only || layerHot(0))) {
+      if (s % 4 === 0) hitKick(ac, drums, at, noise, live);
+      if (s % 2 === 0) hitHat(ac, drums, at, s % 8 === 4, noise, live);
+    }
+    if ((!only || only === 'bass') && (only || layerHot(1)) && s % 4 === 0) {
+      hitTone(ac, bass, 'square', BASS_HZ[q % BASS_HZ.length], 0, 0.13, sixteenth * 1.7, at, noise, live);
+    }
+    if ((!only || only === 'lead') && (only || layerHot(2)) && s % 4 === 0) {
+      hitTone(ac, lead, 'square', LEAD_HZ[q % LEAD_HZ.length], 0, 0.055, sixteenth * 1.55, at, noise, live);
+    }
+    if ((!only || only === 'flip') && (only || layerHot(3))) {
+      if (s % 4 === 0) {
+        hitTone(ac, flip, 'triangle', FLIP_HZ[q % FLIP_HZ.length], 0, 0.05, sixteenth * 1.45, at, noise, live);
+      }
+      if (s % 8 === 4) {
+        hitTone(ac, flip, 'square', FLIP_HZ[q % FLIP_HZ.length] * 0.5, 0, 0.028, sixteenth * 0.9, at, noise, live);
+      }
+    }
+  }
+
+  function playStingerInto(ac, dest, kind, at, noise, live) {
+    var sixteenth = 60 / bpm / 4;
+    var rising = kind === 'finalLap'
+      ? [329.63, 392, 493.88, 659.25]
+      : [440, 554.37, 659.25, 880];
+    var i;
+    for (i = 0; i < 16; i++) {
+      var t = at + i * sixteenth;
+      if (kind === 'finalLap') {
+        if (i % 4 === 0) hitKick(ac, dest, t, noise, live);
+      } else if (i === 0 || i === 8) {
+        hitKick(ac, dest, t, noise, live);
+      }
+      if (i % 2 === 0) hitHat(ac, dest, t, i === 14, noise, live);
+      if (i % 4 === 0) {
+        hitTone(ac, dest, 'triangle', rising[i >> 2], rising[Math.min(3, (i >> 2) + 1)], 0.09, sixteenth * 1.6, t, noise, live);
+      }
+    }
   }
 
   function scheduleMusic(now) {
-    if (!ctx || !layerGain[0]) return;
+    if (!ctx || !layerGain[0] || !noiseBuf) return;
     var sixteenth = 60 / bpm / 4;
     if (nextNote < now - 0.4) nextNote = now;
+    var dests = layerGain;
     while (nextNote < now + 0.16) {
-      var s = step % 32;
-      var bar = (step >> 3) % 4;
-      if (s % 2 === 0) {
-        beep(0, 'square', BASS[(s >> 2) % BASS.length], 0.11, sixteenth * 1.6, nextNote);
-      }
-      if (s % 2 === 0) {
-        beep(1, 'square', ARP[s % ARP.length], 0.045, sixteenth * 0.9, nextNote);
-      }
-      if (s === 0) {
-        beep(2, 'sawtooth', PAD[bar], 0.035, sixteenth * 7.2, nextNote);
-        beep(2, 'sawtooth', PAD[bar] * 1.5, 0.02, sixteenth * 7.2, nextNote);
-      }
-      if (s % 4 === 0) {
-        beep(3, 'square', LEAD[(s >> 2) % LEAD.length], 0.05, sixteenth * 1.8, nextNote);
-      }
-      if (s % 8 === 4) {
-        beep(3, 'triangle', LEAD[(s >> 2) % LEAD.length] * 2, 0.03, sixteenth * 1.1, nextNote);
-      }
+      playStepInto(ctx, dests, nextNote, step % 32, null, noiseBuf, true);
       step += 1;
       nextNote += sixteenth;
     }
   }
 
-  function setLayers(gear, now) {
-    var g = clamp(gear | 0, 1, 4);
-    var amounts = [
-      [1, 0.12, 0.02, 0],
-      [1, 0.85, 0.18, 0.05],
-      [0.92, 1, 0.82, 0.28],
-      [1, 0.7, 0.7, 1]
-    ][g - 1];
-    var cutoff = [480, 1100, 2400, 5200][g - 1];
+  function sampleShown() {
+    var u = 1;
+    if (fadeClock >= 0) {
+      u = (musicClock - fadeClock) / FADE_S;
+      if (u < 0) u = 0;
+      if (u > 1) u = 1;
+    }
+    var i;
+    for (i = 0; i < 4; i++) shown[i] = fadeFrom[i] + (targetMix[i] - fadeFrom[i]) * u;
+  }
+
+  function commitMix() {
+    var i;
+    var same = true;
+    for (i = 0; i < 4; i++) {
+      if (Math.abs(queuedMix[i] - targetMix[i]) > 0.001) same = false;
+    }
+    if (same) return;
+    sampleShown();
+    for (i = 0; i < 4; i++) {
+      fadeFrom[i] = shown[i];
+      targetMix[i] = queuedMix[i];
+    }
+    fadeClock = musicClock;
+  }
+
+  function queueMix(arr) {
+    var i;
+    for (i = 0; i < 4; i++) queuedMix[i] = arr[i];
+  }
+
+  function advanceGrid() {
+    var beat = 60 / bpm;
+    if (!gridLive) {
+      commitMix();
+      gridLive = true;
+      nextGrid = musicClock + beat;
+      return;
+    }
+    var guard = 0;
+    while (musicClock >= nextGrid - 1e-4 && guard < 4) {
+      commitMix();
+      nextGrid += beat;
+      guard += 1;
+    }
+  }
+
+  function applyLayerGains(now) {
     var i;
     for (i = 0; i < 4; i++) {
-      if (layerGain[i]) layerGain[i].gain.setTargetAtTime(amounts[i], now, 0.08);
+      if (!layerGain[i]) continue;
+      // Stepped on the game clock. A 0.22 s lerp is a crossfade, not a click.
+      layerGain[i].gain.value = Math.max(0, shown[i]);
     }
-    if (musicFilter) musicFilter.frequency.setTargetAtTime(cutoff, now, 0.1);
-    lastGear = g;
+    if (layerSum) layerSum.gain.setTargetAtTime(duckLeft > 0 ? 0.72 : 1, now, 0.035);
+  }
+
+  function mixFor(gear, menu) {
+    if (menu) return MENU_MIX;
+    return GEAR_MIX[clamp(gear | 0, 1, 4) - 1];
+  }
+
+  function advanceClock(now, gameDt) {
+    var audioDelta = 0;
+    if (lastAudioNow < 0) lastAudioNow = now;
+    else {
+      audioDelta = now - lastAudioNow;
+      if (audioDelta < 0) audioDelta = 0;
+      if (audioDelta > 0.25) audioDelta = 0.25;
+    }
+    lastAudioNow = now;
+    var adv = audioDelta;
+    if (gameDt > audioDelta + 0.001) adv = gameDt;
+    if (adv > 0.08) adv = 0.08;
+    if (adv < 0) adv = 0;
+    musicClock += adv;
+    if (duckLeft > 0) duckLeft = Math.max(0, duckLeft - adv);
+  }
+
+  function encodeWav(buffer) {
+    var ch = buffer.getChannelData(0);
+    var n = ch.length;
+    var rate = buffer.sampleRate || 44100;
+    var out = new ArrayBuffer(44 + n * 2);
+    var view = new DataView(out);
+    function writeStr(off, text) {
+      var c;
+      for (c = 0; c < text.length; c++) view.setUint8(off + c, text.charCodeAt(c));
+    }
+    writeStr(0, 'RIFF');
+    view.setUint32(4, 36 + n * 2, true);
+    writeStr(8, 'WAVE');
+    writeStr(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, rate, true);
+    view.setUint32(28, rate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeStr(36, 'data');
+    view.setUint32(40, n * 2, true);
+    var o = 44;
+    var i;
+    for (i = 0; i < n; i++) {
+      var s = ch[i];
+      if (s < -1) s = -1;
+      else if (s > 1) s = 1;
+      view.setInt16(o, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+      o += 2;
+    }
+    return new Uint8Array(out);
+  }
+
+  function renderStem(part) {
+    var Offline = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    if (!Offline) return Promise.reject(new Error('OfflineAudioContext missing'));
+    var stingerPart = part === 'stinger-flip' || part === 'stinger-finallap';
+    var bars = stingerPart ? 1 : 4;
+    var beat = 60 / bpm;
+    var dur = beat * 4 * bars + 0.45;
+    var rate = 44100;
+    var ac = new Offline(1, Math.ceil(rate * dur), rate);
+    var dest = ac.createGain();
+    dest.gain.value = 0.86;
+    dest.connect(ac.destination);
+    var noise = noiseBuffer(ac, 1.4);
+    var t0 = 0.04;
+    var stepT = beat / 4;
+    if (part === 'stinger-flip') playStingerInto(ac, dest, 'flip', t0, noise, false);
+    else if (part === 'stinger-finallap') playStingerInto(ac, dest, 'finalLap', t0, noise, false);
+    else {
+      var steps = bars * 16;
+      var s;
+      var dests = [dest, dest, dest, dest];
+      for (s = 0; s < steps; s++) playStepInto(ac, dests, t0 + s * stepT, s, part, noise, false);
+    }
+    return ac.startRendering();
   }
 
   function tick(snap) {
@@ -510,9 +815,15 @@
     applyGains();
 
     var gear = clamp(snap.gear || 1, 1, 4);
-    setLayers(menu ? 1 : gear, now);
-    if (!settings.muted && (racing || menu) && !paused) scheduleMusic(now);
-    else if (!settings.muted && paused) scheduleMusic(now);
+    pausedNow = paused || !racing;
+    advanceClock(now, Number(snap.dt) || 0);
+    queueMix(mixFor(gear, menu));
+    advanceGrid();
+    sampleShown();
+    applyLayerGains(now);
+    reapShots(now);
+    lastGear = gear;
+    if (!settings.muted && settings.music > 0 && (racing || menu)) scheduleMusic(now);
 
     if (!engineOscA || !engineFilter || !engineBus) return;
     var speed = Math.abs(Number(snap.speed) || 0);
@@ -551,7 +862,10 @@
     if (name === 'muted') settings.muted = !!value;
     else if (name === 'shake') settings.shake = !!value;
     else if (name === 'reducedFlash') settings.reducedFlash = !!value;
+    else if (name === 'autoQuality') settings.autoQuality = !!value;
+    else if (name === 'targetGhost') settings.targetGhost = !!value;
     else if (name === 'quality' && (value === 'low' || value === 'mid' || value === 'high')) settings.quality = value;
+    else if (name === 'difficulty' && (value === 'easy' || value === 'normal')) settings.difficulty = value;
     else if (name === 'particles') settings.quality = value ? 'mid' : 'low';
     else return;
     save();
@@ -589,10 +903,13 @@
         waiting: !!(asked && !settings.muted && (!ctx || ctx.state !== 'running')),
         muted: settings.muted,
         master: settings.master,
-        music: settings.music,
+        musicVol: settings.music,
         sfx: settings.sfx,
         shake: settings.shake,
         reducedFlash: !!settings.reducedFlash,
+        autoQuality: settings.autoQuality !== false,
+        targetGhost: settings.targetGhost !== false,
+        difficulty: settings.difficulty === 'easy' ? 'easy' : 'normal',
         quality: settings.quality,
         particles: settings.quality !== 'low',
         bloom: settings.quality !== 'low',
@@ -603,9 +920,53 @@
         last: lastEvent,
         lastAt: lastEventAt,
         heard: heard.slice(),
-        layer: lastGear
+        layer: lastGear,
+        music: {
+          layers: {
+            drums: shown[0],
+            bass: shown[1],
+            lead: shown[2],
+            flip: shown[3]
+          },
+          targetLayers: {
+            drums: targetMix[0],
+            bass: targetMix[1],
+            lead: targetMix[2],
+            flip: targetMix[3]
+          },
+          stingers: stingerCount,
+          lastStinger: lastStinger,
+          activeNodes: liveShots.length
+        }
       };
-    }
+    },
+    beginRace: function () {
+      stingerCount = 0;
+      lastStinger = null;
+      finalLapFired = false;
+      duckLeft = 0;
+    },
+    hold: function (paused) {
+      pausedNow = !!paused;
+    },
+    stinger: function (kind) {
+      if (pausedNow) return false;
+      if (kind !== 'flip' && kind !== 'finalLap') return false;
+      if (kind === 'finalLap') {
+        if (finalLapFired) return false;
+        finalLapFired = true;
+      }
+      stingerCount += 1;
+      lastStinger = kind;
+      duckLeft = (60 / bpm) * 4;
+      // Always the music bus. Mute and music volume 0 silence it there.
+      if (ctx && primed && musicBus && noiseBuf) {
+        try { playStingerInto(ctx, musicBus, kind, ctx.currentTime, noiseBuf, true); } catch (err) {}
+      }
+      return true;
+    },
+    renderStem: renderStem,
+    encodeWav: encodeWav
   };
 
   load();

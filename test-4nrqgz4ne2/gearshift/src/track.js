@@ -419,10 +419,84 @@
         mesh.setMatrixAt(k, dummy.matrix);
       }
       mesh.instanceMatrix.needsUpdate = true;
+      // v1.0.2: decks are overpasses; game.js fades them when they block the view.
+      mesh.userData.overpass = true;
       root.add(mesh);
     }
     emit(main, material);
     emit(warn, warnMaterial);
+  }
+
+  // v1.0.4: approach signs for a Flip entry. Built from the entry distance
+  // already on the flip, about two seconds out at a typical cruise. Gear-4
+  // cyan, not a palette slot, so they stay readable in every gear. They are
+  // not overpass decks and they are not collision.
+  function addFlipSigns(root, sampleAt, heightAt, entryDist, length, half, mats) {
+    var glow = new THREE.MeshLambertMaterial({
+      color: 0x083038,
+      emissive: new THREE.Color(0x7ef0ff),
+      emissiveIntensity: 1.25
+    });
+    var plate = new THREE.MeshLambertMaterial({
+      color: 0x07141c,
+      emissive: new THREE.Color(0x145868),
+      emissiveIntensity: 0.4
+    });
+    mats.push(glow);
+    var group = new THREE.Group();
+    group.name = 'flip-signs';
+    group.userData.flipSign = true;
+    var boardGeo = new THREE.BoxGeometry(1.55, 1.15, 0.1);
+    // Bars sit on the face the chase camera sees (local +Z points back up
+    // the road). The V reads as a chevron. The ground arrow carries the heading.
+    var armGeo = new THREE.BoxGeometry(0.92, 0.2, 0.12);
+    var i;
+    for (i = 0; i < 4; i++) {
+      var back = 50 - i * 10;
+      var d = entryDist - back;
+      d = d % length;
+      if (d < 0) d += length;
+      var s = sampleAt(d);
+      var y = heightAt(s.dist);
+      var side = (i % 2 === 0 ? 1 : -1) * (half + 2.15);
+      var board = new THREE.Group();
+      board.name = 'flip-chevron';
+      board.position.set(s.x + s.rx * side, y + 2.15, s.z + s.rz * side);
+      board.rotation.y = GS.yawFromForwardXZ(s.tx, s.tz);
+      var backplate = new THREE.Mesh(boardGeo, plate);
+      var armU = new THREE.Mesh(armGeo, glow);
+      armU.position.set(-0.22, 0.16, 0.12);
+      armU.rotation.z = 0.62;
+      var armD = new THREE.Mesh(armGeo, glow);
+      armD.position.set(0.22, 0.16, 0.12);
+      armD.rotation.z = -0.62;
+      board.add(backplate);
+      board.add(armU);
+      board.add(armD);
+      group.add(board);
+    }
+    var ad = entryDist - 14;
+    ad = ad % length;
+    if (ad < 0) ad += length;
+    var asamp = sampleAt(ad);
+    var arrow = new THREE.Group();
+    arrow.name = 'flip-arrow';
+    arrow.position.set(asamp.x, heightAt(asamp.dist) + 0.14, asamp.z);
+    arrow.rotation.y = GS.yawFromForwardXZ(asamp.tx, asamp.tz);
+    var shaft = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.03, 2.6), glow);
+    shaft.position.z = -0.15;
+    var headL = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.03, 1.25), glow);
+    headL.position.set(-0.38, 0, -1.55);
+    headL.rotation.y = 0.55;
+    var headR = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.03, 1.25), glow);
+    headR.position.set(0.38, 0, -1.55);
+    headR.rotation.y = -0.55;
+    arrow.add(shaft);
+    arrow.add(headL);
+    arrow.add(headR);
+    group.add(arrow);
+    root.add(group);
+    return 1;
   }
 
   function addChevron(root, sample, material, y, scale) {
@@ -585,6 +659,8 @@
     }
 
     var flip = def.makeFlip(compiled, sampleAt, heightAt, errors);
+    var flipSignMats = [];
+    var flipSignCount = 0;
     var segments = [];
     var look = createLook();
     var root = new THREE.Group();
@@ -778,6 +854,11 @@
           }
         }
       }
+    }
+
+    if (flip && (flip.kind === 'shortcut' || flip.kind === 'shelf')) {
+      var signEntry = flip.kind === 'shelf' ? flip.d0 : flip.main0;
+      flipSignCount = addFlipSigns(root, sampleAt, heightAt, signEntry, length, half, flipSignMats);
     }
 
     if (def.dress) {
@@ -1057,6 +1138,8 @@
       zones: zones,
       minRadius: minRadius(compiled.pieces),
       flipKind: flip ? flip.kind : 'none',
+      flipSignCount: flipSignCount,
+      flipSignMats: flipSignMats,
       line: lineInfo,
       poseOnRail: poseOnRail
     };

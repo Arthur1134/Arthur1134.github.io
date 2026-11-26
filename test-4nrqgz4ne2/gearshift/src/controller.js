@@ -20,6 +20,12 @@
         { id: 'mid', label: 'Mid' },
         { id: 'high', label: 'High' }
       ] },
+      { type: 'toggle', key: 'autoQuality', label: 'Auto quality', store: 'audio' },
+      { type: 'toggle', key: 'targetGhost', label: 'Target ghost', store: 'audio' },
+      { type: 'choice', key: 'difficulty', label: 'Rivals', store: 'audio', options: [
+        { id: 'easy', label: 'Easy' },
+        { id: 'normal', label: 'Normal' }
+      ] },
       { type: 'toggle', key: 'reducedFlash', label: 'Reduced flash', store: 'audio' },
       { type: 'credits', label: 'Credits' },
       { type: 'back', label: 'Back' }
@@ -105,7 +111,7 @@
 
   function helpLine() {
     return faceName('start') + ' or P resumes · D-pad moves · ' +
-      faceName('south') + ' / Enter confirms · ' + faceName('east') + ' / Esc back';
+      faceName('south') + ' / Enter confirms · ' + faceName('east') + ' / Esc back · LB / RB pages';
   }
 
   function audioBag() {
@@ -460,14 +466,15 @@
       } else if (edge === 'ui-back') {
         if (GS.capture) GS.cancelCapture();
         else closeSettings();
-      }
+      } else if (edge === 'ui-page-prev') cycleTab(-1);
+      else if (edge === 'ui-page-next') cycleTab(1);
       return;
     }
     if (isPaused()) {
-      if (edge === 'ui-up') movePause(-1);
-      else if (edge === 'ui-down') movePause(1);
+      if (edge === 'ui-up' || edge === 'ui-left') movePause(-1);
+      else if (edge === 'ui-down' || edge === 'ui-right') movePause(1);
       else if (edge === 'ui-confirm') activatePause();
-      else if (edge === 'ui-back') resume();
+      else if (edge === 'ui-back' || edge === 'pause') resume();
     }
   }
 
@@ -617,7 +624,25 @@
       else updateTest();
     },
     open: openSettings,
-    close: closeSettings
+    close: closeSettings,
+    focusLabel: function () {
+      if (settingsOpen) {
+        if (tabFocus) {
+          if (tab === 'video') return 'Video';
+          if (tab === 'controls') return 'Controls';
+          return 'Audio';
+        }
+        var row = rowList()[focus];
+        if (!row) return 'settings';
+        return row.label || row.action || 'settings';
+      }
+      if (isPaused()) {
+        var buttons = pauseButtons();
+        var button = buttons[pauseFocus];
+        return button ? (button.textContent || 'pause') : 'pause';
+      }
+      return '';
+    }
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);

@@ -1,15 +1,36 @@
 /* Arcade rivals. They ride a scripted rail on the same car body, so a loop
-   cannot drop them through the world. Flip Fritz takes the marked Flip line.
-   The others stay in gears 1–3. A clean player Flip is faster than Fritz's cap. */
+   cannot drop them through the world. Easy is the v1.0.4 pace and lines.
+   Normal races a cleaner gear-3 line, with personalities and a mild band.
+   Flip Fritz takes every clean Flip. Neon Nan takes one. A clean player
+   Flip still finishes ahead of the pack. */
 (function (GS) {
   'use strict';
 
   var PROFILES = [
-    { id: 'pete', name: 'PIXEL PETE', color: 0x3d8bff, pace: 0.96, flip: false, maxGear: 2, lane: -3.05, ahead: 15.6 },
-    { id: 'nan', name: 'NEON NAN', color: 0xff4ad8, pace: 0.78, flip: false, maxGear: 3, lane: 3.05, ahead: 15.6 },
-    { id: 'cal', name: 'CARTRIDGE CAL', color: 0xf0c14a, pace: 0.84, flip: false, maxGear: 3, lane: -3.05, ahead: 8.2 },
-    { id: 'fritz', name: 'FLIP FRITZ', color: 0x3dffe0, pace: 0.78, flip: true, maxGear: 4, lane: 3.05, ahead: 8.2 }
+    { id: 'pete', name: 'PIXEL PETE', color: 0x3d8bff, pace: 0.96, flip: false, maxGear: 2, lane: -3.05, ahead: 15.6, personality: 'starter' },
+    { id: 'nan', name: 'NEON NAN', color: 0xff4ad8, pace: 0.78, flip: false, maxGear: 3, lane: 3.05, ahead: 15.6, personality: 'smooth' },
+    { id: 'cal', name: 'CARTRIDGE CAL', color: 0xf0c14a, pace: 0.84, flip: false, maxGear: 3, lane: -3.05, ahead: 8.2, personality: 'aggressive' },
+    { id: 'fritz', name: 'FLIP FRITZ', color: 0x3dffe0, pace: 0.78, flip: true, maxGear: 4, lane: 3.05, ahead: 8.2, personality: 'flip' }
   ];
+
+  // Normal road pace is a fraction of the gear top. corner is the keep-ratio
+  // on a hairpin. cut is how far they move toward the apex (Cal barely does).
+  // straight is an extra multiplier only on a straight. early/late are Pete.
+  var NORMAL = {
+    pete: { road: 0.825, corner: 0.82, cut: 0.82, straight: 1, early: 1.08, late: 0.9, accel: 22, shortcut: 0 },
+    nan: { road: 0.835, corner: 0.93, cut: 1, straight: 1, early: 1, late: 1, accel: 18, shortcut: 50 },
+    cal: { road: 0.81, corner: 0.74, cut: 0.14, straight: 1.08, early: 1, late: 1, accel: 20, shortcut: 0 },
+    fritz: { road: 0.88, corner: 0.86, cut: 0.55, straight: 1, early: 1, late: 1, accel: 18, shortcut: 54 }
+  };
+
+  // A full lap faster than this would beat a clean Flip-line player lap.
+  // The band is not allowed to push a rival under the floor.
+  var FLIP_FLOOR = { warmup: 13.35, coastal: 10.95, skyway: 19.55 };
+
+  GS.rivalDifficulty = function () {
+    var bag = (GS.audio && GS.audio.settings) || GS.audioSettings || {};
+    return bag.difficulty === 'easy' ? 'easy' : 'normal';
+  };
 
   GS.RIVALS = PROFILES;
 
@@ -152,6 +173,24 @@
     return gap > -8 && gap < 26;
   }
 
+  function easyMode() {
+    return GS.rivalDifficulty() !== 'normal';
+  }
+
+  // cross = tx1*tz2 - tz1*tx2. A left turn (positive arc) makes this negative.
+  // +lane is track-right from rightFromForwardXZ, so the apex of a left turn is -lane.
+  function turnCross(track, dist) {
+    var a = track.sample(dist);
+    var b = track.sample(dist + 18);
+    return a.tx * b.tz - a.tz * b.tx;
+  }
+
+  function normalFlip(rival, track) {
+    if (rival.profile.id === 'fritz') return Math.abs(rival.bumpLane || 0) < 2.5;
+    if (rival.profile.id === 'nan' && rival.lapsDone === 1) return Math.abs(rival.bumpLane || 0) < 1.15;
+    return false;
+  }
+
   function chooseGear(rival, track) {
     var line = track.line || { kind: 'none' };
     var maxGear = rival.profile.maxGear;
@@ -179,6 +218,35 @@
     return roadMax;
   }
 
+  function chooseGearNormal(rival, track) {
+    var line = track.line || { kind: 'none' };
+    if (rival.mode === 'shortcut') return 4;
+    if (!nearGrid(track, rival.along) && normalFlip(rival, track)) {
+      if (line.kind === 'shelf' && rival.along >= line.d0 + 4 && rival.along <= line.d1 - 4) return 4;
+      if (line.kind === 'shortcut' && !rival.flipTaken && rival.along >= line.main0 - 8 && rival.along <= line.main0 + 14) return 4;
+    }
+    var zones = track.zones || {};
+    var gear = rival.gear || 1;
+    if (gear > 3) gear = 3;
+    var sp = rival.speed || 0;
+    if (gear < 2 && sp > 17) gear = 2;
+    else if (gear < 3 && sp > 29) gear = 3;
+    else if (gear > 2 && sp < 24) gear = 2;
+    else if (gear > 1 && sp < 13) gear = 1;
+    if (zones.jump0 >= 0 && rival.along >= zones.jump0 - 16 && rival.along <= zones.jump1 + 10 && gear < 3) gear = 3;
+    return gear;
+  }
+
+  function noteLap(rival) {
+    var lapT = rival.clock - (rival.lapMark || 0);
+    if (lapT > 0.2) {
+      rival.lapTimes.push(lapT);
+      if (!(rival.bestLap > 0) || lapT < rival.bestLap) rival.bestLap = lapT;
+    }
+    rival.lapMark = rival.clock;
+    rival.lapAlong0 = rival.along;
+  }
+
   function targetSpeed(rival, track) {
     var gear = rival.gear;
     if (!GS.GEARS[gear]) gear = 1;
@@ -193,6 +261,71 @@
     var speed = top * slow;
     if (speed < 9) speed = 9;
     return speed;
+  }
+
+  function cornerKeep(track, dist, keep) {
+    var dot = cornerDot(track, dist);
+    var tight = clamp((0.992 - dot) / 0.3, 0, 1);
+    return 1 - (1 - keep) * tight;
+  }
+
+  function normalRoadSpeed(rival, track) {
+    var spec = NORMAL[rival.profile.id] || NORMAL.pete;
+    var laps = track.laps || 3;
+    var phase = 1;
+    if (rival.lapsDone <= 0) phase = spec.early;
+    else if (rival.lapsDone >= laps - 1) phase = spec.late;
+    var look = rival.along + 12 + Math.min(16, (rival.speed || 0) * 0.28);
+    var keep = cornerKeep(track, look, spec.corner);
+    var straight = cornerDot(track, rival.along) > 0.988 ? spec.straight : 1;
+    var wobble = 1 + 0.012 * Math.sin((rival.clock || 0) * 0.31 + (rival.phase || 0));
+    return GS.GEARS[3].top * spec.road * phase * keep * straight * wobble;
+  }
+
+  function targetSpeedNormal(rival, track) {
+    var spec = NORMAL[rival.profile.id] || NORMAL.pete;
+    if (rival.mode === 'shortcut' || rival.gear === 4) {
+      var cap = spec.shortcut > 20 ? spec.shortcut : 50;
+      return cap;
+    }
+    var speed = normalRoadSpeed(rival, track);
+    if (speed < 11) speed = 11;
+    return speed;
+  }
+
+  function flipCapScale(rival, track) {
+    var floor = FLIP_FLOOR[track.id];
+    if (!(floor > 0)) return 1;
+    var length = track.length || 1;
+    var covered = rival.along - (rival.lapAlong0 || 0);
+    if (covered < 0) covered += length;
+    var frac = covered / length;
+    var elapsed = rival.clock - (rival.lapMark || 0);
+    if (frac < 0.22 || elapsed < 1.5) return 1;
+    var projected = elapsed / frac;
+    if (projected >= floor) return 1;
+    return clamp(projected / floor, 0.86, 1);
+  }
+
+  function bandTarget(gap) {
+    var t = clamp(gap / 0.55, -1, 1);
+    if (t >= 0) return 1 - 0.04 * t;
+    return 1 + 0.06 * (-t);
+  }
+
+  function apexLane(rival, track) {
+    var spec = NORMAL[rival.profile.id] || NORMAL.pete;
+    var home = rival.profile.lane || 0;
+    if (nearGrid(track, rival.along) || rival.mode === 'shortcut') return home;
+    var cross = turnCross(track, rival.along + 8);
+    var inward = cross >= 0 ? 1 : -1;
+    var mag = Math.min(3.6, Math.abs(cross) * 11) * spec.cut;
+    var target = home + inward * mag;
+    var limit = (track.half || 9) - 2.4;
+    target = clamp(target, -limit, limit);
+    if (home < 0) target = Math.min(target, -0.85);
+    else if (home > 0) target = Math.max(target, 0.85);
+    return target;
   }
 
   function progressOf(lapsDone, along, length, finished, finishRank) {
@@ -325,7 +458,17 @@
         shortcutMin: 999,
         bumpLane: 0,
         overlapT: 0,
-        passT: 0
+        passT: 0,
+        personality: profile.personality || profile.id,
+        pace: profile.pace,
+        band: 1,
+        clock: 0,
+        lapMark: 0,
+        lapAlong0: along,
+        lapTimes: [],
+        bestLap: 0,
+        finishTime: 0,
+        phase: i * 1.7 + 0.4
       };
       place(rival);
       list.push(rival);
@@ -363,15 +506,20 @@
         var delta = other.along - rival.along;
         if (delta < 0.4 || delta > 6) continue;
         if (Math.abs(other.lane - rival.lane) > 1.7) continue;
-        scale = Math.min(scale, 0.84);
+        var yieldAt = 0.84;
+        if (!easyMode() && rival.profile.id === 'cal') yieldAt = 0.94;
+        scale = Math.min(scale, yieldAt);
       }
       return scale;
     }
 
     function maybeShortcut(rival) {
       var line = track.line;
-      if (!rival.profile.flip || !line || line.kind !== 'shortcut') return;
+      var allowed = rival.profile.flip;
+      if (!easyMode()) allowed = normalFlip(rival, track);
+      if (!allowed || !line || line.kind !== 'shortcut') return;
       if (rival.flipTaken || rival.mode === 'shortcut') return;
+      if (!easyMode() && nearGrid(track, rival.along)) return;
       var span = line.main1 - line.main0;
       if (span < 0) span += track.length;
       if (span < 30) return;
@@ -413,16 +561,47 @@
             if (Math.abs(rival.bumpLane) < 0.01) rival.bumpLane = 0;
           }
           if (!rival.finished) {
-            rival.gear = chooseGear(rival, track);
-            var want = targetSpeed(rival, track);
-            var gap = progressOf(rival.lapsDone, rival.along, length, false, 0) - (player.lapsDone + player.along / length);
-            if (gap > 0.2) {
-              var t = Math.min(1, (gap - 0.2) / 1);
-              want *= 1 - 0.22 * t;
+            var prevLaps = rival.lapsDone;
+            rival.clock += dt;
+            var gearNow = rival.gear;
+            var gap = progressOf(rival.lapsDone, rival.along, length, false, 0) - ((player.lapsDone || 0) + (player.along || 0) / length);
+            var want;
+            var band;
+            if (easyMode()) {
+              rival.gear = chooseGear(rival, track);
+              want = targetSpeed(rival, track);
+              band = 1;
+              if (gap > 0.2) {
+                var t = Math.min(1, (gap - 0.2) / 1);
+                band = 1 - 0.22 * t;
+              }
+              want *= band;
+              var gearTop = GS.GEARS[rival.gear] ? GS.GEARS[rival.gear].top : 22;
+              rival.pace = gearTop > 0 ? (want / band) / gearTop : rival.profile.pace;
+              rival.band = band;
+            } else {
+              rival.gear = chooseGearNormal(rival, track);
+              var specN = NORMAL[rival.profile.id] || NORMAL.pete;
+              var laneGoal = apexLane(rival, track);
+              rival.lane += (laneGoal - rival.lane) * (1 - Math.exp(-2.6 * dt));
+              want = targetSpeedNormal(rival, track);
+              var gTop = GS.GEARS[rival.gear] ? GS.GEARS[rival.gear].top : 46;
+              if (rival.gear < 4 && want > gTop) want = gTop;
+              var goal = bandTarget(gap);
+              rival.band += (goal - (rival.band || 1)) * Math.min(1, dt * 1.8);
+              if (rival.band < 0.96) rival.band = 0.96;
+              if (rival.band > 1.06) rival.band = 1.06;
+              want *= rival.band;
+              want *= flipCapScale(rival, track);
+              var topN = GS.GEARS[rival.gear] ? GS.GEARS[rival.gear].top : 46;
+              rival.pace = topN > 0 ? (want / rival.band) / topN : specN.road;
+              gearNow = specN.accel;
             }
             want *= separation(rival);
-            if (rival.speed < want) rival.speed = Math.min(want, rival.speed + 16 * dt);
-            else rival.speed = Math.max(want, rival.speed - 20 * dt);
+            var accel = easyMode() ? 16 : gearNow;
+            var brake = easyMode() ? 20 : 24;
+            if (rival.speed < want) rival.speed = Math.min(want, rival.speed + accel * dt);
+            else rival.speed = Math.max(want, rival.speed - brake * dt);
             rival.spin -= rival.speed * dt / 0.36;
             if (rival.mode === 'shortcut') {
               var line = track.line;
@@ -446,6 +625,7 @@
                     rival.finished = true;
                     rival.finishRank = serial + 1;
                     serial += 1;
+                    rival.shortcuts += 1;
                     rival.speed = 0;
                     rival.mode = 'road';
                     rival.sDist = 0;
@@ -483,6 +663,10 @@
                 rival.along = next;
                 maybeShortcut(rival);
               }
+            }
+            if (rival.lapsDone > prevLaps) {
+              noteLap(rival);
+              if (rival.finished) rival.finishTime = rival.clock;
             }
           }
           place(rival);

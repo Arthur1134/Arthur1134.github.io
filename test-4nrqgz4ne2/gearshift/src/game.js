@@ -64,6 +64,32 @@
     }
   };
 
+  var GEAR_HUD_CSS = {
+    1: '#ffb03a',
+    2: '#ff4ad8',
+    3: '#c9b6ff',
+    4: '#7ef0ff'
+  };
+  var WIPE_DUR = 0.25;
+  var FOV_DUR = 0.3;
+  var CHROMA_DUR = 0.12;
+  var SHIFT_FX_LIFE = 0.3;
+  var shiftFx = {
+    active: false,
+    t: 0,
+    count: 0,
+    gear: 0,
+    dir: 1,
+    fovPunch: 0,
+    peak: 0,
+    mode: 'full',
+    color: '#ffb03a',
+    fired: false,
+    needProj: false,
+    drawn: false,
+    skipTick: false
+  };
+
   var FIXED = 1 / 120;
   var MAX_STEPS = 6;
   var AXLE = 1.15;
@@ -74,9 +100,22 @@
 
   var scene, camera, renderer, track, car, shadow, hemi, sun;
   var frameEl, speedEl, gearEl, gearNameEl, gravEl, lapEl, timeEl, trackNameEl, msgEl, promptEl, muteChip, pauseLayer, hintEl, portraitEl, flashEl, chromaEl, failEl, pickerEl, bloomEl;
+  var wipeEl, wipeBandEl, shiftChromaEl;
   var screenLayer, screenKickerEl, screenCopyEl, screenActionsEl, screenHelpEl, placeEl, deltaEl, modeLineEl, hudEl;
   var coachEl, coachKickerEl, coachTitleEl, coachBodyEl, gearPipsEl;
   var reduceFlash = false;
+  var speedFx = {
+    fovAdd: 0,
+    streaks: 0,
+    camLag: 0,
+    landShake: 0,
+    mode: 'full',
+    prevSp: 0,
+    ready: false
+  };
+  var flipRun = { active: false, deep: false, done: false };
+  var flipUi = { saved: null, popups: 0, t: 0, show: false };
+  var flipPopEl = null;
   var mapEl = null;
   var mapReady = false;
   var soundNudgeEl = null;
@@ -195,6 +234,21 @@
 
   var field = null;
   var ghostActor = null;
+  var targetActor = null;
+  var lapClock = 0;
+  var sessionRetries = 0;
+  var splitUi = { last: null, delta: null, bestLap: null, show: 0 };
+  var splitEl = null;
+  var tauntEl = null;
+  var tauntUi = { text: '', life: 0 };
+  var demoTagEl = null;
+  var attract = { on: false, track: '', t: 0, idle: 0, index: 0, guardUntil: 0, along: 0, mode: 'road', sDist: 0, flipTaken: false, armed: false };
+  var bumpFx = { sparks: 0, hitPauses: 0, taunts: 0, hitLeft: 0, pauseAt: -9 };
+  var autoQ = { drops: 0, lastDrop: '', slow: 0, forceLeft: 0, avg: 0 };
+  var frameMs = [];
+  var frameSum = 0;
+  var MEDAL_TINT = { bronze: 0xe39b62, silver: 0xe7e9ef, gold: 0xffd35a, author: 0x7ef0ff };
+  var TAUNT_LINE = { pete: 'NICE PAINT!', nan: 'BEEP BEEP!', cal: 'TOO SLOW!', fritz: 'EXCUSE ME!' };
   var flow = {
     screen: 'boot',
     focus: 0,
@@ -217,7 +271,9 @@
     pickMode: 'trial',
     howFrom: 'title',
     howPage: 0,
-    creditFrom: 'title'
+    creditFrom: 'title',
+    demo: false,
+    card: null
   };
 
   function clamp(v, a, b) {
@@ -285,6 +341,10 @@
   }
 
   function syncCoach() {
+    if (flow.demo) {
+      coach.enabled = false;
+      return;
+    }
     if (coach.flag) {
       coach.enabled = false;
       return;
@@ -293,7 +353,7 @@
   }
 
   function coachLive() {
-    return coach.enabled && track && track.id === 'warmup' && !coach.flag;
+    return !flow.demo && coach.enabled && track && track.id === 'warmup' && !coach.flag;
   }
 
   function skipCoach() {
@@ -414,37 +474,174 @@
 
   function updateSpeedLines() {
     if (!speedLines || !speedLinePos) return;
-    var gearMul = 1;
-    if (state.gear === 1) gearMul = 0.14;
-    else if (state.gear === 2) gearMul = 0.5;
-    else if (state.gear === 3) gearMul = 0.8;
-    var sp = Math.abs(state.speed);
-    var pace = clamp((sp - 15) / 38, 0, 1);
-    var alpha = pace * gearMul * (qualityLow() ? 0 : (qualityHigh() ? 0.78 : 0.4));
-    if (state.paused || state.countdown > 0 || state.hold > 0) alpha = 0;
+    var mode = fxMode();
+    speedFx.mode = mode;
+    var top = GS.GEARS[state.gear] ? GS.GEARS[state.gear].top : 22;
+    var ratio = top > 1 ? Math.abs(state.speed) / top : 0;
+    // Above about 75% of this gear's top speed. The centre stays empty.
+    var streaks = clamp((ratio - 0.75) / 0.22, 0, 1);
+    if (mode !== 'full') streaks = 0;
+    if (flow.screen !== 'race' || state.paused || state.countdown > 0 || state.hold > 0) streaks = 0;
+    speedFx.streaks = streaks;
+    var alpha = streaks * (qualityHigh() ? 0.72 : 0.46);
     speedLines.material.opacity = alpha;
+    if (streaks <= 0) return;
     if (display && display.hud) speedLines.material.color.set(display.hud);
-    // Screen-space streaks in camera-local space. Not a second world yaw.
+    // Screen-space streaks in camera-local space, out at the edges. Not a second world yaw.
+    var sp = Math.abs(state.speed);
     var scroll = (state.raceTime * (6 + sp * 0.22)) % 1;
     var i;
     for (i = 0; i < LINE_N; i++) {
       var ang = (i / LINE_N) * Math.PI * 2 + 0.35;
       var phase = (scroll + i * 0.137) % 1;
-      var r0 = 1.25 + (i % 4) * 0.18 + phase * 0.85;
-      var r1 = r0 + 0.42 + pace * 1.15;
-      var z0 = -3.4 - phase * 0.6;
-      var z1 = -6.2 - pace * 1.4 - phase * 0.4;
+      var r0 = 2.15 + (i % 5) * 0.2 + phase * 0.5;
+      var r1 = r0 + 0.55 + streaks * 1.25;
+      var z0 = -3.6 - phase * 0.45;
+      var z1 = -6.4 - streaks * 1.2 - phase * 0.35;
       var o = i * 6;
       var cx = Math.cos(ang);
       var sy = Math.sin(ang);
       speedLinePos[o] = cx * r0;
-      speedLinePos[o + 1] = sy * r0 * 0.58;
+      speedLinePos[o + 1] = sy * r0 * 0.42;
       speedLinePos[o + 2] = z0;
       speedLinePos[o + 3] = cx * r1;
-      speedLinePos[o + 4] = sy * r1 * 0.58;
+      speedLinePos[o + 4] = sy * r1 * 0.42;
       speedLinePos[o + 5] = z1;
     }
     speedLines.geometry.attributes.position.needsUpdate = true;
+  }
+
+  // v1.0.3: Big shift moment. A thin palette wipe, FOV punch, chromatic
+  // flash, and HUD slam on a real player gear change during racing play.
+  // DOM nodes are created once. Rapid shifts restart; they never stack.
+  function fxMode() {
+    if (calm()) return 'reduced';
+    if (qualityLow()) return 'low';
+    return 'full';
+  }
+
+  function racingPlay() {
+    return flow.screen === 'race' && !state.paused && state.countdown <= 0 && !state.finished && state.hold <= 0;
+  }
+
+  function paintShiftFxOff() {
+    if (wipeEl) wipeEl.style.opacity = '0';
+    if (shiftChromaEl) shiftChromaEl.style.opacity = '0';
+    shiftFx.drawn = false;
+  }
+
+  function paintShiftFx() {
+    var t = shiftFx.t;
+    var mode = shiftFx.mode;
+    var onRace = flow.screen === 'race' && !state.paused;
+    var wipeOn = shiftFx.fired && onRace && t < WIPE_DUR;
+    if (wipeEl) {
+      if (wipeOn) {
+        var u = t / WIPE_DUR;
+        var peakA = 0.22;
+        if (mode === 'low') peakA = 0.12;
+        else if (mode === 'reduced') peakA = 0.1;
+        var a = peakA * 4 * u * (1 - u);
+        if (a > 0.25) a = 0.25;
+        var x = shiftFx.dir > 0 ? -18 + u * 118 : 100 - u * 118;
+        if (wipeBandEl) wipeBandEl.style.left = x + '%';
+        wipeEl.style.opacity = String(a);
+        shiftFx.drawn = true;
+      } else if (shiftFx.drawn) {
+        wipeEl.style.opacity = '0';
+      }
+    }
+    var chromaOn = shiftFx.fired && onRace && t < CHROMA_DUR && mode === 'full';
+    if (shiftChromaEl) {
+      if (chromaOn) {
+        var cu = 1 - t / CHROMA_DUR;
+        if (cu < 0) cu = 0;
+        shiftChromaEl.style.opacity = String(0.3 * cu);
+        shiftFx.drawn = true;
+      } else if (shiftChromaEl.style.opacity !== '0') {
+        shiftChromaEl.style.opacity = '0';
+      }
+    }
+    if (!wipeOn && !chromaOn && t >= SHIFT_FX_LIFE) shiftFx.drawn = false;
+  }
+
+  function slamGear(soft) {
+    if (!gearEl) return;
+    gearEl.classList.remove('slam');
+    gearEl.classList.remove('slamSoft');
+    void gearEl.offsetWidth;
+    gearEl.classList.add(soft ? 'slamSoft' : 'slam');
+  }
+
+  function triggerShiftFx(dir, gear) {
+    if (!racingPlay()) return;
+    var mode = fxMode();
+    var reduced = mode === 'reduced';
+    var css = GEAR_HUD_CSS[gear] || '#ffb03a';
+    var peak = dir > 0 ? 7 : -4;
+    if (reduced) peak = dir > 0 ? 2 : -1.5;
+    shiftFx.mode = mode;
+    shiftFx.dir = dir > 0 ? 1 : -1;
+    shiftFx.gear = gear;
+    shiftFx.t = 0;
+    shiftFx.count += 1;
+    shiftFx.fired = true;
+    shiftFx.active = true;
+    shiftFx.color = css;
+    shiftFx.peak = peak;
+    shiftFx.fovPunch = peak;
+    shiftFx.needProj = true;
+    shiftFx.skipTick = true;
+    if (wipeBandEl) {
+      wipeBandEl.style.background = 'linear-gradient(90deg, transparent 0%, ' + css + ' 50%, transparent 100%)';
+      wipeBandEl.style.width = reduced ? '10%' : (mode === 'low' ? '13%' : '16%');
+    }
+    if (gearEl) gearEl.style.setProperty('--gear-glow', css);
+    slamGear(reduced);
+    paintShiftFx();
+  }
+
+  function updateShiftFx(dt) {
+    shiftFx.mode = fxMode();
+    if (!shiftFx.fired) return;
+    if (flow.screen !== 'race') {
+      if (shiftFx.fovPunch !== 0) shiftFx.needProj = true;
+      shiftFx.fovPunch = 0;
+      shiftFx.active = false;
+      if (shiftFx.drawn) paintShiftFxOff();
+      return;
+    }
+    if (shiftFx.skipTick) shiftFx.skipTick = false;
+    else if (!state.paused && dt > 0) shiftFx.t += dt;
+    var t = shiftFx.t;
+    if (t >= FOV_DUR) {
+      if (shiftFx.fovPunch !== 0) shiftFx.needProj = true;
+      shiftFx.fovPunch = 0;
+    } else {
+      var s = 1 - t / FOV_DUR;
+      shiftFx.fovPunch = shiftFx.peak * s * s;
+    }
+    shiftFx.active = t < SHIFT_FX_LIFE;
+    paintShiftFx();
+  }
+
+  function resetShiftFx() {
+    shiftFx.active = false;
+    shiftFx.t = 0;
+    shiftFx.count = 0;
+    shiftFx.gear = 0;
+    shiftFx.dir = 1;
+    shiftFx.fovPunch = 0;
+    shiftFx.peak = 0;
+    shiftFx.fired = false;
+    shiftFx.needProj = true;
+    shiftFx.drawn = false;
+    shiftFx.skipTick = false;
+    if (gearEl) {
+      gearEl.classList.remove('slam');
+      gearEl.classList.remove('slamSoft');
+    }
+    paintShiftFxOff();
   }
 
   function paintOverlays() {
@@ -546,7 +743,7 @@
     particles = [];
     for (i = 0; i < PART_N; i++) {
       particles.push({
-        alive: false, life: 0, max: 1, x: 0, y: 0, z: 0,
+        alive: false, life: 0, max: 1, kind: '', x: 0, y: 0, z: 0,
         vx: 0, vy: 0, vz: 0, size: 0.12, r: 1, g: 1, b: 1
       });
     }
@@ -575,20 +772,23 @@
   }
 
   function spawnParticle(kind, x, y, z, vx, vy, vz, size) {
-    if (!particlesOn() || !particles.length) return;
+    var spark = kind === 'spark';
+    if (!particles.length) return false;
+    if (!spark && !particlesOn()) return false;
     var i;
     var slot = null;
-    var budget = particleBudget();
+    var budget = spark ? particles.length : particleBudget();
     for (i = 0; i < budget; i++) {
       if (!particles[i].alive) {
         slot = particles[i];
         break;
       }
     }
-    if (!slot) return;
+    if (!slot) return false;
     slot.alive = true;
+    slot.kind = kind;
     slot.life = 0;
-    slot.max = kind === 'dust' ? 0.55 : (kind === 'smoke' ? 0.7 : 0.38);
+    slot.max = spark ? 0.34 : (kind === 'dust' ? 0.55 : (kind === 'smoke' ? 0.7 : 0.38));
     slot.x = x;
     slot.y = y;
     slot.z = z;
@@ -596,7 +796,9 @@
     slot.vy = vy;
     slot.vz = vz;
     slot.size = size || (kind === 'dust' ? 0.28 : 0.12);
-    if (kind === 'smoke') {
+    if (kind === 'spark') {
+      slot.r = 1; slot.g = 0.86; slot.b = 0.32;
+    } else if (kind === 'smoke') {
       slot.r = 0.55; slot.g = 0.52; slot.b = 0.48;
     } else if (kind === 'dust') {
       slot.r = 0.82; slot.g = 0.68; slot.b = 0.42;
@@ -606,6 +808,29 @@
       slot.r = _partColor.r;
       slot.g = _partColor.g * 0.7;
       slot.b = _partColor.b * 0.35;
+    }
+    return true;
+  }
+
+  function burstSparks(x, y, z, impact) {
+    if (!particles.length) return;
+    var n = impact > 10 ? 12 : (impact > 5 ? 8 : 5);
+    if (qualityLow() || calm()) n = Math.min(n, 3);
+    var i;
+    for (i = 0; i < n; i++) {
+      var ang = (i / n) * Math.PI * 2 + Math.random() * 0.35;
+      var sp = 2.4 + Math.min(8, impact) * 0.38;
+      var ok = spawnParticle(
+        'spark',
+        x,
+        y,
+        z,
+        Math.cos(ang) * sp,
+        1.4 + Math.random() * 2.2,
+        Math.sin(ang) * sp,
+        0.08 + Math.min(0.14, impact * 0.01)
+      );
+      if (ok) bumpFx.sparks += 1;
     }
   }
 
@@ -630,7 +855,12 @@
 
   function updateParticles(dt) {
     if (!particleMesh || !particleDummy) return;
-    var show = particlesOn() && flow.screen === 'race' && !state.paused;
+    var sparkLive = false;
+    var si;
+    for (si = 0; si < particles.length; si++) {
+      if (particles[si].alive && particles[si].kind === 'spark') sparkLive = true;
+    }
+    var show = flow.screen === 'race' && !state.paused && (particlesOn() || sparkLive);
     particleMesh.visible = show;
     if (!show) return;
     readBasis();
@@ -672,7 +902,7 @@
     var live = 0;
     for (i = 0; i < particles.length; i++) {
       var p = particles[i];
-      if (i >= budget) p.alive = false;
+      if (p.kind !== 'spark' && i >= budget) p.alive = false;
       if (!p.alive) {
         particleDummy.scale.set(0, 0, 0);
         particleDummy.position.set(0, -40, 0);
@@ -808,6 +1038,20 @@
       }
       var fresh = !rival.touching;
       rival.touching = true;
+      if (fresh && state.countdown <= 0 && !state.paused && !flow.demo) {
+        burstSparks(
+          (car.position.x + rp.x) * 0.5,
+          (car.position.y + rp.y) * 0.5 + 0.35,
+          (car.position.z + rp.z) * 0.5,
+          Math.max(j, pen * 3, 1.2)
+        );
+        showBumpTaunt(rival);
+      }
+      if (j > 7 && !calm() && !flow.demo && state.countdown <= 0 && state.raceTime - bumpFx.pauseAt > 0.6) {
+        bumpFx.pauseAt = state.raceTime;
+        bumpFx.hitLeft = 0.05;
+        bumpFx.hitPauses += 1;
+      }
       if (j > 0.8 && (fresh || j > 5) && state.raceTime - bump.at > 0.3) {
         bump.at = state.raceTime;
         bump.count += 1;
@@ -844,11 +1088,12 @@
     }
   }
 
-  function updateAudio() {
+  function updateAudio(dt) {
     if (!GS.audio || !GS.audio.tick) return;
+    var demo = !!flow.demo;
     GS.audio.tick({
-      racing: flow.screen === 'race',
-      menu: flow.screen !== 'race',
+      racing: flow.screen === 'race' && !demo,
+      menu: flow.screen !== 'race' || demo,
       paused: state.paused,
       gear: state.gear,
       speed: state.speed,
@@ -856,7 +1101,8 @@
       countdown: state.countdown,
       hold: state.hold,
       finished: state.finished,
-      flipLatched: state.flipLatched
+      flipLatched: state.flipLatched,
+      dt: dt
     });
   }
 
@@ -899,6 +1145,12 @@
     state.gFrom = state.gravity;
     state.gTo = GS.GEARS[4].flipG;
     state.shiftU = 0;
+    flipRun.active = true;
+    flipRun.deep = false;
+    flipRun.done = false;
+    if (!flow.demo && !state.paused && flow.screen === 'race' && state.countdown <= 0 && GS.audio && GS.audio.stinger) {
+      GS.audio.stinger('flip');
+    }
   }
 
   function roadUnder(x, z, fromFlip) {
@@ -910,13 +1162,110 @@
     return Math.abs(main.side) <= limit + bonus;
   }
 
+  function estimateFlipSave() {
+    var line = track && track.line;
+    if (!line || !track.length) return null;
+    var road = 0;
+    var driven = 0;
+    if (line.kind === 'shortcut') {
+      road = line.main1 - line.main0;
+      if (road < 0) road += track.length;
+      driven = line.length || 0;
+      if (!(road > driven) && line.airEnd) {
+        var credit = line.main1 - line.main0;
+        if (credit < 0) credit += track.length;
+        road = credit;
+        driven = line.airEnd;
+      }
+    } else {
+      return null;
+    }
+    var sp = Math.abs(state.speed);
+    if (!(sp >= 8)) sp = (GS.GEARS[state.gear] ? GS.GEARS[state.gear].top : 30) * 0.72;
+    if (!(road > 5) || !(driven > 1) || !(sp > 1)) return null;
+    var saved = (road - driven) / sp;
+    if (!isFinite(saved) || saved <= 0) return null;
+    if (saved < 0.1) saved = 0.1;
+    if (saved > 15) saved = 15;
+    return Math.round(saved * 10) / 10;
+  }
+
+  function showFlipSaved() {
+    var saved = estimateFlipSave();
+    if (saved == null) return;
+    flipUi.saved = saved;
+    flipUi.popups += 1;
+    flipUi.t = 0;
+    flipUi.show = true;
+    if (!flipPopEl) return;
+    flipPopEl.hidden = false;
+    flipPopEl.textContent = 'FLIP +' + saved.toFixed(1) + ' s saved';
+    flipPopEl.classList.toggle('calm', calm());
+  }
+
+  function updateFlipPop(dt) {
+    if (!flipPopEl || !flipUi.show) return;
+    if (state.paused) return;
+    flipUi.t += dt;
+    var IN = 0.18;
+    var HOLD = 1.5;
+    var OUT = 0.32;
+    var soft = calm();
+    if (flipUi.t < IN) {
+      var u = flipUi.t / IN;
+      flipPopEl.style.opacity = String(u);
+      flipPopEl.style.transform = soft ? 'none' : ('translateY(' + ((1 - u) * 10) + 'px)');
+    } else if (flipUi.t < IN + HOLD) {
+      flipPopEl.style.opacity = '1';
+      flipPopEl.style.transform = 'none';
+    } else if (flipUi.t < IN + HOLD + OUT) {
+      var f = 1 - (flipUi.t - IN - HOLD) / OUT;
+      if (f < 0) f = 0;
+      flipPopEl.style.opacity = String(f);
+      flipPopEl.style.transform = 'none';
+    } else {
+      flipPopEl.style.opacity = '0';
+      flipPopEl.hidden = true;
+      flipUi.show = false;
+    }
+  }
+
+  function resetFlipUi() {
+    flipRun.active = false;
+    flipRun.deep = false;
+    flipRun.done = false;
+    flipUi.saved = null;
+    flipUi.popups = 0;
+    flipUi.t = 0;
+    flipUi.show = false;
+    if (flipPopEl) {
+      flipPopEl.hidden = true;
+      flipPopEl.style.opacity = '0';
+      flipPopEl.style.transform = 'none';
+      flipPopEl.textContent = '';
+    }
+  }
+
+  function pulseFlipSigns() {
+    if (!track || !track.flipSignMats) return;
+    var t = state.raceTime;
+    if (flow.screen !== 'race') t = (typeof performance !== 'undefined' ? performance.now() : 0) / 1000;
+    var w = 0.85 + Math.sin(t * 3.1) * 0.35;
+    var mats = track.flipSignMats;
+    var i;
+    for (i = 0; i < mats.length; i++) mats[i].emissiveIntensity = w + 0.7;
+  }
+
   function releaseFlip() {
     var supported = roadUnder(car.position.x, car.position.z, true);
+    var finishedCut = flipRun.active && (flipRun.done || flipRun.deep);
     state.flipLatched = false;
+    flipRun.active = false;
     if (!supported) {
       beginBadFlip();
       return;
     }
+    if (finishedCut) showFlipSaved();
     state.droppedFlip = true;
     state.airborne = true;
     state.vy = Math.min(state.vy, -1.2);
@@ -929,6 +1278,9 @@
     if (state.badFlip) return;
     state.badFlip = true;
     state.flipLatched = false;
+    flipRun.active = false;
+    flipRun.deep = false;
+    flipRun.done = false;
     state.airborne = true;
     state.stallT = 1.2;
     state.speed *= 0.35;
@@ -980,10 +1332,24 @@
     var punch = clamp(Math.abs(state.speed) / 58, 0, 1);
     if (GS.rumble) GS.rumble('shift', 0.42 + 0.58 * punch);
     noteCoachShift(prev, next);
+    triggerShiftFx(dir, next);
+  }
+
+  function inputGuarded() {
+    return attract.guardUntil && performance.now() < attract.guardUntil;
   }
 
   function applyEdges() {
     var edges = GS.consumeEdges();
+    if (flow.demo) {
+      if (edges.length) exitAttract();
+      return;
+    }
+    if (inputGuarded()) return;
+    if (cardUi.open) {
+      handleCardEdges(edges);
+      return;
+    }
     var settingsOpen = GS.controller && GS.controller.isSettingsOpen && GS.controller.isSettingsOpen();
     if (flow.screen !== 'race' && !settingsOpen) {
       handleMenuEdges(edges);
@@ -999,7 +1365,7 @@
         if (GS.toggleMute) state.muted = GS.toggleMute();
         else state.muted = !state.muted;
       }
-      else if (edge === 'restart') selectTrack(track.id);
+      else if (edge === 'restart') instantRetry();
       else if (edge.indexOf('track:') === 0) selectTrack(edge.slice(6));
       else if (!state.paused && edge === 'up') shift(1);
       else if (!state.paused && edge === 'down') shift(-1);
@@ -1099,6 +1465,9 @@
   function respawn(reason) {
     var spot = track.sample(state.checkpoint);
     state.flipLatched = false;
+    flipRun.active = false;
+    flipRun.deep = false;
+    flipRun.done = false;
     state.upBlend = 0;
     state.airborne = false;
     state.badFlip = false;
@@ -1169,6 +1538,7 @@
     if (state.squash > 0) state.squash = Math.max(0, state.squash - dt * 3.6);
     if (state.failFlash > 0) state.failFlash = Math.max(0, state.failFlash - dt * 1.5);
     if (state.shake > 0) state.shake = Math.max(0, state.shake - dt * 4.2);
+    if (speedFx.landShake > 0) speedFx.landShake = Math.max(0, speedFx.landShake - dt * 1.6);
     if (state.nearFlash > 0) state.nearFlash = Math.max(0, state.nearFlash - dt * 2.4);
 
     var blendTarget = state.flipLatched ? 1 : 0;
@@ -1314,6 +1684,8 @@
     } else if (state.flipLatched) {
       if (q.flip) {
         if (coachLive() && coach.step === 2) coach.cleanLatch = true;
+        if (q.flip.down || (q.flip.sDist != null && q.flip.sDist > 12)) flipRun.deep = true;
+        if (q.flip.down) flipRun.done = true;
         state.flipY = q.flip.y;
         var k = state.upBlend;
         var sBlend = k * k * (3 - 2 * k);
@@ -1352,6 +1724,15 @@
         state.prevSlope = slope;
         state.airTime = 0;
         state.droppedFlip = false;
+        if (notable || impact > 6) {
+          var landAmt = clamp((impact || 0) / 16, 0.06, 0.8);
+          var landMode = fxMode();
+          if (landMode === 'reduced') landAmt = Math.min(0.05, landAmt * 0.18);
+          else if (landMode === 'low') landAmt *= 0.5;
+          if (!(GS.audio && GS.audio.shakeOn && GS.audio.shakeOn())) landAmt = 0;
+          speedFx.landShake = landAmt;
+          bumpShake(landAmt);
+        }
         if (notable) {
           state.dip = strong ? 1 : 0.42;
           state.squash = strong ? 1 : 0.3;
@@ -1360,7 +1741,6 @@
             GS.rumble('land', rumbleAmt);
           }
           sfx('land');
-          bumpShake(strong ? 0.5 : 0.22);
           burstDust(impact);
         }
         noteCoachLanded();
@@ -1404,6 +1784,8 @@
       if (state.armed && state.prevAlong > track.length * 0.72 && state.along < track.length * 0.22) {
         state.lapsDone += 1;
         state.armed = false;
+        noteSplit(state.raceTime - lapClock);
+        lapClock = state.raceTime;
         if (state.lapsDone >= track.laps) {
           state.finished = true;
           sfx('finish');
@@ -1411,6 +1793,9 @@
           state.kick = 1;
         } else {
           sfx('lap');
+          if (!flow.demo && state.lapsDone === track.laps - 1 && !state.paused && GS.audio && GS.audio.stinger) {
+            GS.audio.stinger('finalLap');
+          }
         }
       }
     }
@@ -1420,10 +1805,32 @@
   function updateCamera(dt) {
     readBasis();
     GS.upRolledAroundForward(_fwd.x, _fwd.z, state.upBlend * Math.PI, _camUp);
-    var sp = clamp(Math.abs(state.speed) / 58, 0, 1);
+    var spAbs = Math.abs(state.speed);
+    var sp = clamp(spAbs / 58, 0, 1);
     var punch = state.kick * (0.4 + 0.6 * sp);
     var dip = state.dip;
-    var dist = 6.45 + sp * 1.55 + punch * 0.9;
+    var camMode = fxMode();
+    speedFx.mode = camMode;
+    var accel = 0;
+    if (speedFx.ready && dt > 0) accel = (spAbs - speedFx.prevSp) / dt;
+    speedFx.prevSp = spAbs;
+    speedFx.ready = true;
+    var lagWant = 0;
+    if (camMode !== 'reduced' && flow.screen === 'race' && !state.paused && state.countdown <= 0) {
+      if (accel > 12) lagWant = clamp((accel - 12) / 34, 0, 1);
+      if (state.kick > 0.35) lagWant = Math.max(lagWant, state.kick * 0.8);
+      if (camMode === 'low') lagWant *= 0.45;
+    }
+    var maxLag = camMode === 'low' ? 0.55 : 1.15;
+    var lagTarget = lagWant * maxLag;
+    if (camMode === 'reduced') {
+      lagTarget = 0;
+      speedFx.camLag = 0;
+    }
+    var lagFollow = lagTarget > speedFx.camLag ? 8 : 1.8;
+    speedFx.camLag += (lagTarget - speedFx.camLag) * (1 - Math.exp(-lagFollow * Math.max(dt, 0.001)));
+    if (speedFx.camLag < 0.012) speedFx.camLag = 0;
+    var dist = 6.45 + sp * 1.55 + punch * 0.9 + speedFx.camLag;
     var height = (state.upBlend > 0.5 ? 1.9 : 2.6) + sp * 0.32 + punch * 0.18 - dip * 0.72;
     var ahead = 3.5 + sp * 2.0;
     _desired.copy(car.position).addScaledVector(_fwd, -dist).addScaledVector(_camUp, height);
@@ -1449,10 +1856,17 @@
       camera.position.x += Math.sin(idle * 0.35) * 0.18;
       camera.position.y += Math.cos(idle * 0.27) * 0.08;
     }
-    var fov = 56 + sp * 10 + punch * 9;
-    if (Math.abs(camera.fov - fov) > 0.04) {
+    var fovCoef = 16;
+    if (camMode === 'reduced') fovCoef = 16 / 3;
+    else if (camMode === 'low') fovCoef = 9;
+    var fovAdd = sp * fovCoef;
+    speedFx.fovAdd = fovAdd;
+    var fov = 56 + fovAdd + punch * 9 + shiftFx.fovPunch;
+    if (fov > 80) fov = 80;
+    if (shiftFx.needProj || Math.abs(camera.fov - fov) > 0.04) {
       camera.fov = fov;
       camera.updateProjectionMatrix();
+      shiftFx.needProj = false;
     }
   }
 
@@ -1571,8 +1985,12 @@
       }
     }
     if (ghostActor && ghostActor.plate && GS.presentPlate) {
-      var showGhost = flow.mode === 'trial' && flow.screen === 'race';
+      var showGhost = flow.mode === 'trial' && flow.screen === 'race' && !flow.demo;
       GS.presentPlate(ghostActor.plate, camera, { hide: grid || !showGhost, ghost: true });
+    }
+    if (targetActor && targetActor.plate && GS.presentPlate) {
+      var showTarget = flow.mode === 'trial' && flow.screen === 'race' && !flow.demo;
+      GS.presentPlate(targetActor.plate, camera, { hide: grid || !showTarget, ghost: true });
     }
   }
 
@@ -1684,14 +2102,7 @@
     var digits = String(Math.abs(kmh)).padStart(3, '0');
     speedEl.textContent = (state.speed < -0.4 ? '-' : '') + digits;
     var gearText = String(state.gear);
-    if (gearEl.textContent !== gearText) {
-      gearEl.textContent = gearText;
-      if (!calm()) {
-        gearEl.classList.remove('slam');
-        void gearEl.offsetWidth;
-        gearEl.classList.add('slam');
-      }
-    }
+    if (gearEl.textContent !== gearText) gearEl.textContent = gearText;
     if (gearPipsEl) {
       var pips = gearPipsEl.children;
       var pi;
@@ -1752,17 +2163,293 @@
     if (hintEl && flow.screen !== 'race') hintEl.classList.add('hide');
     // Stage 8 polish: the controls line is for the first seconds of a race, then it clears the HUD.
     else if (hintEl) hintEl.classList.toggle('hide', (state.raceTime || 0) > 12);
-    if (hintEl && GS.hintLine && flow.screen === 'race') hintEl.textContent = GS.hintLine(hintEl.classList.contains('compact'));
+    if (hintEl && GS.hintLine && flow.screen === 'race' && !flow.demo) hintEl.textContent = GS.hintLine(hintEl.classList.contains('compact'));
+    paintSplit();
+    paintTaunt();
+    if (demoTagEl) demoTagEl.hidden = !flow.demo;
+  }
+
+  function hexCss(hex) {
+    var s = (hex >>> 0).toString(16);
+    while (s.length < 6) s = '0' + s;
+    return '#' + s.slice(-6);
+  }
+
+  function targetGhostEnabled() {
+    var bag = GS.audioSettings || (GS.audio && GS.audio.settings) || {};
+    return bag.targetGhost !== false;
+  }
+
+  function refreshTargetGhost() {
+    if (!track || !scene || flow.screen !== 'race' || flow.mode !== 'trial' || flow.demo) return;
+    var medal = targetGhostEnabled() && GS.save && GS.save.nextMedal ? GS.save.nextMedal(track.id) : null;
+    var have = !!(targetActor && targetActor.root);
+    var haveKey = targetActor && targetActor.medal ? targetActor.medal : '';
+    var wantKey = medal ? medal.key : '';
+    if (!!medal !== have || wantKey !== haveKey) rebuildActors();
+  }
+
+  function noteSplit(lapTime) {
+    if (flow.demo || !track || !GS.save || !(lapTime > 0.2) || !isFinite(lapTime)) return;
+    var prev = GS.save.bestLap(track.id);
+    var delta = prev ? lapTime - prev : null;
+    GS.save.noteLap(track.id, lapTime);
+    splitUi.last = lapTime;
+    splitUi.delta = delta;
+    splitUi.bestLap = GS.save.bestLap(track.id);
+    splitUi.show = 2;
+  }
+
+  function paintSplit() {
+    if (!splitEl) return;
+    var show = splitUi.show > 0 && flow.screen === 'race' && !state.paused && !flow.demo && splitUi.last != null;
+    splitEl.hidden = !show;
+    if (!show) return;
+    var text = formatTime(splitUi.last);
+    if (splitUi.delta != null && isFinite(splitUi.delta)) {
+      var neg = splitUi.delta < -0.005;
+      var pos = splitUi.delta > 0.005;
+      var gap = (neg ? '-' : '+') + Math.abs(splitUi.delta).toFixed(2);
+      text += '  ' + gap;
+      splitEl.classList.toggle('ahead', !pos);
+      splitEl.classList.toggle('behind', pos);
+    } else {
+      splitEl.classList.remove('ahead');
+      splitEl.classList.remove('behind');
+    }
+    if (splitEl.textContent !== text) splitEl.textContent = text;
+  }
+
+  function showBumpTaunt(rival) {
+    if (!rival || flow.demo) return;
+    var now = state.raceTime;
+    if (rival.tauntAt && now - rival.tauntAt < 5) return;
+    rival.tauntAt = now;
+    var id = rival.profile && rival.profile.id;
+    var name = rival.profile && rival.profile.name ? rival.profile.name : 'RIVAL';
+    var line = TAUNT_LINE[id] || 'BEEP BEEP!';
+    tauntUi.text = name + ': ' + line;
+    tauntUi.life = 1.25;
+    bumpFx.taunts += 1;
+  }
+
+  function paintTaunt() {
+    if (!tauntEl) return;
+    var show = tauntUi.life > 0 && flow.screen === 'race' && !flow.demo;
+    tauntEl.hidden = !show;
+    if (show && tauntEl.textContent !== tauntUi.text) tauntEl.textContent = tauntUi.text;
+  }
+
+  function noteFrameTime(dt) {
+    var forced = autoQ.forceLeft > 0;
+    if (forced) autoQ.forceLeft = Math.max(0, autoQ.forceLeft - Math.max(dt, 0));
+    var bag = GS.audioSettings || (GS.audio && GS.audio.settings) || {};
+    var enabled = bag.autoQuality !== false;
+    if (!enabled) {
+      autoQ.slow = 0;
+      return;
+    }
+    if (!forced && GS.manualStep) return;
+    if (document.hidden) {
+      autoQ.slow = 0;
+      frameMs.length = 0;
+      frameSum = 0;
+      return;
+    }
+    var racing = flow.screen === 'race' && !flow.demo && !state.paused && state.countdown <= 0 && !state.finished;
+    if (!racing) {
+      autoQ.slow = 0;
+      frameMs.length = 0;
+      frameSum = 0;
+      return;
+    }
+    var ms = forced ? 40 : Math.min(100, Math.max(0, dt) * 1000);
+    frameMs.push(ms);
+    frameSum += ms;
+    if (frameMs.length > 60) frameSum -= frameMs.shift();
+    autoQ.avg = frameMs.length ? frameSum / frameMs.length : 0;
+    if (!forced && frameMs.length < 30) return;
+    if (autoQ.avg > 25) autoQ.slow += Math.max(dt, 0);
+    else autoQ.slow = 0;
+    if (autoQ.slow >= 3) {
+      autoQ.slow = 0;
+      frameMs.length = 0;
+      frameSum = 0;
+      dropQuality();
+    }
+  }
+
+  function dropQuality() {
+    var cur = qualityName();
+    if (cur === 'low') return;
+    var next = cur === 'high' ? 'mid' : 'low';
+    if (GS.setAudioFlag) GS.setAudioFlag('quality', next);
+    autoQ.drops += 1;
+    autoQ.lastDrop = next;
+    var word = next === 'mid' ? 'Mid' : 'Low';
+    if (GS.toast) GS.toast('Quality lowered to ' + word + ' for smoother play');
+  }
+
+  function tickAttractIdle(dt) {
+    if (flow.demo) return;
+    if (document.hidden) {
+      attract.idle = 0;
+      return;
+    }
+    var settingsOpen = GS.controller && GS.controller.isOpen && GS.controller.isOpen();
+    if (flow.screen === 'title' && !settingsOpen) {
+      attract.idle += dt;
+      if (attract.idle >= 8) startAttract();
+    } else attract.idle = 0;
+  }
+
+  function applyDemoGear(next) {
+    if (!GS.GEARS[next] || next === state.gear) return;
+    var dir = next > state.gear ? 1 : -1;
+    state.gear = next;
+    state.palFrom = state.palTo;
+    state.palTo = next;
+    state.palU = 0;
+    state.shiftU = 0;
+    state.gFrom = state.gravity;
+    state.gTo = GS.GEARS[next].gravity;
+    triggerShiftFx(dir, next);
+  }
+
+  function placeAttract(pose) {
+    if (!pose) return;
+    var tx = pose.tx || 1;
+    var tz = pose.tz || 0;
+    state.yaw = GS.yawFromForwardXZ(tx, tz);
+    state.upBlend = pose.up || 0;
+    if (!isFinite(state.upBlend)) state.upBlend = 0;
+    state.flipLatched = state.upBlend > 0.45;
+    var y = pose.y;
+    if (!isFinite(y)) y = track.roadHeight(attract.along);
+    car.position.set(pose.x, y, pose.z);
+    applyOrientation();
+  }
+
+  function driveAttract(dt) {
+    if (!track || !car || !(dt > 0)) return;
+    if (document.hidden) {
+      exitAttract();
+      return;
+    }
+    attract.t += dt;
+    attract.on = true;
+    state.raceTime += dt;
+    var line = track.line || { kind: 'none' };
+    var speed = (GS.GEARS[state.gear] ? GS.GEARS[state.gear].top : 22) * 0.9;
+    if (attract.mode === 'shortcut') speed = 42;
+    state.speed = speed;
+    if (attract.mode === 'shortcut' && line.kind === 'shortcut') {
+      attract.sDist += speed * dt;
+      placeAttract(track.poseOnRail(0, 0, { kind: 'shortcut', sDist: attract.sDist }));
+      if (attract.sDist >= (line.length || 1) - 0.35) {
+        attract.mode = 'road';
+        attract.flipTaken = true;
+        attract.along = line.main1 || attract.along;
+        state.shiftU = 1;
+        applyDemoGear(2);
+        placeAttract(track.poseOnRail(attract.along, 0, { kind: 'road' }));
+        state.along = attract.along;
+      }
+      return;
+    }
+    var prev = attract.along;
+    attract.along += speed * dt;
+    if (attract.along >= track.length) attract.along -= track.length;
+    if (!attract.flipTaken && line.kind === 'shortcut' && line.length > 1 &&
+        crossedForward(prev, attract.along, line.main0, track.length)) {
+      attract.mode = 'shortcut';
+      attract.sDist = 1.5;
+      state.shiftU = 1;
+      applyDemoGear(4);
+      placeAttract(track.poseOnRail(0, 0, { kind: 'shortcut', sDist: attract.sDist }));
+      return;
+    }
+    if (attract.along > track.length * 0.55) attract.armed = true;
+    if (attract.armed && prev > track.length * 0.72 && attract.along < track.length * 0.22) {
+      startAttract();
+      return;
+    }
+    var frac = attract.along / (track.length || 1);
+    var want = 2;
+    if (frac < 0.16) want = 1;
+    else if (frac < 0.38) want = 2;
+    else if (frac < 0.62) want = 3;
+    else want = 2;
+    if (line.kind === 'shelf' && attract.along >= line.d0 && attract.along <= line.d1) want = 4;
+    applyDemoGear(want);
+    var spec = { kind: 'road' };
+    if (line.kind === 'shelf' && state.gear === 4 && attract.along >= line.d0 && attract.along <= line.d1) {
+      spec = { kind: 'shelf' };
+    }
+    placeAttract(track.poseOnRail(attract.along, 0, spec));
+    state.along = attract.along;
+  }
+
+  function startAttract() {
+    var ids = GS.TRACK_IDS && GS.TRACK_IDS.length ? GS.TRACK_IDS : ['warmup'];
+    var id = ids[attract.index % ids.length];
+    attract.index += 1;
+    flow.demo = true;
+    flow.mode = 'demo';
+    attract.on = true;
+    attract.idle = 0;
+    attract.mode = 'road';
+    attract.sDist = 0;
+    attract.flipTaken = false;
+    attract.armed = false;
+    if (!track || track.id !== id) swapTrack(id);
+    attract.track = track ? track.id : id;
+    beginRace();
+    flow.demo = true;
+    flow.mode = 'demo';
+    attract.on = true;
+    attract.t = 0;
+    attract.track = track.id;
+    state.countdown = 0;
+    state.goBanner = 0;
+    lastCountDigit = 0;
+    coach.enabled = false;
+    if (coachEl) coachEl.hidden = true;
+    attract.along = track.spawnDist;
+    state.along = attract.along;
+    placeAttract(track.poseOnRail(attract.along, 0, { kind: 'road' }));
+    camSnap = true;
+    if (demoTagEl) demoTagEl.hidden = false;
+  }
+
+  function exitAttract() {
+    if (!flow.demo && !attract.on) return;
+    attract.guardUntil = performance.now() + 450;
+    attract.idle = 0;
+    attract.t = 0;
+    attract.on = false;
+    attract.mode = 'road';
+    flow.demo = false;
+    if (demoTagEl) demoTagEl.hidden = true;
+    state.speed = 0;
+    openTitle();
   }
 
   function frame(dt) {
+    if (GS.audio && GS.audio.hold) GS.audio.hold(state.paused || flow.screen !== 'race' || !!flow.demo);
     if (GS.pollInput) GS.pollInput();
     applyEdges();
     if (GS.controller && GS.controller.tick) GS.controller.tick();
-    if (state.paused || flow.screen !== 'race') {
+    noteFrameTime(dt);
+    if (bumpFx.hitLeft > 0) bumpFx.hitLeft = Math.max(0, bumpFx.hitLeft - dt);
+    if (flow.demo) {
+      if (!state.paused && !document.hidden) driveAttract(dt);
+    } else if (state.paused || flow.screen !== 'race') {
       bank = 0;
     } else {
-      bank += Math.min(Math.max(dt, 0), 0.05);
+      var simDt = dt;
+      if (bumpFx.hitLeft > 0) simDt = dt * 0.22;
+      bank += Math.min(Math.max(simDt, 0), 0.05);
       var steps = 0;
       while (bank >= FIXED && steps < MAX_STEPS) {
         stepPhysics(FIXED);
@@ -1771,11 +2458,19 @@
       }
       if (steps === MAX_STEPS) bank = 0;
     }
+    if (splitUi.show > 0) splitUi.show = Math.max(0, splitUi.show - dt);
+    if (tauntUi.life > 0) tauntUi.life = Math.max(0, tauntUi.life - dt);
+    if (!flow.demo) tickAttractIdle(dt);
+    else if (document.hidden) exitAttract();
+    updateShiftFx(dt);
     updateCamera(dt);
+    updateOverpass(dt);
     updatePresentation(dt);
+    updateFlipPop(dt);
+    pulseFlipSigns();
     if (flow.screen === 'race' && state.finished && !flow.handled) onFinish();
     updateHUD();
-    updateAudio();
+    updateAudio(dt);
     if (GS.touch && GS.touch.sync) GS.touch.sync();
     if (!GS.skipRender) renderer.render(scene, camera);
   }
@@ -1943,6 +2638,9 @@
       bumpReleases: bump.releases,
       lastBump: bump.last,
       nearFlash: state.nearFlash,
+      overpassFade: overpass.fade,
+      overpassBlock: overpass.block,
+      overpassCount: overpass.list.length,
       quality: GS.audio ? GS.audio.quality() : 'mid',
       particles: particlesOn(),
       bloom: !!(GS.audio && GS.audio.bloomOn && GS.audio.bloomOn()),
@@ -1984,11 +2682,71 @@
       },
       mode: flow.mode,
       screen: flow.screen,
+      shiftFx: {
+        active: !!shiftFx.active,
+        t: shiftFx.t,
+        count: shiftFx.count,
+        gear: shiftFx.gear,
+        fovPunch: shiftFx.fovPunch,
+        mode: shiftFx.mode
+      },
+      speedFx: {
+        fovAdd: speedFx.fovAdd,
+        streaks: speedFx.streaks,
+        camLag: speedFx.camLag,
+        landShake: speedFx.landShake,
+        mode: speedFx.mode
+      },
+      flipSigns: track && track.flipSignCount ? track.flipSignCount : 0,
+      lastFlipSaved: flipUi.saved,
+      flipPopups: flipUi.popups,
+      targetGhost: {
+        on: !!(targetActor && targetActor.root && targetActor.root.visible),
+        medal: targetActor ? targetActor.medal : '',
+        time: targetActor ? targetActor.time : 0
+      },
+      splits: {
+        last: splitUi.last,
+        delta: splitUi.delta,
+        bestLap: splitUi.bestLap
+      },
+      retries: sessionRetries,
+      attract: {
+        on: !!flow.demo,
+        track: attract.track || '',
+        t: attract.t
+      },
+      autoQuality: {
+        enabled: !((GS.audioSettings || (GS.audio && GS.audio.settings) || {}).autoQuality === false),
+        drops: autoQ.drops,
+        lastDrop: autoQ.lastDrop
+      },
+      bumpFx: {
+        sparks: bumpFx.sparks,
+        hitPauses: bumpFx.hitPauses,
+        taunts: bumpFx.taunts
+      },
+      menuFocus: currentMenuFocus(),
+      dadCardUi: {
+        open: cardUi.open,
+        focus: cardUi.focus,
+        actions: cardUi.actions.map(function (a) { return a.label; }),
+        opens: cardUi.opens,
+        saves: cardUi.saves,
+        copies: cardUi.copies,
+        shares: cardUi.shares,
+        lastAction: cardUi.lastAction,
+        toast: cardUi.toast,
+        filename: cardUi.filename,
+        fallback: cardUi.fallback,
+        imgWidth: cardImgEl ? cardImgEl.naturalWidth : 0
+      },
       reducedFlash: calm(),
       place: flow.screen === 'race' ? currentPlace() : flow.place,
       medal: flow.lastMedal,
       results: flow.screen === 'results' || flow.screen === 'cup' ? screenCopyText() : '',
       rivals: rivalSnapshot(),
+      difficulty: GS.rivalDifficulty ? GS.rivalDifficulty() : 'normal',
       ghostOn: !!(ghostActor && ghostActor.root && ghostActor.root.visible),
       ghostPlate: ghostActor && ghostActor.plate ? {
         visible: ghostActor.plate.visible,
@@ -2117,6 +2875,15 @@
     state.palTo = 1;
     state.palU = 1;
     state.countdown = 3.2;
+    resetShiftFx();
+    resetFlipUi();
+    speedFx.camLag = 0;
+    speedFx.landShake = 0;
+    speedFx.streaks = 0;
+    speedFx.fovAdd = 0;
+    speedFx.prevSp = 0;
+    speedFx.ready = false;
+    if (GS.audio && GS.audio.beginRace) GS.audio.beginRace();
     lastCountDigit = 4;
     lastCheckpoint = 0;
     nearAt = -2;
@@ -2130,6 +2897,13 @@
     state.goBanner = 0;
     state.raceTime = 0;
     state.finished = false;
+    lapClock = 0;
+    splitUi.last = null;
+    splitUi.delta = null;
+    splitUi.show = 0;
+    splitUi.bestLap = (!flow.demo && GS.save && track) ? GS.save.bestLap(track.id) : null;
+    bumpFx.hitLeft = 0;
+    tauntUi.life = 0;
     state.flipY = track.roadHeight(spawn.dist);
     state.hints = { flip: false, down: false, up: false };
     car.position.set(spawn.x, track.roadHeight(spawn.dist), spawn.z);
@@ -2167,7 +2941,8 @@
     var ps = GS.resolvedLayout && GS.resolvedLayout() === 'playstation';
     var south = ps ? 'Cross' : 'A';
     var east = ps ? 'Circle' : 'B';
-    return 'Arrows or stick · Enter / ' + south + ' confirms · Esc / ' + east + ' back · 1 2 3 pick a track';
+    var bumpers = ps ? 'L1 / R1' : 'LB / RB';
+    return 'Arrows or stick · Enter / ' + south + ' confirms · Esc / ' + east + ' back · ' + bumpers + ' pages';
   }
 
   function hideScreen() {
@@ -2181,11 +2956,13 @@
   function paintScreenFocus() {
     if (!screenActionsEl) return;
     var buttons = screenActionsEl.querySelectorAll('button');
+    if (buttons.length && (flow.focus < 0 || flow.focus >= buttons.length)) flow.focus = 0;
     var i;
     for (i = 0; i < buttons.length; i++) buttons[i].classList.toggle('focus', i === flow.focus);
   }
 
   function showScreen(kind, kicker, lines, actions) {
+    if (cardUi.open) closeDadCard();
     flow.screen = kind;
     flow.focus = 0;
     flow.actions = actions || [];
@@ -2231,6 +3008,7 @@
   }
 
   function activateScreen() {
+    if (flow.demo || inputGuarded()) return;
     var action = flow.actions[flow.focus];
     if (!action) return;
     if (action.disabled) {
@@ -2246,51 +3024,81 @@
     field = null;
   }
 
-  function clearGhost() {
-    if (!ghostActor) return;
-    dropRoot(ghostActor.root);
-    if (ghostActor.plate) {
-      if (scene) scene.remove(ghostActor.plate);
-      if (ghostActor.plate.material) {
-        if (ghostActor.plate.material.map) ghostActor.plate.material.map.dispose();
-        ghostActor.plate.material.dispose();
+  function dropActor(actor) {
+    if (!actor) return;
+    dropRoot(actor.root);
+    if (actor.plate) {
+      if (scene) scene.remove(actor.plate);
+      if (actor.plate.material) {
+        if (actor.plate.material.map) actor.plate.material.map.dispose();
+        actor.plate.material.dispose();
       }
     }
+  }
+
+  function clearGhost() {
+    dropActor(ghostActor);
+    dropActor(targetActor);
     ghostActor = null;
+    targetActor = null;
+  }
+
+  function makeGhost(pack, label, color) {
+    if (!pack || !GS.buildCar || !GS.makePlate) return null;
+    var built = GS.buildCar({ color: color, ghost: true });
+    var actor = {
+      root: built.root,
+      plate: GS.makePlate(label, hexCss(color)),
+      pack: pack
+    };
+    scene.add(actor.root);
+    scene.add(actor.plate);
+    return actor;
   }
 
   function rebuildActors() {
     clearField();
     clearGhost();
-    if (!track || !scene) return;
+    if (!track || !scene || flow.demo) return;
     if ((flow.mode === 'cup' || flow.mode === 'quick') && GS.spawnRivals) {
       field = GS.spawnRivals(track, scene);
     }
     if (flow.mode === 'trial' && GS.save) {
       var pack = GS.save.ghost(track.id);
-      if (pack && GS.buildCar && GS.makePlate) {
-        var built = GS.buildCar({ color: 0xb7fff6, ghost: true });
-        ghostActor = {
-          root: built.root,
-          plate: GS.makePlate('GHOST', '#b7fff6'),
-          pack: pack
-        };
-        scene.add(ghostActor.root);
-        scene.add(ghostActor.plate);
+      if (pack) ghostActor = makeGhost(pack, 'GHOST', 0xb7fff6);
+      if (targetGhostEnabled() && GS.save.nextMedal && GS.synthesizeRoadGhost) {
+        var medal = GS.save.nextMedal(track.id);
+        if (medal) {
+          var synth = GS.synthesizeRoadGhost(track, medal.time);
+          var tint = MEDAL_TINT[medal.key] || 0xffd35a;
+          targetActor = makeGhost(synth, medal.label + ' ' + Number(medal.time).toFixed(1), tint);
+          if (targetActor) {
+            targetActor.medal = medal.key;
+            targetActor.time = medal.time;
+          }
+        }
       }
     }
   }
 
-  function updateGhost() {
-    if (!ghostActor) return;
-    var show = flow.mode === 'trial' && flow.screen === 'race';
-    ghostActor.root.visible = !!show;
+  function placeGhost(actor, show) {
+    if (!actor || !actor.root) return;
+    actor.root.visible = !!show;
+    if (actor.plate) actor.plate.visible = !!show;
     if (!show || !GS.ghostPose) return;
-    var pose = GS.ghostPose(ghostActor.pack, state.countdown > 0 ? 0 : state.raceTime);
+    var pose = GS.ghostPose(actor.pack, state.countdown > 0 ? 0 : state.raceTime);
     if (!pose) return;
-    ghostActor.root.position.set(pose.x, pose.y, pose.z);
-    GS.orientYawRoll(ghostActor.root, pose.yaw, pose.up);
-    ghostActor.plate.position.set(pose.x, pose.y + (pose.up > 0.5 ? -1.65 : 1.7), pose.z);
+    actor.root.position.set(pose.x, pose.y, pose.z);
+    GS.orientYawRoll(actor.root, pose.yaw, pose.up);
+    if (actor.plate) {
+      actor.plate.position.set(pose.x, pose.y + (pose.up > 0.5 ? -1.65 : 1.7), pose.z);
+    }
+  }
+
+  function updateGhost() {
+    var show = flow.mode === 'trial' && flow.screen === 'race' && !flow.demo;
+    placeGhost(ghostActor, show);
+    placeGhost(targetActor, show && targetGhostEnabled());
   }
 
   function recordGhostSample(force) {
@@ -2405,7 +3213,14 @@
         up: rival.up,
         upY: rival.upY,
         settles: rival.settles || 0,
-        bumpLane: rival.bumpLane || 0
+        bumpLane: rival.bumpLane || 0,
+        personality: rival.personality || (rival.profile && rival.profile.personality) || '',
+        pace: rival.pace || 0,
+        band: rival.band == null ? 1 : rival.band,
+        lapTimes: rival.lapTimes || [],
+        bestLap: rival.bestLap || 0,
+        finishTime: rival.finishTime || 0,
+        lane: rival.lane || 0
       });
     }
     return out;
@@ -2459,6 +3274,100 @@
     if (medal === 'silver') return 'screenMedal medal-silver';
     if (medal === 'bronze') return 'screenMedal medal-bronze';
     return 'screenMedal medal-none';
+  }
+
+  // v1.0.2: overpass fade. Flip decks (shortcuts and the Skyway shelf) fade to
+  // about 20% while they sit between the camera and the car, or just above the
+  // car, then fade back. Each deck gets its own material copy so the fade never
+  // touches the gate board or anything else that shares the palette slot.
+  var OVERPASS_MIN = 0.2;
+  var overpass = { list: [], meshes: [], fade: 1, block: false, ray: null, owner: null };
+  var _ovA = null;
+  var _ovB = null;
+  var _ovC = null;
+
+  function collectOverpass() {
+    overpass.list = [];
+    overpass.meshes = [];
+    overpass.fade = 1;
+    overpass.block = false;
+    overpass.owner = track;
+    if (!track || !track.root) return;
+    if (!overpass.ray) {
+      overpass.ray = new THREE.Raycaster();
+      _ovA = new THREE.Vector3();
+      _ovB = new THREE.Vector3();
+      _ovC = new THREE.Vector3();
+    }
+    track.root.traverse(function (o) {
+      if (!o.userData || !o.userData.overpass || !o.material) return;
+      var src = o.material;
+      var mat = src.clone();
+      o.material = mat;
+      o.renderOrder = 2;
+      if (o.geometry && !o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
+      if (o.computeBoundingSphere) o.computeBoundingSphere();
+      overpass.list.push({ mesh: o, src: src, mat: mat, transparent: false });
+      overpass.meshes.push(o);
+    });
+  }
+
+  function rayHits(from, to) {
+    _ovB.copy(to).sub(from);
+    var len = _ovB.length();
+    if (len < 0.05) return false;
+    _ovB.multiplyScalar(1 / len);
+    overpass.ray.set(from, _ovB);
+    overpass.ray.near = 0;
+    overpass.ray.far = len;
+    return overpass.ray.intersectObjects(overpass.meshes, false).length > 0;
+  }
+
+  function overpassBlocks() {
+    if (flow.screen !== 'race' && flow.screen !== 'pause') return false;
+    // Driving the deck itself (latched or rolling onto it) never fades it.
+    if (state.flipLatched || state.upBlend > 0.3) return false;
+    _ovA.copy(car.position);
+    _ovA.y += 0.6;
+    if (rayHits(camera.position, _ovA)) return true;
+    readBasis();
+    _ovA.copy(car.position).addScaledVector(_fwd, 9);
+    _ovA.y += 0.8;
+    if (rayHits(camera.position, _ovA)) return true;
+    // A deck just above the roof (or a camera inside the slab) also counts.
+    _ovA.copy(car.position);
+    _ovA.y += 0.4;
+    _ovC.copy(car.position);
+    _ovC.y += 7.5;
+    return rayHits(_ovA, _ovC);
+  }
+
+  function updateOverpass(dt) {
+    if (overpass.owner !== track) collectOverpass();
+    if (!overpass.list.length) return;
+    overpass.block = overpassBlocks();
+    var target = overpass.block ? OVERPASS_MIN : 1;
+    var rate = overpass.block ? 9 : 3.5;
+    overpass.fade += (target - overpass.fade) * (1 - Math.exp(-rate * Math.max(dt, 0.001)));
+    if (Math.abs(overpass.fade - target) < 0.004) overpass.fade = target;
+    var i;
+    for (i = 0; i < overpass.list.length; i++) {
+      var row = overpass.list[i];
+      var mat = row.mat;
+      var src = row.src;
+      if (src.color) mat.color.copy(src.color);
+      if (src.emissive && mat.emissive) mat.emissive.copy(src.emissive);
+      // Glow fades with the deck, or a bright warn stripe still reads as a wall.
+      if (typeof src.emissiveIntensity === 'number') mat.emissiveIntensity = src.emissiveIntensity * overpass.fade;
+      var see = overpass.fade < 0.995;
+      if (see !== row.transparent) {
+        row.transparent = see;
+        mat.transparent = see;
+        mat.depthWrite = !see;
+        mat.needsUpdate = true;
+      }
+      mat.opacity = see ? overpass.fade : 1;
+    }
   }
 
   function swapTrack(id) {
@@ -2564,6 +3473,13 @@
         cls: 'screenSub'
       });
     }
+    rememberCard({
+      medal: '',
+      place: place,
+      trackId: 'cup',
+      trackName: 'ARCADE CUP',
+      timeLabel: total + ' PTS'
+    });
     GS.save.recordCup({
       heats: flow.heats.map(function (heat) {
         return { track: heat.track, name: heat.name, place: heat.place, points: heat.points, order: heat.order };
@@ -2573,9 +3489,10 @@
       total: total
     });
     showScreen('cup', 'ARCADE CUP', lines, [
-      { label: 'RETRY', run: startCup },
+      { label: 'RETRY', run: retryCurrent },
       { label: 'NEXT', disabled: true, reason: 'The cup is finished.' },
-      { label: 'MENU', run: openModeMenu }
+      { label: 'MENU', run: openModeMenu },
+      { label: 'DAD CARD', run: shareDadCard }
     ]);
     sfx('cup');
   }
@@ -2612,10 +3529,13 @@
       lines.push({ text: 'GHOST ' + sign + Math.abs(flow.ghostDelta).toFixed(2), cls: 'screenSub' });
     }
     if (saved.improved) lines.push({ text: 'NEW BEST — GHOST SAVED', cls: 'screenSub' });
+    if (splitUi.bestLap) lines.push({ text: 'BEST LAP ' + formatTime(splitUi.bestLap), cls: 'screenSub' });
+    rememberCard({ medal: medal, place: 1 });
     showScreen('results', 'FINISH', lines, [
-      { label: 'RETRY', run: function () { startTrial(track.id); } },
+      { label: 'RETRY', run: retryCurrent },
       nextCircuitAction(startTrial),
-      { label: 'MENU', run: openModeMenu }
+      { label: 'MENU', run: openModeMenu },
+      { label: 'DAD CARD', run: shareDadCard }
     ]);
     if (medal) sfx('medal');
   }
@@ -2631,10 +3551,12 @@
     for (i = 0; i < rows.length; i++) {
       lines.push({ text: GS.ordinal(rows[i].place) + '  ' + rows[i].name + '  ' + rows[i].points, cls: 'screenSub' });
     }
+    rememberCard({ medal: '', place: flow.place });
     showScreen('results', 'HEAT ' + (flow.cupHeat + 1) + ' / 3', lines, [
-      { label: 'RETRY', run: function () { beginRace(); } },
+      { label: 'RETRY', run: retryCurrent },
       { label: 'NEXT', run: nextHeat },
-      { label: 'MENU', run: openModeMenu }
+      { label: 'MENU', run: openModeMenu },
+      { label: 'DAD CARD', run: shareDadCard }
     ]);
   }
 
@@ -2649,15 +3571,21 @@
     for (i = 0; i < rows.length; i++) {
       lines.push({ text: GS.ordinal(rows[i].place) + '  ' + rows[i].name, cls: 'screenSub' });
     }
+    rememberCard({ medal: '', place: flow.place });
     showScreen('results', 'QUICK RACE', lines, [
-      { label: 'RETRY', run: function () { startQuick(track.id); } },
+      { label: 'RETRY', run: retryCurrent },
       nextCircuitAction(startQuick),
-      { label: 'MENU', run: openModeMenu }
+      { label: 'MENU', run: openModeMenu },
+      { label: 'DAD CARD', run: shareDadCard }
     ]);
   }
 
   function onFinish() {
     if (flow.handled) return;
+    if (flow.demo) {
+      flow.handled = true;
+      return;
+    }
     flow.handled = true;
     recordGhostSample(true);
     if (field) flow.playerRank = field.claimRank();
@@ -2718,6 +3646,9 @@
   ];
 
   function openTitle() {
+    flow.demo = false;
+    attract.on = false;
+    attract.idle = 0;
     state.paused = false;
     if (GS.controller && GS.controller.isOpen && GS.controller.isOpen()) GS.controller.close();
     showScreen('title', 'GEAR SHIFT', [
@@ -2794,7 +3725,7 @@
       { text: 'Audio: engine, SHUNK, stingers, and the four-layer theme are original Web Audio.', cls: 'screenLine' },
       { text: 'The Gear Shift logo is an original Retro Gaming Dad mark.', cls: 'screenLine' },
       { text: 'AI disclosure: code written with Grok Build and AI assistance, then directed and tested by hand.', cls: 'screenLine' },
-      { text: 'Made for Game Off 2026. Theme: Shift.  v' + (GS.VERSION || '1.0.1'), cls: 'screenSub' }
+      { text: 'Made for Game Off 2026. Theme: Shift.  v' + (GS.VERSION || '1.0.7'), cls: 'screenSub' }
     ], [
       { label: 'BACK', run: closeCredits }
     ]);
@@ -2876,6 +3807,445 @@
     ]);
   }
 
+  function currentMenuFocus() {
+    if (cardUi.open) {
+      var cardAction = cardUi.actions[cardUi.focus];
+      return cardAction ? 'card:' + cardAction.label : 'card';
+    }
+    if (GS.controller && GS.controller.focusLabel) {
+      var fromUi = GS.controller.focusLabel();
+      if (fromUi) return fromUi;
+    }
+    if (GS.wantsMenuNav && GS.wantsMenuNav()) {
+      var action = flow.actions[flow.focus];
+      if (action && action.label) return action.label;
+    }
+    return '';
+  }
+
+  function rememberCard(extra) {
+    extra = extra || {};
+    var when = new Date();
+    flow.card = {
+      trackId: extra.trackId || (track ? track.id : 'warmup'),
+      trackName: extra.trackName || (track ? track.name : 'WARM-UP YARD'),
+      time: state.raceTime || 0,
+      timeLabel: extra.timeLabel || formatTime(state.raceTime || 0),
+      medal: extra.medal || '',
+      place: extra.place || flow.place || 1,
+      bestLap: splitUi.bestLap || (GS.save && track ? GS.save.bestLap(track.id) : null),
+      mode: flow.mode,
+      when: when
+    };
+  }
+
+  function cardSnapshot() {
+    if (flow.card) return flow.card;
+    return {
+      trackId: track ? track.id : 'warmup',
+      trackName: track ? track.name : 'WARM-UP YARD',
+      time: state.raceTime || 0,
+      timeLabel: formatTime(state.raceTime || 0),
+      medal: flow.lastMedal || '',
+      place: flow.place || 1,
+      bestLap: GS.save && track ? GS.save.bestLap(track.id) : null,
+      mode: flow.mode || 'trial',
+      when: new Date()
+    };
+  }
+
+  function cardDate(d) {
+    var y = d.getFullYear();
+    var m = d.getMonth() + 1;
+    var day = d.getDate();
+    function two(n) { return (n < 10 ? '0' : '') + n; }
+    return y + '-' + two(m) + '-' + two(day);
+  }
+
+  function cardFileName(card) {
+    var id = String(card.trackId || 'gear').toLowerCase().replace(/[^a-z0-9]+/g, '');
+    var time = String(card.timeLabel || '0').replace(/[^0-9.]+/g, '-').replace(/^-+|-+$/g, '');
+    if (!id) id = 'gear';
+    if (!time) time = '0';
+    return 'gear-shift-dad-card-' + id + '-' + time + '.png';
+  }
+
+  // v1.0.7: the card is drawn only with canvas shapes and text, never with an
+  // <img>. Opened from file:// (the launcher), Chrome treats every local file as
+  // a separate origin, so drawing the logo SVG "tainted" the canvas and
+  // toDataURL threw, leaving the overlay with an empty picture.
+  function drawCardLogo(ctx, x, y, w, h) {
+    var sx = w / 760;
+    var sy = h / 168;
+    function poly(pts, color) {
+      ctx.beginPath();
+      var i;
+      for (i = 0; i < pts.length; i += 2) {
+        var px = x + pts[i] * sx;
+        var py = y + pts[i + 1] * sy;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
+    }
+    poly([10, 16, 52, 84, 10, 152, 32, 152, 74, 84, 32, 16], '#ffb03a');
+    poly([46, 16, 88, 84, 46, 152, 68, 152, 110, 84, 68, 16], '#7ef0ff');
+    ctx.fillStyle = '#f6f1e7';
+    ctx.font = Math.round(104 * sy) + 'px Impact, "Arial Black", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText('GEAR SHIFT', x + 132 * sx, y + 116 * sy, 620 * sx);
+  }
+
+  function cardCanvasUrl(canvas) {
+    try {
+      var url = canvas.toDataURL('image/png');
+      if (url && url.indexOf('data:image/png') === 0 && url.length > 2000) return url;
+    } catch (err) {}
+    return '';
+  }
+
+  // Last-resort card: plain colours and text on a fresh canvas.
+  function paintFallbackCard(card) {
+    var canvas = document.createElement('canvas');
+    canvas.width = 1200;
+    canvas.height = 630;
+    var ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ff4ad8';
+    ctx.fillRect(0, 0, 1200, 630);
+    ctx.fillStyle = '#140e0a';
+    ctx.fillRect(46, 46, 1108, 538);
+    ctx.fillStyle = '#f6f1e7';
+    ctx.textAlign = 'left';
+    ctx.font = '800 84px sans-serif';
+    ctx.fillText('GEAR SHIFT', 88, 168);
+    ctx.fillStyle = '#ffb03a';
+    ctx.font = '800 28px sans-serif';
+    ctx.fillText('Retro Gaming Dad', 88, 230);
+    ctx.fillStyle = '#f6f1e7';
+    ctx.font = '800 42px sans-serif';
+    ctx.fillText(String(card.trackName || ''), 88, 310);
+    ctx.fillStyle = '#7ef0ff';
+    ctx.font = '800 92px sans-serif';
+    ctx.fillText(String(card.timeLabel || ''), 88, 420);
+    return cardCanvasUrl(canvas);
+  }
+
+  function paintDadCard() {
+    var card = cardSnapshot();
+    var url = '';
+    try {
+      url = paintDadCardFull(card);
+    } catch (err) {
+      url = '';
+    }
+    cardUi.fallback = !url;
+    if (!url) url = paintFallbackCard(card);
+    return url;
+  }
+
+  function paintDadCardFull(card) {
+    var canvas = document.createElement('canvas');
+    canvas.width = 1200;
+    canvas.height = 630;
+    var ctx = canvas.getContext('2d');
+    var grad = ctx.createLinearGradient(0, 0, 1200, 630);
+    grad.addColorStop(0, '#ffb03a');
+    grad.addColorStop(0.34, '#ff4ad8');
+    grad.addColorStop(0.67, '#c9b6ff');
+    grad.addColorStop(1, '#7ef0ff');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 1200, 630);
+    ctx.fillStyle = 'rgba(12, 10, 8, 0.84)';
+    ctx.fillRect(46, 46, 1108, 538);
+    ctx.fillStyle = '#ffb03a';
+    ctx.fillRect(46, 46, 1108, 10);
+    drawCardLogo(ctx, 78, 78, 520, 115);
+    ctx.fillStyle = '#ffb03a';
+    ctx.font = '800 28px Trebuchet MS, Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Retro Gaming Dad', 88, 230);
+    ctx.fillStyle = '#f6f1e7';
+    ctx.font = '800 42px Impact, Arial Black, sans-serif';
+    ctx.fillText(card.trackName, 88, 310);
+    ctx.fillStyle = '#7ef0ff';
+    ctx.font = '800 92px Impact, Arial Black, sans-serif';
+    ctx.fillText(card.timeLabel, 88, 420);
+    var medal = card.medal ? String(card.medal).toUpperCase() : '';
+    if (medal === 'AUTHOR') medal = 'DAD';
+    var placeWord = card.place ? (GS.ordinal ? GS.ordinal(card.place) : String(card.place)) : '';
+    var badge = medal || placeWord;
+    ctx.fillStyle = medal === 'GOLD' ? '#ffd35a' : (medal === 'SILVER' ? '#e7e9ef' : (medal === 'BRONZE' ? '#e39b62' : '#f6f1e7'));
+    ctx.font = '800 36px Trebuchet MS, Segoe UI, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(badge, 1100, 400);
+    var lapLine = 'BEST LAP  —';
+    if (card.bestLap) lapLine = 'BEST LAP  ' + formatTime(card.bestLap);
+    ctx.fillStyle = '#d9c7a4';
+    ctx.font = '800 24px Trebuchet MS, Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(lapLine, 88, 490);
+    ctx.fillText(cardDate(card.when || new Date()), 88, 530);
+    ctx.textAlign = 'right';
+    ctx.font = '700 18px Trebuchet MS, Segoe UI, sans-serif';
+    ctx.fillText('Game Off 2026', 1100, 530);
+    return cardCanvasUrl(canvas);
+  }
+
+  function downloadCard(dataUrl, filename) {
+    // Save through a Blob URL (works on file:// and http); fall back to the data URL.
+    var href = dataUrl;
+    var objectUrl = '';
+    try {
+      if (window.URL && URL.createObjectURL) {
+        objectUrl = URL.createObjectURL(dataUrlToBlob(dataUrl));
+        href = objectUrl;
+      }
+    } catch (err) {
+      objectUrl = '';
+      href = dataUrl;
+    }
+    var link = document.createElement('a');
+    link.href = href;
+    link.download = filename;
+    link.rel = 'noopener';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    if (objectUrl) {
+      setTimeout(function () {
+        try { URL.revokeObjectURL(objectUrl); } catch (err) {}
+      }, 30000);
+    }
+  }
+
+  // v1.0.6: DAD CARD opens an in-game overlay (preview, SAVE PNG, COPY IMAGE,
+  // SHARE on touch devices only, CLOSE). Saving is always a direct download,
+  // so desktop share sheets can never swallow it. Input to the menu below is
+  // paused while the overlay is open.
+  var cardUi = {
+    open: false, focus: 0, actions: [], dataUrl: '', filename: '',
+    opens: 0, saves: 0, copies: 0, shares: 0, lastAction: '', toast: '', toastTimer: 0, fallback: false
+  };
+  var cardLayerEl = null, cardImgEl = null, cardActionsEl = null, cardToastEl = null;
+
+  function cardCanCopy() {
+    try {
+      return !!(window.isSecureContext && navigator.clipboard && navigator.clipboard.write && window.ClipboardItem);
+    } catch (err) {
+      return false;
+    }
+  }
+
+  function cardIsTouch() {
+    try {
+      if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) return true;
+    } catch (err) {}
+    return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+  }
+
+  function cardCanShare() {
+    var nav = navigator;
+    if (!nav.share || !nav.canShare || !cardIsTouch()) return false;
+    try {
+      var file = new File([new Blob([''], { type: 'image/png' })], 'card.png', { type: 'image/png' });
+      return !!nav.canShare({ files: [file] });
+    } catch (err) {
+      return false;
+    }
+  }
+
+  function cardToast(message) {
+    cardUi.toast = message;
+    if (cardToastEl) {
+      cardToastEl.textContent = message;
+      cardToastEl.hidden = false;
+    }
+    if (cardUi.toastTimer) clearTimeout(cardUi.toastTimer);
+    cardUi.toastTimer = setTimeout(function () {
+      if (cardToastEl) cardToastEl.hidden = true;
+      cardUi.toastTimer = 0;
+    }, 2600);
+    if (!cardUi.open && GS.toast) GS.toast(message);
+  }
+
+  function paintCardFocus() {
+    if (!cardActionsEl) return;
+    var buttons = cardActionsEl.querySelectorAll('button');
+    if (cardUi.focus < 0 || cardUi.focus >= buttons.length) cardUi.focus = 0;
+    var i;
+    for (i = 0; i < buttons.length; i++) buttons[i].classList.toggle('focus', i === cardUi.focus);
+  }
+
+  function saveCardPng() {
+    if (!cardUi.dataUrl) cardUi.dataUrl = paintDadCard();
+    if (!cardUi.dataUrl) {
+      cardToast('Could not make the card');
+      return;
+    }
+    downloadCard(cardUi.dataUrl, cardUi.filename || 'gear-shift-dad-card.png');
+    cardUi.saves += 1;
+    cardUi.lastAction = 'save';
+    cardToast('Saved to Downloads');
+  }
+
+  function copyCardImage() {
+    cardUi.lastAction = 'copy';
+    if (!cardCanCopy() || !cardUi.dataUrl) {
+      cardToast('Copy is not available here. Use SAVE PNG.');
+      return;
+    }
+    try {
+      var blob = dataUrlToBlob(cardUi.dataUrl);
+      navigator.clipboard.write([new window.ClipboardItem({ 'image/png': blob })]).then(function () {
+        cardUi.copies += 1;
+        cardToast('Copied to clipboard');
+      }, function () {
+        cardToast('Copy was blocked. Use SAVE PNG.');
+      });
+    } catch (err) {
+      cardToast('Copy was blocked. Use SAVE PNG.');
+    }
+  }
+
+  function shareCardFile() {
+    cardUi.lastAction = 'share';
+    if (!cardUi.dataUrl) return;
+    try {
+      var file = new File([dataUrlToBlob(cardUi.dataUrl)], cardUi.filename || 'gear-shift-dad-card.png', { type: 'image/png' });
+      navigator.share({ files: [file], title: 'Gear Shift', text: 'Dad Card' }).then(function () {
+        cardUi.shares += 1;
+      }, function () {
+        cardToast('Share cancelled. SAVE PNG still works.');
+      });
+    } catch (err) {
+      cardToast('Share is not available. Use SAVE PNG.');
+    }
+  }
+
+  function buildCardActions() {
+    var list = [{ id: 'save', label: 'SAVE PNG', run: saveCardPng }];
+    if (cardCanCopy()) list.push({ id: 'copy', label: 'COPY IMAGE', run: copyCardImage });
+    if (cardCanShare()) list.push({ id: 'share', label: 'SHARE', run: shareCardFile });
+    list.push({ id: 'close', label: 'CLOSE', run: closeDadCard });
+    cardUi.actions = list;
+    if (!cardActionsEl) return;
+    cardActionsEl.textContent = '';
+    var i;
+    for (i = 0; i < list.length; i++) {
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.tabIndex = -1;
+      button.textContent = list[i].label;
+      button.setAttribute('data-i', String(i));
+      button.setAttribute('data-id', list[i].id);
+      cardActionsEl.appendChild(button);
+    }
+  }
+
+  function openDadCard() {
+    if (cardUi.open) return;
+    var dataUrl = paintDadCard();
+    cardUi.dataUrl = dataUrl;
+    cardUi.filename = cardFileName(cardSnapshot());
+    buildCardActions();
+    cardUi.focus = 0;
+    cardUi.open = true;
+    cardUi.opens += 1;
+    cardUi.lastAction = 'open';
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    if (cardImgEl) cardImgEl.src = dataUrl || '';
+    if (cardToastEl) cardToastEl.hidden = true;
+    if (cardLayerEl) {
+      cardLayerEl.classList.add('show');
+      cardLayerEl.setAttribute('aria-hidden', 'false');
+    }
+    paintCardFocus();
+    if (!dataUrl) cardToast('Could not make the card');
+  }
+
+  function closeDadCard() {
+    if (!cardUi.open) return;
+    cardUi.open = false;
+    cardUi.lastAction = 'close';
+    if (cardLayerEl) {
+      cardLayerEl.classList.remove('show');
+      cardLayerEl.setAttribute('aria-hidden', 'true');
+    }
+    if (cardImgEl) cardImgEl.removeAttribute('src');
+    paintScreenFocus();
+  }
+
+  function activateCard() {
+    var action = cardUi.actions[cardUi.focus];
+    if (action) action.run();
+  }
+
+  function handleCardEdges(edges) {
+    var i;
+    for (i = 0; i < edges.length; i++) {
+      var edge = edges[i];
+      if (!cardUi.open) return;
+      if (edge === 'ui-left' || edge === 'ui-up') {
+        cardUi.focus = (cardUi.focus - 1 + cardUi.actions.length) % cardUi.actions.length;
+        paintCardFocus();
+        sfx('ui');
+      } else if (edge === 'ui-right' || edge === 'ui-down') {
+        cardUi.focus = (cardUi.focus + 1) % cardUi.actions.length;
+        paintCardFocus();
+        sfx('ui');
+      } else if (edge === 'ui-confirm') {
+        sfx('ui');
+        activateCard();
+      } else if (edge === 'ui-back' || edge === 'pause') {
+        sfx('ui');
+        closeDadCard();
+      } else if (edge === 'mute') {
+        if (GS.toggleMute) state.muted = GS.toggleMute();
+      }
+      // Everything else (restart, track keys, settings, pages) is ignored
+      // so the menu underneath cannot move while the card is open.
+    }
+  }
+
+  function shareDadCard() {
+    openDadCard();
+  }
+
+  function dataUrlToBlob(dataUrl) {
+    var parts = String(dataUrl).split(',');
+    var mime = 'image/png';
+    var head = parts[0] || '';
+    var match = head.match(/data:([^;]+)/);
+    if (match) mime = match[1];
+    var bin = atob(parts[1] || '');
+    var len = bin.length;
+    var bytes = new Uint8Array(len);
+    var i;
+    for (i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
+    return new Blob([bytes], { type: mime });
+  }
+
+  function noteRetry() {
+    sessionRetries += 1;
+  }
+
+  function instantRetry() {
+    if (flow.demo) {
+      exitAttract();
+      return;
+    }
+    if (flow.screen === 'results' || flow.screen === 'cup') {
+      retryCurrent();
+      return;
+    }
+    if (flow.screen !== 'race' || !track) return;
+    noteRetry();
+    beginRace();
+  }
+
   function screenBack() {
     if (flow.screen === 'howto') closeHowTo();
     else if (flow.screen === 'credits') closeCredits();
@@ -2885,10 +4255,11 @@
   }
 
   function retryCurrent() {
+    noteRetry();
     if (flow.mode === 'cup' && flow.screen === 'cup') startCup();
     else if (flow.mode === 'cup') beginRace();
-    else if (flow.mode === 'quick') startQuick(track.id);
-    else startTrial(track.id);
+    else if (flow.mode === 'quick') beginRace();
+    else beginRace();
   }
 
   function pickTrackEdge(id) {
@@ -2905,7 +4276,27 @@
     else startTrial(nid);
   }
 
+  function pageScreen(dir) {
+    if (flow.screen === 'howto') {
+      var next = flow.howPage + dir;
+      if (next < 0) next = 0;
+      if (next > HOWTO.length - 1) next = HOWTO.length - 1;
+      if (next !== flow.howPage) showHow(next);
+      return;
+    }
+    moveScreen(dir);
+  }
+
   function handleMenuEdges(edges) {
+    if (flow.demo) {
+      exitAttract();
+      return;
+    }
+    if (inputGuarded()) return;
+    if (cardUi.open) {
+      handleCardEdges(edges);
+      return;
+    }
     var i;
     for (i = 0; i < edges.length; i++) {
       var edge = edges[i];
@@ -2919,6 +4310,20 @@
         sfx('ui');
       } else if (edge === 'ui-down') {
         moveScreen(1);
+        sfx('ui');
+      } else if (edge === 'ui-left') {
+        if (flow.screen === 'howto') pageScreen(-1);
+        else moveScreen(-1);
+        sfx('ui');
+      } else if (edge === 'ui-right') {
+        if (flow.screen === 'howto') pageScreen(1);
+        else moveScreen(1);
+        sfx('ui');
+      } else if (edge === 'ui-page-prev') {
+        pageScreen(-1);
+        sfx('ui');
+      } else if (edge === 'ui-page-next') {
+        pageScreen(1);
         sfx('ui');
       } else if (edge === 'ui-confirm') {
         sfx('ui');
@@ -3020,6 +4425,29 @@
     portraitEl = document.getElementById('portrait');
     flashEl = document.getElementById('flash');
     chromaEl = document.getElementById('chroma');
+    flipPopEl = document.getElementById('flipPop');
+    if (!flipPopEl && frameEl) {
+      flipPopEl = document.createElement('div');
+      flipPopEl.id = 'flipPop';
+      flipPopEl.hidden = true;
+      frameEl.appendChild(flipPopEl);
+    }
+    wipeEl = document.getElementById('wipe');
+    wipeBandEl = document.getElementById('wipeBand');
+    shiftChromaEl = document.getElementById('shiftChroma');
+    if (!wipeEl && frameEl) {
+      wipeEl = document.createElement('div');
+      wipeEl.id = 'wipe';
+      wipeBandEl = document.createElement('div');
+      wipeBandEl.id = 'wipeBand';
+      wipeEl.appendChild(wipeBandEl);
+      frameEl.appendChild(wipeEl);
+    }
+    if (!shiftChromaEl && frameEl) {
+      shiftChromaEl = document.createElement('div');
+      shiftChromaEl.id = 'shiftChroma';
+      frameEl.appendChild(shiftChromaEl);
+    }
     bloomEl = document.getElementById('bloom');
     failEl = document.getElementById('failVeil');
     coachEl = document.getElementById('coach');
@@ -3028,10 +4456,68 @@
     coachBodyEl = document.getElementById('coachBody');
     gearPipsEl = document.getElementById('gearPips');
     hudEl = document.getElementById('hud');
+    splitEl = document.getElementById('split');
+    tauntEl = document.getElementById('taunt');
+    demoTagEl = document.getElementById('demoTag');
+    if (!splitEl && hudEl) {
+      splitEl = document.createElement('div');
+      splitEl.id = 'split';
+      splitEl.hidden = true;
+      hudEl.appendChild(splitEl);
+    }
+    if (!tauntEl && hudEl) {
+      tauntEl = document.createElement('div');
+      tauntEl.id = 'taunt';
+      tauntEl.hidden = true;
+      hudEl.appendChild(tauntEl);
+    }
+    if (!demoTagEl && hudEl) {
+      demoTagEl = document.createElement('div');
+      demoTagEl.id = 'demoTag';
+      demoTagEl.hidden = true;
+      demoTagEl.textContent = 'DEMO — press any key';
+      hudEl.appendChild(demoTagEl);
+    }
+    if (demoTagEl && !demoTagEl.textContent) demoTagEl.textContent = 'DEMO — press any key';
     screenLayer = document.getElementById('screenLayer');
     screenKickerEl = document.getElementById('screenKicker');
     screenCopyEl = document.getElementById('screenCopy');
     screenActionsEl = document.getElementById('screenActions');
+    cardLayerEl = document.getElementById('cardLayer');
+    cardImgEl = document.getElementById('cardImg');
+    cardActionsEl = document.getElementById('cardActions');
+    cardToastEl = document.getElementById('cardToast');
+    if (cardImgEl) {
+      cardImgEl.addEventListener('error', function () {
+        if (!cardUi.open || cardUi.fallback) return;
+        var url = paintFallbackCard(cardSnapshot());
+        cardUi.fallback = true;
+        if (url) {
+          cardUi.dataUrl = url;
+          cardImgEl.src = url;
+        } else {
+          cardToast('Could not make the card');
+        }
+      });
+    }
+    if (cardActionsEl) {
+      cardActionsEl.addEventListener('click', function (event) {
+        var button = event.target.closest ? event.target.closest('button') : null;
+        if (!button || !cardUi.open) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (button.blur) button.blur();
+        cardUi.focus = Number(button.getAttribute('data-i')) || 0;
+        paintCardFocus();
+        activateCard();
+      });
+    }
+    if (cardLayerEl) {
+      cardLayerEl.addEventListener('click', function (event) {
+        if (event.target === cardLayerEl) closeDadCard();
+        event.stopPropagation();
+      });
+    }
     screenHelpEl = document.getElementById('screenHelp');
     screenArtEl = document.getElementById('screenArt');
     mapEl = document.getElementById('minimap');
@@ -3054,12 +4540,21 @@
     loadCoachFlag();
     if (GS.audio) state.muted = !!GS.audio.settings.muted;
     try {
-      reduceFlash = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var motionMq = window.matchMedia('(prefers-reduced-motion: reduce)');
+      reduceFlash = !!motionMq.matches;
+      var onMotion = function (ev) { reduceFlash = !!(ev && ev.matches); };
+      if (motionMq.addEventListener) motionMq.addEventListener('change', onMotion);
+      else if (motionMq.addListener) motionMq.addListener(onMotion);
     } catch (err) {
       reduceFlash = false;
     }
 
     GS.onInteract = function () {
+      if (flow.demo) {
+        exitAttract();
+        return;
+      }
+      attract.idle = 0;
       state.heardInput = true;
       if (hintEl) hintEl.classList.add('compact');
       if (GS.audio && GS.audio.ensure) GS.audio.ensure();
@@ -3068,6 +4563,7 @@
     GS.onAudioChanged = function () {
       if (GS.audio) state.muted = !!GS.audio.settings.muted;
       if (renderer) layout();
+      refreshTargetGhost();
     };
 
     GS.onPadLost = function () {
@@ -3129,6 +4625,7 @@
     state.sessionMinY = car.position.y;
     if (pickerEl) {
       pickerEl.addEventListener('click', function (event) {
+        if (flow.demo || inputGuarded()) return;
         var button = event.target.closest ? event.target.closest('button') : null;
         if (!button) return;
         selectTrack(button.getAttribute('data-track'));
@@ -3137,6 +4634,11 @@
     }
     if (screenActionsEl) {
       screenActionsEl.addEventListener('click', function (event) {
+        if (flow.demo || inputGuarded() || cardUi.open) {
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
         var button = event.target.closest ? event.target.closest('button') : null;
         if (!button) return;
         flow.focus = Number(button.getAttribute('data-i')) || 0;
@@ -3158,6 +4660,9 @@
     applyPalette();
     if (liveErrors().length) msgEl.textContent = 'FRAME CHECK FAILED';
 
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden && flow.demo) exitAttract();
+    });
     window.addEventListener('resize', layout);
     layout();
     var play = '';
@@ -3199,6 +4704,80 @@
         return GS.audio ? GS.audio.snapshot() : { created: false, state: 'closed' };
       },
       minSep: function () { return field ? field.minSep() : null; },
+      signAudit: function () {
+        var report = {
+          groups: 0, chevrons: 0, arrows: 0, overpassTagged: 0,
+          arrowDot: null, chevronDot: null, minAbsSide: null, chevronMinSide: null
+        };
+        if (!track || !track.root || !track.line) return report;
+        var entry = track.line.kind === 'shelf' ? track.line.d0 : track.line.main0;
+        var samp = track.sample(entry);
+        var arrow = null;
+        track.root.updateMatrixWorld(true);
+        track.root.traverse(function (obj) {
+          if (obj.userData && obj.userData.overpass && (obj.userData.flipSign || obj.name === 'flip-signs' || obj.name === 'flip-chevron' || obj.name === 'flip-arrow')) {
+            report.overpassTagged += 1;
+          }
+          if (obj.name === 'flip-signs') report.groups += 1;
+          if (obj.name === 'flip-chevron') {
+            report.chevrons += 1;
+            var f = new THREE.Vector3(0, 0, -1).applyQuaternion(obj.quaternion);
+            var p = new THREE.Vector3();
+            obj.getWorldPosition(p);
+            var dx = samp.x - p.x;
+            var dz = samp.z - p.z;
+            var dl = Math.hypot(dx, dz) || 1;
+            var dot = f.x * (dx / dl) + f.z * (dz / dl);
+            if (report.chevronDot == null || dot < report.chevronDot) report.chevronDot = dot;
+            var hit = track.project(p.x, p.z);
+            var side = Math.abs(hit.side);
+            if (report.chevronMinSide == null || side < report.chevronMinSide) report.chevronMinSide = side;
+          }
+          if (obj.name === 'flip-arrow') {
+            report.arrows += 1;
+            arrow = obj;
+          }
+        });
+        if (arrow) {
+          var tip = new THREE.Vector3();
+          var tail = new THREE.Vector3();
+          if (arrow.children[1]) arrow.children[1].getWorldPosition(tip);
+          if (arrow.children[0]) arrow.children[0].getWorldPosition(tail);
+          var ax = tip.x - tail.x;
+          var az = tip.z - tail.z;
+          var alen = Math.hypot(ax, az) || 1;
+          report.arrowDot = (ax / alen) * samp.tx + (az / alen) * samp.tz;
+        }
+        return report;
+      },
+      dadCard: function () { return paintDadCard(); },
+      forceSlowFrames: function (seconds) {
+        autoQ.forceLeft = Math.max(0, Number(seconds) || 0);
+      },
+      rollField: function (seconds) {
+        if (!field || !track) return 0;
+        var left = Math.max(0, Number(seconds) || 0);
+        var guard = 0;
+        var player = {
+          lapsDone: state.lapsDone,
+          along: state.along,
+          finished: true,
+          length: track.length
+        };
+        while (left > 1e-4 && guard < 400000) {
+          var pending = false;
+          var i;
+          for (i = 0; i < field.list.length; i++) {
+            if (!field.list[i].finished) pending = true;
+          }
+          if (!pending) break;
+          var slice = left > (1 / 120) ? (1 / 120) : left;
+          field.update(slice, player);
+          left -= slice;
+          guard += 1;
+        }
+        return left;
+      },
       step: function (seconds) {
         var left = seconds;
         var guard = 0;

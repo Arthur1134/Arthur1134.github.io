@@ -11,7 +11,7 @@
   'use strict';
 
   var KEY = 'gearshift_v1';
-  GS.VERSION = '1.0.1';
+  GS.VERSION = '1.0.7';
   GS.SAVE_KEY = KEY;
 
   GS.MEDAL_TIMES = {
@@ -154,6 +154,46 @@
     };
   };
 
+  // Road-line ghost for a medal time. Constant pace, full race distance,
+  // last sample sits on the finish line at exactly medalTime seconds.
+  GS.synthesizeRoadGhost = function (track, medalTime) {
+    if (!track || !(medalTime > 0) || !GS.packGhostRow) return null;
+    var laps = track.laps || 1;
+    var length = track.length || 1;
+    var spawn = track.spawnDist || 0;
+    var total = laps * length - spawn;
+    if (!(total > 1)) total = laps * length;
+    var samples = [];
+    var step = 0.12;
+    function pushAt(t) {
+      var u = t / medalTime;
+      if (u < 0) u = 0;
+      if (u > 1) u = 1;
+      var raw = spawn + total * u;
+      var lapCount = Math.floor(raw / length);
+      var along = raw - lapCount * length;
+      if (u >= 1) {
+        lapCount = laps;
+        along = 0;
+      }
+      if (lapCount > laps) lapCount = laps;
+      var pose = track.poseOnRail(along, 0, { kind: 'road' });
+      var yaw = GS.yawFromForwardXZ(pose.tx || 1, pose.tz || 0);
+      samples.push(GS.packGhostRow(
+        t, pose.x, pose.y, pose.z, yaw, 0, 2,
+        Math.min(lapCount, laps), along, length
+      ));
+    }
+    var t = 0;
+    while (t < medalTime - 0.0001) {
+      pushAt(t);
+      t += step;
+    }
+    pushAt(medalTime);
+    if (samples.length < 2) return null;
+    return { time: medalTime, samples: samples, synthetic: true };
+  };
+
   GS.ghostDelta = function (pack, playerTime, laps, along, length) {
     if (!validGhost(pack)) return null;
     var span = length > 1 ? length : 1;
@@ -192,6 +232,43 @@
       var row = read().bests && read().bests[id];
       if (!row || !(Number(row.time) > 0)) return null;
       return { time: Number(row.time), medal: row.medal || '' };
+    },
+    bestLap: function (id) {
+      var data = read();
+      var row = data.bestLaps && data.bestLaps[id];
+      var time = typeof row === 'number' ? row : (row && row.time);
+      if (!(Number(time) > 0) || !isFinite(Number(time))) return null;
+      return Number(time);
+    },
+    noteLap: function (id, time) {
+      if (!id || !(Number(time) > 0) || !isFinite(Number(time))) return null;
+      var stored = null;
+      GS.updateSave(function (data) {
+        var laps = bag(data, 'bestLaps');
+        var prev = laps[id];
+        var prevTime = typeof prev === 'number' ? prev : (prev && prev.time);
+        if (!(Number(prevTime) > 0) || Number(time) < Number(prevTime)) laps[id] = Number(time);
+        stored = Number(laps[id]);
+      });
+      return stored;
+    },
+    nextMedal: function (id) {
+      var row = GS.MEDAL_TIMES[id];
+      if (!row) return null;
+      var data = read();
+      var bestRow = data.bests && data.bests[id];
+      var bestTime = bestRow && Number(bestRow.time) > 0 ? Number(bestRow.time) : 0;
+      var medal = (data.medals && data.medals[id]) || medalName(bestTime, id);
+      var order = [
+        { key: 'bronze', label: 'BRONZE', time: row.bronze },
+        { key: 'silver', label: 'SILVER', time: row.silver },
+        { key: 'gold', label: 'GOLD', time: row.gold },
+        { key: 'author', label: 'DAD', time: row.author }
+      ];
+      var rank = medal === 'gold' ? 3 : medal === 'silver' ? 2 : medal === 'bronze' ? 1 : 0;
+      if (rank >= 3 && bestTime > 0 && row.author && bestTime <= row.author) return null;
+      if (rank >= 3) return order[3];
+      return order[rank];
     },
     ghost: function (id) {
       var data = read();

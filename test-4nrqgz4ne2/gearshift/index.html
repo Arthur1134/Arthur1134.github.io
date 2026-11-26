@@ -160,11 +160,32 @@
       text-shadow: 0 4px 0 #140e0a, 0 0 16px rgba(8, 6, 4, 0.65);
       transform-origin: 100% 80%;
     }
-    #gear.slam { animation: gearSlam 0.32s cubic-bezier(.15, 1.35, .3, 1) both; }
+    #gear.slam { animation: gearSlam 0.25s cubic-bezier(.15, 1.35, .3, 1) both; }
+    #gear.slamSoft { animation: gearSlamSoft 0.2s cubic-bezier(.2, 1.15, .4, 1) both; }
     @keyframes gearSlam {
-      0% { transform: translateY(-22px) scale(1.7); }
-      70% { transform: translateY(3px) scale(0.96); }
-      100% { transform: translateY(0) scale(1); }
+      0% {
+        transform: translateY(-16px) scale(1.6);
+        text-shadow: 0 4px 0 #140e0a, 0 0 18px var(--gear-glow, var(--accent)), 0 0 32px var(--gear-glow, var(--accent));
+      }
+      58% {
+        transform: translateY(3px) scale(0.94);
+        text-shadow: 0 4px 0 #140e0a, 0 0 12px var(--gear-glow, var(--accent)), 0 0 22px var(--gear-glow, var(--accent));
+      }
+      100% {
+        transform: translateY(0) scale(1);
+        text-shadow: 0 4px 0 #140e0a, 0 0 16px rgba(8, 6, 4, 0.65);
+      }
+    }
+    @keyframes gearSlamSoft {
+      0% {
+        transform: scale(1.18);
+        text-shadow: 0 4px 0 #140e0a, 0 0 10px var(--gear-glow, var(--accent));
+      }
+      70% { transform: scale(0.98); }
+      100% {
+        transform: scale(1);
+        text-shadow: 0 4px 0 #140e0a, 0 0 16px rgba(8, 6, 4, 0.65);
+      }
     }
     #msg.finish {
       font-size: 72px;
@@ -267,6 +288,23 @@
     #prompt.live.up { text-shadow: 0 3px 0 #120e0a, 0 0 16px #ffb03a; }
     #prompt.live.flip { text-shadow: 0 3px 0 #041014, 0 0 16px #7ef0ff; }
     #prompt.live.down { text-shadow: 0 3px 0 #04140c, 0 0 16px #b6ff9a; }
+    #flipPop {
+      position: absolute;
+      right: 18px;
+      top: 226px;
+      z-index: 4;
+      pointer-events: none;
+      opacity: 0;
+      background: rgba(4, 16, 20, 0.92);
+      border-right: 4px solid #7ef0ff;
+      color: #e8ffff;
+      font-family: Impact, "Arial Black", "Segoe UI", sans-serif;
+      font-size: 22px;
+      letter-spacing: 0.08em;
+      padding: 8px 12px;
+      text-shadow: 0 2px 0 #041014;
+    }
+    #flipPop[hidden] { display: none !important; }
     @keyframes promptIn {
       from { transform: translateX(-50%) scale(1.16); opacity: 0; }
       to { transform: translateX(-50%) scale(1); opacity: 1; }
@@ -328,6 +366,34 @@
       z-index: 1;
       background: linear-gradient(90deg, rgba(255, 42, 64, 0.55), transparent 12%, transparent 88%, rgba(40, 220, 255, 0.5));
       mix-blend-mode: screen;
+    }
+    #wipe {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+      overflow: hidden;
+      opacity: 0;
+      mix-blend-mode: screen;
+    }
+    #wipeBand {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 16%;
+      left: -16%;
+      background: linear-gradient(90deg, transparent 0%, #ffb03a 50%, transparent 100%);
+    }
+    #shiftChroma {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+      opacity: 0;
+      mix-blend-mode: screen;
+      background:
+        linear-gradient(90deg, rgba(255, 36, 48, 0.72) 0%, transparent 11%, transparent 89%, rgba(32, 220, 255, 0.62) 100%),
+        radial-gradient(ellipse at center, transparent 48%, rgba(255, 64, 120, 0.22) 100%);
     }
     #failVeil {
       z-index: 1;
@@ -535,11 +601,98 @@
     #hud.menu #prompt,
     #hud.menu #msg,
     #hud.menu #coach,
+    #hud.menu #flipPop,
     #hud.quiet .plate,
     #hud.quiet #picker,
     #hud.quiet #prompt,
     #hud.quiet #msg,
-    #hud.quiet #coach { visibility: hidden; }
+    #hud.quiet #coach,
+    #hud.quiet #flipPop { visibility: hidden; }
+    #cardLayer {
+      position: absolute;
+      inset: 0;
+      z-index: 7;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(6, 5, 4, 0.82);
+      pointer-events: auto;
+    }
+    #cardLayer.show { display: flex; }
+    #cardLayer .cardBox {
+      width: min(860px, 94%);
+      max-height: 94%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      background: rgba(12, 10, 8, 0.96);
+      border-top: 4px solid var(--accent);
+      padding: 16px 18px 14px;
+      box-sizing: border-box;
+    }
+    #cardTitle {
+      font-family: Impact, "Arial Black", "Segoe UI", sans-serif;
+      font-size: 30px;
+      letter-spacing: 0.12em;
+      color: var(--accent);
+      line-height: 1;
+    }
+    #cardImg {
+      display: block;
+      width: 100%;
+      max-width: 1200px;
+      height: auto;
+      max-height: calc(94vh - 190px);
+      object-fit: contain;
+      aspect-ratio: 1200 / 630;
+      background: #000;
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55);
+    }
+    #cardActions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
+    #cardActions button {
+      font: 800 15px "Trebuchet MS", "Segoe UI", sans-serif;
+      letter-spacing: 0.1em;
+      min-width: 140px;
+      padding: 10px 16px;
+      border: 0;
+      border-bottom: 3px solid transparent;
+      background: #2a211a;
+      color: #f6f1e7;
+      cursor: pointer;
+    }
+    #cardActions button.focus {
+      background: var(--accent);
+      color: #140e0a;
+      outline: 3px solid #fff6e8;
+      outline-offset: 3px;
+    }
+    #cardHelp {
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      color: #d9c7a4;
+    }
+    #cardToast {
+      position: absolute;
+      left: 50%;
+      top: 24px;
+      transform: translateX(-50%);
+      background: rgba(12, 10, 8, 0.96);
+      border-top: 3px solid #7dff9a;
+      color: #f6f1e7;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      font-size: 15px;
+      padding: 9px 16px;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    #cardToast[hidden] { display: none !important; }
     #screenLayer {
       position: absolute;
       inset: 0;
@@ -620,6 +773,39 @@
       background: var(--accent);
       color: #1a120c;
     }
+    #screenActions button.focus,
+    #pauseActions button.focus,
+    #settingsList .setRow.focus,
+    #setTabs button.focus {
+      outline: 3px solid #fff6e8;
+      outline-offset: 3px;
+    }
+    #split, #taunt, #demoTag {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 4;
+      pointer-events: none;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-shadow: 0 2px 0 #1a120c;
+      white-space: nowrap;
+    }
+    #split { top: 78px; font-size: 18px; color: #f6f1e7; }
+    #split.ahead { color: #7dff9a; }
+    #split.behind { color: #ff5a3c; }
+    #taunt { top: 108px; font-size: 16px; color: #ffd35a; }
+    #demoTag {
+      top: 132px;
+      padding: 4px 14px;
+      background: rgba(20, 14, 10, 0.72);
+      border-radius: 4px;
+      font-family: Impact, "Arial Black", "Segoe UI", sans-serif;
+      font-size: 28px;
+      letter-spacing: 0.12em;
+      color: #ffb03a;
+    }
+    #split[hidden], #taunt[hidden], #demoTag[hidden] { display: none !important; }
     #screenActions button.locked {
       opacity: 0.55;
     }
@@ -1100,7 +1286,11 @@
           <div id="gravLine">FULL G ↓</div>
           <div id="gearPips" aria-hidden="true"><i class="on"></i><i></i><i></i><i></i></div>
         </div>
+        <div id="split" hidden></div>
+        <div id="taunt" hidden></div>
+        <div id="demoTag" hidden>DEMO — press any key</div>
         <div id="prompt"></div>
+        <div id="flipPop" hidden>FLIP +0.0 s saved</div>
         <div id="msg"></div>
         <canvas id="minimap" width="148" height="96" hidden></canvas>
         <div id="soundNudge" hidden>Press any key, click, or tap for sound</div>
@@ -1113,9 +1303,11 @@
       </div>
       <div id="flash"></div>
       <div id="chroma"></div>
+      <div id="wipe"><div id="wipeBand"></div></div>
+      <div id="shiftChroma"></div>
       <div id="bloom"></div>
       <div id="failVeil"></div>
-      <div id="hint">Click the game, then drive. W accelerate · S brake · A D steer · Space handbrake · Q E shift (speed, gravity, color) · P pause · M mute. Tracks: 1 Warm-Up Yard · 2 Coastal Switchback · 3 Skyway Split · R restart. F2 opens settings. The menu picks Time Trial, Arcade Cup, or Quick Race. Arrows and Enter work there, and so does a gamepad. The first visit to Warm-Up Yard walks through one shift, one gear-3 jump, and one Flip.</div>
+      <div id="hint">Click the game, then drive. W accelerate · S brake · A D steer · Space handbrake · Q E shift (speed, gravity, color) · P pause · M mute. Tracks: 1 Warm-Up Yard · 2 Coastal Switchback · 3 Skyway Split. R, Back, or Y restarts the race straight into the countdown. F2 opens settings. Menus use arrows or the stick, Enter or A to confirm, Esc or B to go back, and LB / RB to change pages. The first visit to Warm-Up Yard walks through one shift, one gear-3 jump, and one Flip.</div>
       <div id="screenLayer">
         <div class="card">
           <img id="logoMark" src="assets/ui/gear-shift-logo-v1.svg" alt="Gear Shift">
@@ -1126,6 +1318,15 @@
           <div id="screenActions"></div>
           <div id="screenHelp"></div>
         </div>
+      </div>
+      <div id="cardLayer" role="dialog" aria-modal="true" aria-labelledby="cardTitle" aria-hidden="true">
+        <div class="cardBox">
+          <div id="cardTitle">DAD CARD</div>
+          <img id="cardImg" alt="Dad Card: your result as a 1200 by 630 image" width="1200" height="630">
+          <div id="cardActions"></div>
+          <div id="cardHelp">Arrows / D-pad move · Enter / A select · Esc / B close</div>
+        </div>
+        <div id="cardToast" role="status" aria-live="polite" hidden></div>
       </div>
       <div id="pauseLayer">
         <div class="card">

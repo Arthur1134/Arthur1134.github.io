@@ -167,6 +167,7 @@
     if (event.pointerType === 'touch' && !enabled) show();
     if (!enabled) return;
     if (GS.onInteract) GS.onInteract();
+    if (GS.touchRace && !GS.touchRace()) return;
     var kind = controlOf(event);
     if (!kind) return;
     if (event.cancelable) event.preventDefault();

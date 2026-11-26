@@ -1,6 +1,8 @@
 /* Keyboard defaults stay as in the design doc. The gamepad uses the
    Standard Gamepad map: RT accel, LT brake, left stick steer, RB upshift,
-   LB downshift, South handbrake, Start pause, Back restart. D-pad steers
+   LB downshift, South handbrake, Start pause, Back restart. Y / Triangle
+   also restarts a race when that button is not already bound to a driving
+   action. In menus, LB / RB turn pages or settings tabs. D-pad steers
    too, unless those buttons are already bound. Poll reads navigator.getGamepads
    every frame so a test can stand in for a physical pad. */
 (function (GS) {
@@ -511,9 +513,9 @@
         GS.actionLabel('downshift') + ' ' + GS.actionLabel('upshift') + ' shift · ' +
         hand + ' handbrake · ' + pause + ' pause · ' + restart + ' restart';
     }
-    if (compact) return line + ' · F2 settings';
+    if (compact) return line + ' · Y restarts too · F2 settings';
     return 'Click the game so the keys reach it. ' + line +
-      '. Tracks: 1 Warm-Up Yard · 2 Coastal Switchback · 3 Skyway Split. F2 opens settings.';
+      '. Y or Triangle also restarts when it is not bound. Tracks: 1 Warm-Up Yard · 2 Coastal Switchback · 3 Skyway Split. F2 opens settings.';
   };
 
   function effectivePad(action) {
@@ -776,7 +778,7 @@
     var now = performance.now();
     if (!navNext[name] || now >= navNext[name]) {
       pushEdge('ui-' + name);
-      navNext[name] = now + (navNext[name] ? 150 : 260);
+      navNext[name] = now + (navNext[name] ? 110 : 350);
     }
   }
 
@@ -824,6 +826,14 @@
     }
     if (buttonDown(pad, 0) && !prevButtons[0]) pushEdge('ui-confirm');
     if (buttonDown(pad, 1) && !prevButtons[1]) pushEdge('ui-back');
+    var menu = GS.controller && GS.controller.wantsNav && GS.controller.wantsNav();
+    if (menu) {
+      if (buttonDown(pad, 4) && !prevButtons[4]) pushEdge('ui-page-prev');
+      if (buttonDown(pad, 5) && !prevButtons[5]) pushEdge('ui-page-next');
+    } else if (buttonDown(pad, 3) && !prevButtons[3] && !padUsesButton(3)) {
+      // Y / Triangle restarts a race when that button is not already bound.
+      pushEdge('restart');
+    }
   }
 
   function seedActions(pad) {
